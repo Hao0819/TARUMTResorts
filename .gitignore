@@ -1,0 +1,6 @@
+target/
+.idea/
+nbproject/private/
+*.class
+nb-configuration.xml
+.netbeans_automatic_build
