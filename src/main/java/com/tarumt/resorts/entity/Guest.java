@@ -6,18 +6,21 @@ package com.tarumt.resorts.entity;
  */
 
 /**
+ * Guest.java
+ * Represents a hotel guest's core profile. Shared entity used across
+ * multiple modules.
  *
  * @author junha
  */
 public class Guest {
-    
+
     private String guestId;
     private String name;
     private String contactNumber;
     private String email;
-    private String membershipTier; // e.g. "None", "Silver", "Gold", "Elite", "Diamond", "Platinum"
-    
-     public Guest() {
+    private String membershipTier;
+
+    public Guest() {
     }
 
     public Guest(String guestId, String name, String contactNumber, String email, String membershipTier) {
@@ -70,7 +73,19 @@ public class Guest {
 
     @Override
     public String toString() {
-        return "Guest{" + "guestId=" + guestId + ", name=" + name
-                + ", membershipTier=" + membershipTier + '}';
+        return String.format("%-10s %-20s %-15s %-10s", guestId, name, contactNumber, membershipTier);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Guest)) return false;
+        Guest other = (Guest) obj;
+        return guestId != null && guestId.equals(other.guestId);
+    }
+
+    @Override
+    public int hashCode() {
+        return guestId != null ? guestId.hashCode() : 0;
     }
 }
