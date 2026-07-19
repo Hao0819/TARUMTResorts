@@ -17,9 +17,28 @@ public class HouseKeepingUI {
     private HousekeepingControl control;
     private Scanner sc;
 
+    // Temporary constructor for running this module independently.
     public HouseKeepingUI() {
-        control = new HousekeepingControl();
-        sc = new Scanner(System.in);
+        this(
+                new HousekeepingControl(),
+                new Scanner(System.in));
+    }
+
+    // Constructor that accepts an initialized Control.
+    public HouseKeepingUI(
+            HousekeepingControl sharedControl) {
+
+        this(sharedControl, new Scanner(System.in));
+    }
+
+    // Constructor used when Main provides the Control and Scanner.
+    public HouseKeepingUI(
+            HousekeepingControl sharedControl,
+            Scanner sharedScanner) {
+
+        // Keep the same references provided by Main.
+        control = sharedControl;
+        sc = sharedScanner;
     }
 
     public void showMenu() {
@@ -86,7 +105,8 @@ public class HouseKeepingUI {
         } else if (!control.isValidRoomNumber(roomNumber)) {
             System.out.println("Failed to log status — room not found.");
         } else {
-            System.out.println("Failed to log status — invalid sequence. Status must follow DIRTY -> CLEANING -> INSPECTED -> READY.");
+            System.out.println(
+                    "Failed to log status — invalid sequence. Status must follow DIRTY -> CLEANING -> INSPECTED -> READY.");
         }
     }
 
@@ -179,7 +199,8 @@ public class HouseKeepingUI {
                 roomTypeFilter = roomTypeInput;
                 break;
             }
-            System.out.println("Invalid room type entered. Please enter Standard, Deluxe, Suite, or press Enter for ALL.");
+            System.out.println(
+                    "Invalid room type entered. Please enter Standard, Deluxe, Suite, or press Enter for ALL.");
         }
 
         Queue<RoomStatusLog> filtered = control.getRoomsByCurrentStatus(statusFilter.toUpperCase(), roomTypeFilter);
@@ -226,7 +247,8 @@ public class HouseKeepingUI {
                 stageFilter = stageInput;
                 break;
             }
-            System.out.println("Invalid stage entered. Please enter DIRTY, CLEANING, INSPECTED, READY, or press Enter for ALL.");
+            System.out.println(
+                    "Invalid stage entered. Please enter DIRTY, CLEANING, INSPECTED, READY, or press Enter for ALL.");
         }
 
         Queue<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
@@ -236,7 +258,8 @@ public class HouseKeepingUI {
         System.out.println("--------------------------------------------------------");
         System.out.println("Generated at: " + java.time.LocalDateTime.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMM dd, yyyy hh:mm a")));
-        System.out.println("Filter: Stage = " + (stageFilter.equalsIgnoreCase("ALL") ? "ALL" : stageFilter.toUpperCase()));
+        System.out.println(
+                "Filter: Stage = " + (stageFilter.equalsIgnoreCase("ALL") ? "ALL" : stageFilter.toUpperCase()));
         System.out.println("Sorted by: Average duration (longest first)");
         System.out.println("========================================================");
         System.out.printf("%-15s %-10s%n", "Stage", "Avg (min)");

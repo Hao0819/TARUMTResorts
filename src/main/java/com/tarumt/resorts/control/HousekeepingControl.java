@@ -20,12 +20,24 @@ public class HousekeepingControl {
 
     // Defines the valid forward sequence of cleaning stages.
     private static final String[] STATUS_SEQUENCE = {
-        "DIRTY", "CLEANING", "INSPECTED", "READY"
+            "DIRTY", "CLEANING", "INSPECTED", "READY"
     };
 
+    // Temporary constructor for running this module independently.
     public HousekeepingControl() {
-        statusLog = new RoomStatusLogDAO().getAllLogs();
-        roomList = new RoomDAO().getAllRooms();
+        this(
+                new RoomDAO().getAllRooms(),
+                new RoomStatusLogDAO().getAllLogs());
+    }
+
+    // Constructor used when Main provides shared application data.
+    public HousekeepingControl(
+            Queue<Room> sharedRooms,
+            Queue<RoomStatusLog> sharedStatusLog) {
+
+        // Keep the same Queue references provided by Main.
+        roomList = sharedRooms;
+        statusLog = sharedStatusLog;
     }
 
     /**
@@ -35,7 +47,8 @@ public class HousekeepingControl {
      * (e.g. a typo like "1234").
      */
     public boolean isValidRoomNumber(String roomNumber) {
-        if (roomNumber == null) return false;
+        if (roomNumber == null)
+            return false;
         int total = roomList.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             Room room = roomList.getEntry(i);
@@ -68,7 +81,8 @@ public class HousekeepingControl {
      * system's rooms, using a self-implemented linear search.
      */
     public boolean isValidRoomType(String roomType) {
-        if (roomType == null) return false;
+        if (roomType == null)
+            return false;
         int total = roomList.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             if (roomList.getEntry(i).getRoomType().equalsIgnoreCase(roomType)) {
@@ -82,7 +96,8 @@ public class HousekeepingControl {
      * Validates that the given status is one of the defined stages.
      */
     public boolean isValidStatus(String status) {
-        if (status == null) return false;
+        if (status == null)
+            return false;
         for (String s : STATUS_SEQUENCE) {
             if (s.equalsIgnoreCase(status)) {
                 return true;
@@ -326,8 +341,7 @@ public class HousekeepingControl {
      * formatted timestamp strings.
      */
     private long minutesBetween(String startTimestamp, String endTimestamp) {
-        java.time.format.DateTimeFormatter formatter =
-                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         java.time.LocalDateTime start = java.time.LocalDateTime.parse(startTimestamp, formatter);
         java.time.LocalDateTime end = java.time.LocalDateTime.parse(endTimestamp, formatter);
         return java.time.Duration.between(start, end).toMinutes();

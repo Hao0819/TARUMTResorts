@@ -22,9 +22,28 @@ public class WalkInRegistrationUI {
     private WalkInRegistrationControl control;
     private Scanner sc;
 
+    // Temporary constructor for running this module independently.
     public WalkInRegistrationUI() {
-        control = new WalkInRegistrationControl();
-        sc = new Scanner(System.in);
+        this(
+                new WalkInRegistrationControl(),
+                new Scanner(System.in));
+    }
+
+    // Constructor that accepts an initialized Control.
+    public WalkInRegistrationUI(
+            WalkInRegistrationControl sharedControl) {
+
+        this(sharedControl, new Scanner(System.in));
+    }
+
+    // Constructor used when Main provides the Control and Scanner.
+    public WalkInRegistrationUI(
+            WalkInRegistrationControl sharedControl,
+            Scanner sharedScanner) {
+
+        // Keep the same references provided by Main.
+        control = sharedControl;
+        sc = sharedScanner;
     }
 
     public void showMenu() {
