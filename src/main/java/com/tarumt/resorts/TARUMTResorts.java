@@ -4,16 +4,28 @@
 
 package com.tarumt.resorts;
 
-/**
- *
- * @author junha
- */
-
-import com.tarumt.resorts.boundary.WalkInRegistrationUI;
+import com.tarumt.resorts.boundary.HouseKeepingUI;
 
 public class TARUMTResorts {
-    public static void main(String[] args) {
-        WalkInRegistrationUI ui = new WalkInRegistrationUI();
-        ui.showMenu();
-    }
+   public static void main(String[] args) {
+       HouseKeepingUI ui = new HouseKeepingUI();
+       ui.showMenu();
+   }
 }
+
+
+// package com.tarumt.resorts;
+
+// /**
+// *
+// * @author junhao
+// */
+
+// import com.tarumt.resorts.boundary.WalkInRegistrationUI;
+
+// public class TARUMTResorts {
+//    public static void main(String[] args) {
+//       WalkInRegistrationUI ui = new WalkInRegistrationUI();
+//        ui.showMenu();
+//    }
+// }

@@ -113,4 +113,37 @@ public class Queue<T> implements QueueInterface<T> {
         rear = null;
         numberOfEntries = 0;
     }
+
+    // ===== Stack-like behaviour (added by: Housekeeping module owner) =====
+
+    @Override
+    public T removeLast() {
+        if (isEmpty()) {
+            return null;
+        }
+        T data = rear.data;
+        if (front == rear) {
+            // only one node in the queue
+            front = null;
+            rear = null;
+        } else {
+            // walk from front until we reach the node just before rear
+            Node current = front;
+            while (current.next != rear) {
+                current = current.next;
+            }
+            current.next = null;
+            rear = current;
+        }
+        numberOfEntries--;
+        return data;
+    }
+
+    @Override
+    public T peekLast() {
+        if (isEmpty()) {
+            return null;
+        }
+        return rear.data;
+    }
 }

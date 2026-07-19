@@ -93,9 +93,20 @@ public interface QueueInterface <T> {
     // --- Added by: [VIP Priority Allocation module owner] ---
     // boolean insertByPriority(T newEntry, int priorityScore);
 
-    // --- Added by: [Housekeeping module owner] ---
-    // T removeLast();
-    // T peekLast();
+    // --- Added by: Housekeeping module owner ---
+    /**
+    * Removes and returns the entry most recently added to the rear of the
+    * queue. Supports undo/rollback of the last status change logged.
+    * @return the removed entry, or null if the queue is empty
+    */
+    T removeLast();
+
+    /**
+    * Returns (without removing) the entry most recently added to the rear
+    * of the queue. Used to preview the current value before rolling back.
+    * @return the entry at the rear, or null if the queue is empty
+    */
+    T peekLast();
 
     // --- Added by: [Front-Desk Service module owner] ---
     // T searchByKey(String key);
