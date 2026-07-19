@@ -64,6 +64,21 @@ public class HousekeepingControl {
     }
 
     /**
+     * Validates that the given room type actually exists among the
+     * system's rooms, using a self-implemented linear search.
+     */
+    public boolean isValidRoomType(String roomType) {
+        if (roomType == null) return false;
+        int total = roomList.getNumberOfEntries();
+        for (int i = 0; i < total; i++) {
+            if (roomList.getEntry(i).getRoomType().equalsIgnoreCase(roomType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Validates that the given status is one of the defined stages.
      */
     public boolean isValidStatus(String status) {
@@ -151,6 +166,24 @@ public class HousekeepingControl {
     }
 
     /**
+     * Additional function: retrieves the FULL status history for a given
+     * room, in chronological order, using a self-implemented linear
+     * search/filter over the shared log. Satisfies the requirement to
+     * view a room's history, not just its current status.
+     */
+    public Queue<RoomStatusLog> getHistoryForRoom(String roomNumber) {
+        Queue<RoomStatusLog> history = new Queue<>();
+        int total = statusLog.getNumberOfEntries();
+        for (int i = 0; i < total; i++) {
+            RoomStatusLog entry = statusLog.getEntry(i);
+            if (entry.getRoomNumber().equalsIgnoreCase(roomNumber)) {
+                history.enqueue(entry);
+            }
+        }
+        return history;
+    }
+
+    /**
      * Additional/creative function: rolls back the most recently logged
      * status change using removeLast(). Returns the removed entry so the
      * Boundary can display what was undone, or null if the log is empty.
@@ -169,10 +202,15 @@ public class HousekeepingControl {
 
     /**
      * Additional/creative function - Report 1: lists all rooms whose
-     * CURRENT status matches the given filter (e.g. all "DIRTY" rooms).
-     * Combines a linear scan with a filter condition.
+     * CURRENT status matches the given filter (e.g. all "DIRTY" rooms),
+     * optionally further filtered by room type. Combines a linear scan
+     * with two filter conditions, then sorts the result by room number
+     * using a self-implemented insertion sort.
+     *
+     * @param statusFilter   required status filter (e.g. "DIRTY")
+     * @param roomTypeFilter optional room type filter; pass "ALL" to skip
      */
-    public Queue<RoomStatusLog> getRoomsByCurrentStatus(String statusFilter) {
+    public Queue<RoomStatusLog> getRoomsByCurrentStatus(String statusFilter, String roomTypeFilter) {
         Queue<RoomStatusLog> result = new Queue<>();
         // First, find distinct room numbers.
         Queue<String> seenRooms = new Queue<>();
@@ -183,16 +221,21 @@ public class HousekeepingControl {
                 seenRooms.enqueue(roomNumber);
             }
         }
-        // For each distinct room, check its current status.
+        // For each distinct room, check its current status AND room type.
         int totalRooms = seenRooms.getNumberOfEntries();
         for (int i = 0; i < totalRooms; i++) {
             String roomNumber = seenRooms.getEntry(i);
             RoomStatusLog current = getCurrentStatus(roomNumber);
-            if (current != null && current.getStatus().equalsIgnoreCase(statusFilter)) {
+            if (current == null || !current.getStatus().equalsIgnoreCase(statusFilter)) {
+                continue;
+            }
+            boolean roomTypeMatches = roomTypeFilter.equalsIgnoreCase("ALL")
+                    || getRoomType(roomNumber).equalsIgnoreCase(roomTypeFilter);
+            if (roomTypeMatches) {
                 result.enqueue(current);
             }
         }
-        return result;
+        return sortByRoomNumber(result);
     }
 
     /**
@@ -200,10 +243,13 @@ public class HousekeepingControl {
      * time (in minutes) spent in each cleaning stage across all rooms,
      * by measuring the gap between consecutive status entries belonging
      * to the SAME room (grouped first, so interleaved entries from other
-     * rooms do not break the pairing). Results are sorted by average
-     * duration (self-implemented selection sort), longest stage first.
+     * rooms do not break the pairing). Results may be filtered to a
+     * single stage, and are sorted by average duration (self-implemented
+     * selection sort), longest stage first.
+     *
+     * @param stageFilter optional stage name filter; pass "ALL" to skip
      */
-    public Queue<StageDuration> getAverageDurationPerStage() {
+    public Queue<StageDuration> getAverageDurationPerStage(String stageFilter) {
         Queue<String> stageNames = new Queue<>();
         Queue<Long> stageTotalMinutes = new Queue<>();
         Queue<Integer> stageCount = new Queue<>();
@@ -219,8 +265,8 @@ public class HousekeepingControl {
         }
 
         // Step 2: for EACH room, extract its own entries in original
-        // order, then measure consecutive gaps within that room's
-        // own sequence only — immune to other rooms' entries being
+        // order, then measure consecutive gaps within that room's own
+        // sequence only — immune to other rooms' entries being
         // interleaved in the shared log.
         int totalRooms = distinctRooms.getNumberOfEntries();
         for (int r = 0; r < totalRooms; r++) {
@@ -239,9 +285,14 @@ public class HousekeepingControl {
             for (int i = 0; i < roomTotal - 1; i++) {
                 RoomStatusLog current = roomEntries.getEntry(i);
                 RoomStatusLog next = roomEntries.getEntry(i + 1);
+                String stage = current.getStatus();
+
+                // Apply the stage filter early — skip stages we don't care about.
+                if (!stageFilter.equalsIgnoreCase("ALL") && !stage.equalsIgnoreCase(stageFilter)) {
+                    continue;
+                }
 
                 long minutes = minutesBetween(current.getTimestamp(), next.getTimestamp());
-                String stage = current.getStatus();
 
                 int index = indexOfStageName(stageNames, stage);
                 if (index == -1) {
@@ -330,10 +381,38 @@ public class HousekeepingControl {
     }
 
     /**
+     * Self-implemented insertion sort: sorts RoomStatusLog entries by
+     * room number, ascending. Used by Report 1.
+     */
+    private Queue<RoomStatusLog> sortByRoomNumber(Queue<RoomStatusLog> input) {
+        int n = input.getNumberOfEntries();
+        RoomStatusLog[] arr = new RoomStatusLog[n];
+        for (int i = 0; i < n; i++) {
+            arr[i] = input.getEntry(i);
+        }
+
+        for (int i = 1; i < n; i++) {
+            RoomStatusLog key = arr[i];
+            int j = i - 1;
+            while (j >= 0 && arr[j].getRoomNumber().compareTo(key.getRoomNumber()) > 0) {
+                arr[j + 1] = arr[j];
+                j--;
+            }
+            arr[j + 1] = key;
+        }
+
+        Queue<RoomStatusLog> sorted = new Queue<>();
+        for (RoomStatusLog r : arr) {
+            sorted.enqueue(r);
+        }
+        return sorted;
+    }
+
+    /**
      * Self-implemented selection sort: sorts StageDuration entries by
-     * average minutes, descending (longest stage duration first).
-     * Uses a plain array (not a Java Collections Framework class) as
-     * scratch space for the swap logic.
+     * average minutes, descending (longest stage duration first). Used
+     * by Report 2. Uses a plain array (not a Java Collections Framework
+     * class) as scratch space for the swap logic.
      */
     private Queue<StageDuration> sortByDurationDescending(Queue<StageDuration> input) {
         int n = input.getNumberOfEntries();
