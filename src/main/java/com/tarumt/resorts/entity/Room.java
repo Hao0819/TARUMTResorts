@@ -16,6 +16,8 @@ public class Room {
     private String roomNumber;
     private String roomType;
     private boolean isAvailable;
+    // Current housekeeping state, synchronized from the latest status log.
+    private String cleaningStatus = "UNKNOWN";
 
     public Room() {
     }
@@ -50,6 +52,14 @@ public class Room {
         this.isAvailable = isAvailable;
     }
 
+    public String getCleaningStatus() {
+        return cleaningStatus;
+    }
+
+    public void setCleaningStatus(String cleaningStatus) {
+        this.cleaningStatus = cleaningStatus;
+    }
+
     @Override
     public String toString() {
         return String.format("%-10s %-12s %-10s",
@@ -58,8 +68,10 @@ public class Room {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof Room)) return false;
+        if (this == obj)
+            return true;
+        if (!(obj instanceof Room))
+            return false;
         Room other = (Room) obj;
         return roomNumber != null && roomNumber.equals(other.roomNumber);
     }
