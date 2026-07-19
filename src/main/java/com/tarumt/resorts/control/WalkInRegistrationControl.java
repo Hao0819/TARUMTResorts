@@ -17,57 +17,182 @@ import com.tarumt.resorts.dao.RoomDAO;
 public class WalkInRegistrationControl {
 
     private Queue<WalkInRegistration> registrationQueue;
+    private Queue<WalkInRegistration> registrationHistory;
     private Queue<Room> roomList;
     private int confirmationCounter;
+    private int registrationCounter;
     private int guestCounter;
     private Queue<Booking> bookingList;
     private Queue<Guest> guestList ;
 
+    //constructor
     public WalkInRegistrationControl() {
-        registrationQueue = new Queue<>();
-        roomList = new RoomDAO().getAllRooms();
+        registrationQueue = new Queue<>(); //create an empty queue
+        registrationHistory = new Queue<>();
+        roomList = new RoomDAO().getAllRooms();//create a temporary RoomDao object to call the method, get the room list
         bookingList = new Queue<>();
         guestList = new GuestDAO().getAllGuests();
-        confirmationCounter = 1;
+        confirmationCounter = 1; //format the number Start from 1 EXP CNF0001
+        registrationCounter = 1;
         // guestCounter continue AFTER the guests GuestDAO already
         guestCounter = guestList.getNumberOfEntries()+1;
     }
 
-      /**
-     * Looks up an existing guest by guestId in guestList (linear search).
-     * If found, returns that SAME existing Guest object — so a returning
-     * guest is correctly recognized as one person, not duplicated.
-     * If not found, this is a genuinely new guest: create a new Guest,
-     * add it to guestList so it's recognized next time, and return it.
-     */
-    private Guest findOrCreateGuest( String name, String contactNumber, String email){
-        int totalGuest = guestList.getNumberOfEntries();
-        for (int i = 0; i < totalGuest ; i++){
-            Guest existing = guestList.getEntry(i);
-            if(existing.getContactNumber().equalsIgnoreCase(contactNumber)){
-                return existing; // return guest , reuse their real record
+    private boolean registrationIdExists(String registrationId){
+        int total = registrationHistory.getNumberOfEntries();
+        
+        //Search the history manually to prevent duplicate registration ID
+        for (int i = 0; i < total; i++){
+            WalkInRegistration existing = registrationHistory.getEntry(i);
+
+            if (existing.getRegistrationId().equalsIgnoreCase(registrationId)){
+                return true;
             }
         }
-        //auto generate guest id 
-        String newGuestId = String.format("G%03d", guestCounter++);
-        //Not found -genuinely new guest
-        Guest newGuest = new Guest(newGuestId, name, contactNumber, email, "None");
+        
+        return false;
+        
+    }
+    
+    private String generateRegistrationId(){
+        String registrationId;
+        // Keep generating until an unused registration ID is found.
+        do{
+        registrationId = String.format("WR%04d", registrationCounter);
+        registrationCounter++;
+        }while(registrationIdExists(registrationId));
+        return registrationId;
+    }
+
+    private boolean guestIdExists(String guestId){
+        int total = guestList.getNumberOfEntries();
+
+        //search all guests manually to prevent duplicate guest ID
+        for (int i = 0 ; i < total ; i ++){
+            Guest existing = guestList.getEntry(i); // get existing guest object reference
+            if (existing.getGuestId().equalsIgnoreCase(guestId)){ // compare existing id and candidate id
+                return true;
+            }
+        }
+
+        return false;
+    
+    }
+
+    //generate unused guest id
+    private String generateGuestId(){
+        String guestId;
+
+        // Keep generating until an unused guest ID is found.
+        do{
+            guestId = String.format("G%03d", guestCounter);
+            guestCounter++;
+        }while (guestIdExists(guestId));
+
+        return guestId;
+    }
+    
+    private boolean confirmationNumberExists(String confirmationNumber){
+        int total = bookingList.getNumberOfEntries();
+        
+        //Search all bookings manually to prevent duplicate confirmation number
+        for (int i = 0; i < total ; i ++){
+            Booking existing = bookingList.getEntry(i);
+            
+            if (existing.getConfirmationNumber().equalsIgnoreCase(confirmationNumber)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String generateConfirmationNumber(){
+        String confirmationNumber;
+
+        //Keep generate until an unused confirmation number is found
+        do{
+            confirmationNumber = String.format("CNF%04d", confirmationCounter);
+            confirmationCounter++;
+        }while (confirmationNumberExists(confirmationNumber));
+        
+        return confirmationNumber;
+    }
+
+    public Guest findGuestById(String guestId){
+        if (guestId == null || guestId.trim().isEmpty()){
+            return null;
+        }
+
+        String normalizedId = guestId.trim();
+        int total = guestList.getNumberOfEntries();//get master guest collection size
+
+        //search the master guest collection manually bu Guest Id
+        for (int i = 0; i < total; i++){
+            Guest existing = guestList.getEntry(i); //get existing guest object reference , not build copy
+
+            if (existing.getGuestId().equalsIgnoreCase(normalizedId)){
+                return existing;
+            }
+        }
+        return null;
+    }
+
+
+    //use contact number to search guestList , 
+    private Guest findOrCreateGuest( String name, String contactNumber, String email){
+        // Convert the entered contact to a consistent digits-only format.
+        String normalizedContact = normalizeContact(contactNumber);
+        int totalGuest = guestList.getNumberOfEntries();
+        // Search for an existing guest using the normalized contact number.
+        for (int i = 0; i < totalGuest ; i++){
+            Guest existing = guestList.getEntry(i);
+
+            String existingContact = normalizeContact(existing.getContactNumber());
+            if(normalizedContact != null && normalizedContact.equals(existingContact)){
+                // Return the same existing Guest object reference.
+                return existing; 
+            }
+        }
+        // No matching guest was found, so generate a unique Guest ID.
+        String newGuestId = generateGuestId();
+        // Store new contact numbers in a consistent digits-only format
+        Guest newGuest = new Guest(newGuestId, name, normalizedContact, email, "None");
         guestList.enqueue(newGuest);
         return newGuest;
     }
 
-    //Input validation helpers (called by Boundary before registering)
+    private String normalizeContact(String contact ){
+        if (contact == null){
+            return null;
+        }
+
+        //Remove spaces and hyphens before validation and comparison
+        return contact.trim().replaceAll("[\\s-]", "");
+    }
+
+    public boolean isValidName(String name){
+        // a guest name must not be null or blank
+        return name != null && !name.trim().isEmpty();
+    }
     
     /**validates contact number :digit only, 9 to 11 digit long
      * reject symbols, letters and invalid lengths.
     **/
     public boolean isValidContact(String contact){
-        return contact != null && contact.matches("^[0-9]{9,11}$");
+        String normalizedContact = normalizeContact(contact);
+
+        // Malaysian mobile numbers start with 01 and contain 10-11 digits.
+        return normalizedContact != null && normalizedContact.matches("^01[0-9]{8,9}$");
     }
 
-    //Validates emauk addess against a standard email pattern
+    //Validates email addess against a standard email pattern
     public boolean isValidEmail(String email){
-        return email != null && email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+        if(email == null){
+            return false;
+        }
+        String trimmedEmail = email.trim();
+        // Check a simple email format: local name, @, domain and suffix
+        return trimmedEmail.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     }
 
         /**
@@ -93,26 +218,13 @@ public class WalkInRegistrationControl {
     }
 
 
-    /**
-     * Registers a new walk-in guest.
-     * First resolves the Guest via findOrCreateGuest() (so returning guests
-     * are recognized correctly rather than duplicated), then prevents
-     * duplicate WAITING registrations for that same guest.
-     *
-     * We deliberately do NOT use registrationQueue.contains() for the
-     * duplicate check, because WalkInRegistration.equals() compares
-     * registrationId — and since each registration attempt gets a freshly
-     * generated registrationId, contains() would never actually catch the
-     * same guest trying to register twice.
-     *
-     * @return true if registered successfully, false if this guest is
-     *         already waiting
-     */
-     public Guest registerGuest(String registrationId, 
+    /*use the guest's guestId and "WAITING" status to search registartionQueue,
+     prevent duplicate active registration */
+     public Guest registerGuest(
             String name, String contactNumber, String email,
             String registrationTime, String requestedRoomType) {
  
-        Guest guest = findOrCreateGuest( name, contactNumber, email);
+        Guest guest = findOrCreateGuest(name, contactNumber, email);
  
         // Search the queue for an existing WAITING registration with the
         // same guestId — same linear-search shape used elsewhere.
@@ -124,37 +236,27 @@ public class WalkInRegistrationControl {
                 return null; // this guest is already in line
             }
         }
+        // Generate the ID only after the duplicate check succeeds.
+        String registrationId = generateRegistrationId();
  
         WalkInRegistration registration = new WalkInRegistration(
                 registrationId, guest, registrationTime, requestedRoomType);
  
+        //add to active queue for FIFO processing
         registrationQueue.enqueue(registration);
+        //Keep the same object reference in history for futuer reports
+        registrationHistory.enqueue(registration);
         return guest;
     }
 
-    /**
-     * Processes the guest currently at the front of the queue:
-     * 1. peek() at them first WITHOUT removing them — if no room is
-     *    available for their requested room type, they stay in the queue.
-     * 2. Search roomList for the first room that is both available AND
-     *    matches the requested room type (linear search, same pattern as
-     *    searchByGuestId will use later).
-     * 3. If no matching room is found, return null — the guest was never
-     *    dequeued, so they remain at the front of the line for next time.
-     * 4. If a room IS found: NOW dequeue() the guest for real, generate a
-     *    confirmation number, build the Booking, mark the room unavailable,
-     *    update the registration's status, and return the Booking.
-     *
-     * @return the created Booking, or null if no matching room was available
-     */
     public Booking processNextGuest(){
-        //Step 1 : look at front guest without remove them 
+        //look at front guest without remove them 
         WalkInRegistration nextGuest = registrationQueue.peek();
         if(nextGuest == null){
             return null; // queue is empty , nobody to process 
         }
 
-        //Step 2: linear search through roomList for a matching, available room
+        //linear search through roomList for a matching, available room
         //find the room is matching the condition 
         Room assignedRoom = null;
         int totalRoom = roomList.getNumberOfEntries();
@@ -166,37 +268,37 @@ public class WalkInRegistrationControl {
             }
         }
 
-        //Step 3: if no matching room found , guest stays in queue
+        //if no matching room found , guest stays in queue
         //if not match the assignedRoom would still null
         if (assignedRoom == null){
             return null;
         }
-          //Step 4 : a room was found , remove the guest from the queue
-          /**the guest data already stored in nextGuest in Step 1 ,
-           * not need to capture value into a valuable**/
-        registrationQueue.dequeue();
 
-        //Generate a simple confirmation number
-        String confirmationNumber = String.format("CNF%04d",confirmationCounter );
-        confirmationCounter++;
+        //Generate a unique confirmation number for the new booking only after a room is found
+        String confirmationNumber = generateConfirmationNumber();
         
-        //Build the Booking linking guest + room + confirmation number
+        // Create the booking before changing the queue or room state.
         Booking booking = new Booking(confirmationNumber, nextGuest.getGuest(),assignedRoom, nextGuest.getRegistrationTime());
 
-        //Mark the room as no longer available so isn't assiged twice
-        assignedRoom.setAvailable(false);
+        //save the booking before completing the allocation
+        boolean bookingSaved = bookingList.enqueue(booking);
 
-        //Relect the change on the registration record too
-        //status change from "Waiting" to "ASSIGNED"
+        if(!bookingSaved){
+            return null;
+        }
+
+        // Update the same Room and WalkInRegistration objects.
+        assignedRoom.setAvailable(false);
         nextGuest.setStatus("ASSIGNED");
 
-        // Keep a permanent record of this booking so it can be looked up
-        bookingList.enqueue(booking);
+        // Remove the front registration only after allocation succeeds.
+        registrationQueue.dequeue();
 
         return booking;
     }
 
     // search the queue for a registration by guestId, using a self-implemented linear search
+    //only find active waiting registration
     public WalkInRegistration searchByGuestId(String guestId){
         int totalWaiting = registrationQueue.getNumberOfEntries();
         for (int i = 0; i <totalWaiting; i ++){
@@ -208,6 +310,31 @@ public class WalkInRegistrationControl {
         return null;
 
     }
+
+    //get every single entry , copies into array 
+    public WalkInRegistration[] getAllWaitingRegistrations(){
+        int total = registrationQueue.getNumberOfEntries();
+        WalkInRegistration[] all = new WalkInRegistration[total];
+        for(int i = 0; i< total ; i++){
+            all[i] = registrationQueue.getEntry(i);//directly assigns by index
+        }
+        return all;
+    }
+
+    public WalkInRegistration[] getAllRegistrationHistory(){
+        int total = registrationHistory.getNumberOfEntries();
+        WalkInRegistration[] history = new WalkInRegistration[total];
+        for (int i = 0; i < total ; i ++ ){
+            history[i] = registrationHistory.getEntry(i);
+        }
+        return history;
+    }
+
+    // public WalkInRegistration[] filterRegistrationsHistory(String roomTypeFilter, String statusFilter){
+    //     WalkInRegistration[] history = getAllRegistrationHistory();
+
+    //     return filtered;
+    // }
 
       
      // Returns how many guests are currently waiting in the queue.
