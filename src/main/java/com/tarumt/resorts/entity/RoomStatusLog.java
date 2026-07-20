@@ -7,7 +7,7 @@ package com.tarumt.resorts.entity;
  * a room's cleaning history, allowing the most recent entry to be rolled
  * back if logged incorrectly.
  *
- * @author YourName
+ * @author KohJun
  */
 public class RoomStatusLog {
     private String roomNumber;
