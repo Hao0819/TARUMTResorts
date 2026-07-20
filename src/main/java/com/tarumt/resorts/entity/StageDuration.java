@@ -5,7 +5,7 @@ package com.tarumt.resorts.entity;
  * Represents the average time (in minutes) spent in a given cleaning
  * stage, used for the Housekeeping average-duration report.
  *
- * @author YourName
+ * @author KohJun
  */
 public class StageDuration {
     private String stageName;
