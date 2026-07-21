@@ -2,7 +2,6 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  */
 
-
 package com.tarumt.resorts;
 
 /**
@@ -17,100 +16,99 @@ import com.tarumt.resorts.control.HousekeepingControl;
 import com.tarumt.resorts.control.WalkInRegistrationControl;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
+import com.tarumt.resorts.dao.WalkInRegistrationDAO;
 import com.tarumt.resorts.dao.RoomStatusLogDAO;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.entity.RoomStatusLog;
+import com.tarumt.resorts.entity.WalkInRegistration;
 
 import java.util.Scanner;
 
 public class TARUMTResorts {
 
-    public static void main(String[] args) {
-        // Load all initial DAO data only once.
-        Queue<Room> sharedRooms =
-                new RoomDAO().getAllRooms();
+        public static void main(String[] args) {
+                // Load all initial DAO data only once.
+                Queue<Room> sharedRooms = new RoomDAO().getAllRooms();
 
-        Queue<Guest> sharedGuests =
-                new GuestDAO().getAllGuests();
+                Queue<Guest> sharedGuests = new GuestDAO().getAllGuests();
 
-        Queue<Booking> sharedBookings =
-                new Queue<>();
+                // Load the hard-coded registration history once.
+                Queue<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
+                                .getAllRegistrations(sharedGuests);
+ 
+                Queue<Booking> sharedBookings = new Queue<>();
 
-        Queue<RoomStatusLog> sharedStatusLogs =
-                new RoomStatusLogDAO().getAllLogs();
+                Queue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
-        // Both Controls receive the same shared Room Queue reference.
-        WalkInRegistrationControl walkInControl =
-                new WalkInRegistrationControl(
-                        sharedRooms,
-                        sharedGuests,
-                        sharedBookings);
+                // Both Controls receive the same shared Room Queue reference.
+                WalkInRegistrationControl walkInControl = new WalkInRegistrationControl(
+                                sharedRooms,
+                                sharedGuests,
+                                sharedBookings,
+                                sharedRegistrationHistory );
 
-        HousekeepingControl housekeepingControl =
-                new HousekeepingControl(
-                        sharedRooms,
-                        sharedStatusLogs);
+                HousekeepingControl housekeepingControl = new HousekeepingControl(
+                                sharedRooms,
+                                sharedStatusLogs);
 
-        // All menus read input through the same Scanner object.
-        Scanner scanner = new Scanner(System.in);
+                // All menus read input through the same Scanner object.
+                Scanner scanner = new Scanner(System.in);
 
-        WalkInRegistrationUI walkInUI =
-                new WalkInRegistrationUI(
-                        walkInControl,
-                        scanner);
+                WalkInRegistrationUI walkInUI = new WalkInRegistrationUI(
+                                walkInControl,
+                                scanner);
 
-        HouseKeepingUI housekeepingUI =
-                new HouseKeepingUI(
-                        housekeepingControl,
-                        scanner);
+                HouseKeepingUI housekeepingUI = new HouseKeepingUI(
+                                housekeepingControl,
+                                scanner);
 
-        int choice;
+                int choice;
 
-        do {
-            System.out.println();
-            System.out.println(
-                    "+------------------------------------------------+");
-            System.out.println(
-                    "|            TARUMT RESORTS MAIN MENU            |");
-            System.out.println(
-                    "+------------------------------------------------+");
-            System.out.printf(
-                    "| %-46s |%n",
-                    "1. Walk-In Registration & Standard Booking");
-            System.out.printf(
-                    "| %-46s |%n",
-                    "2. Housekeeping & Task Log");
-            System.out.printf(
-                    "| %-46s |%n",
-                    "0. Exit");
-            System.out.println(
-                    "+------------------------------------------------+");
-            System.out.print("Enter choice: ");
+                do {
+                        System.out.println();
+                        System.out.println(
+                                        "+------------------------------------------------+");
+                        System.out.println(
+                                        "|            TARUMT RESORTS MAIN MENU            |");
+                        System.out.println(
+                                        "+------------------------------------------------+");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "1. Walk-In Registration & Standard Booking");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "2. Housekeeping & Task Log");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "0. Exit");
+                        System.out.println(
+                                        "+------------------------------------------------+");
+                        System.out.print("Enter choice: ");
 
-            try {
-                choice = Integer.parseInt(
-                        scanner.nextLine().trim());
-            } catch (NumberFormatException e) {
-                System.out.println(
-                        "Invalid input. Please enter a number.");
-                choice = -1;
-                continue;
-            }
+                        try {
+                                choice = Integer.parseInt(
+                                                scanner.nextLine().trim());
+                        } catch (NumberFormatException e) {
+                                System.out.println(
+                                                "Invalid input. Please enter a number.");
+                                choice = -1;
+                                continue;
+                        }
 
-            switch (choice) {
-                case 1 -> walkInUI.showMenu();
-                case 2 -> housekeepingUI.showMenu();
-                case 0 -> System.out.println(
-                        "Thank you for using TARUMT Resorts.");
-                default -> System.out.println(
-                        "Invalid choice. Please try again.");
-            }
+                        switch (choice) {
+                                case 1 -> walkInUI.showMenu();
+                                case 2 -> housekeepingUI.showMenu();
+                                case 0 -> System.out.println(
+                                                "Thank you for using TARUMT Resorts.");
+                                default -> System.out.println(
+                                                "Invalid choice. Please try again.");
+                        }
 
-        } while (choice != 0);
+                } while (choice != 0);
 
-        // Close System.in only when the entire application exits.
-        scanner.close();
-    }
+                // Close System.in only when the entire application exits.
+                scanner.close();
+        }
 }
