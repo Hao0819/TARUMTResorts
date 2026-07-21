@@ -12,7 +12,7 @@ import com.tarumt.resorts.dao.RoomDAO;
  * WalkInRegistrationControl.java
  * Handles the business logic for the Walk-In Registration module.
  *
- * @author junha
+ * @author Junhao
  */
 public class WalkInRegistrationControl {
 
@@ -32,16 +32,46 @@ public class WalkInRegistrationControl {
             new Queue<>());
     }
 
+    // Constructor used when Main does not provide registration history.
     public WalkInRegistrationControl(
             Queue<Room> sharedRooms,
             Queue<Guest> sharedGuests,
             Queue<Booking> sharedBookings) {
+        this(sharedRooms, sharedGuests, sharedBookings, new Queue<>());
+    }
+
+    // Constructor used when Main provides hard-coded registration history.
+    public WalkInRegistrationControl(
+            Queue<Room> sharedRooms,
+            Queue<Guest> sharedGuests,
+            Queue<Booking> sharedBookings,
+            Queue<WalkInRegistration> sharedRegistrationHistory) {
+
+        // use the registration history created by WalkInRegistrationDAO
+        registrationHistory = sharedRegistrationHistory;
         registrationQueue = new Queue<>();
-        registrationHistory = new Queue<>();
+
+        // Copy history references and arrange them by arrival time.
+        WalkInRegistration[] chronologicalHistory = getAllRegistrationHistory();
+
+        sortByRegistrationTime(chronologicalHistory);
+
+        // Only WAITING records belong to the active FIFO queue.
+        for (int i = 0; i < chronologicalHistory.length; i++) {
+            WalkInRegistration registrationRecord = chronologicalHistory[i];
+
+            if (registrationRecord.getStatus()
+                    .equalsIgnoreCase("WAITING")) {
+                registrationQueue.enqueue(registrationRecord);
+            }
+        }
+
+        // Keep the same shared Queue references provided by Main
         roomList = sharedRooms;
         guestList = sharedGuests;
         bookingList = sharedBookings;
-        registrationCounter = 1;
+
+        registrationCounter = registrationHistory.getNumberOfEntries() + 1;
         confirmationCounter = 1;
         guestCounter = guestList.getNumberOfEntries() + 1;
     }
@@ -268,6 +298,66 @@ public class WalkInRegistrationControl {
         return all;
     }
 
+    public WalkInRegistration[] filterRegistrationHistory(String roomTypeFilter, String statusFilter) {
+        WalkInRegistration[] history = getAllRegistrationHistory();
+        int matchCount = 0;
+
+        // First pass : count records matching both criteria
+        for (int i = 0; i < history.length; i++) {
+            WalkInRegistration registration = history[i];
+
+            boolean roomMatches = roomTypeFilter.equalsIgnoreCase("ALL")
+                    || registration.getRequestedRoomType().equalsIgnoreCase(roomTypeFilter);
+
+            boolean statusMatches = statusFilter.equalsIgnoreCase("ALL")
+                    || registration.getStatus().equalsIgnoreCase(statusFilter);
+
+            if (roomMatches && statusMatches) {
+                matchCount++;
+            }
+        }
+        // A fixed-size array requires the matching count in advance
+        WalkInRegistration[] filtered = new WalkInRegistration[matchCount];
+
+        int filteredIndex = 0;
+
+        // Second passL store references to matching registration
+        for (int i = 0; i < history.length; i++) {
+            WalkInRegistration registration = history[i];
+
+            boolean roomMatches = roomTypeFilter.equalsIgnoreCase("ALL")
+                    || registration.getRequestedRoomType().equalsIgnoreCase(roomTypeFilter);
+
+            boolean statusMatches = statusFilter.equalsIgnoreCase("ALL")
+                    || registration.getStatus().equalsIgnoreCase(statusFilter);
+
+            if (roomMatches && statusMatches) {
+                filtered[filteredIndex] = registration;
+                filteredIndex++;
+            }
+        }
+        return filtered;
+
+    }
+
+    public WalkInRegistration[] sortByRegistrationTime(WalkInRegistration[] registrations) {
+
+        // Start at index 1 because index is already a sorted section
+        for (int i = 1; i < registrations.length; i++) {
+            WalkInRegistration key = registrations[i];
+            int j = i - 1;
+
+            // Shift later registrations one position to the right
+            while (j >= 0 && registrations[j].getRegistrationTime().compareTo(key.getRegistrationTime()) > 0) {
+                registrations[j + 1] = registrations[j];
+                j--;
+            }
+            // Insert the key into its correct position
+            registrations[j + 1] = key;
+        }
+        return registrations;
+    }
+
     public WalkInRegistration[] getAllRegistrationHistory() {
         int total = registrationHistory.getNumberOfEntries();
         WalkInRegistration[] history = new WalkInRegistration[total];
@@ -277,6 +367,60 @@ public class WalkInRegistrationControl {
         return history;
     }
 
+    // Count active waiting registrations requesting one room type.
+    public int countWaitingByRoomType(String roomType){
+        int demandCount = 0;
+        int totalWaiting = registrationQueue.getNumberOfEntries(); //get active waiting queue counter
+
+        //check waiting registrations
+        for (int i = 0; i < totalWaiting ; i++){
+            //get current registration object reference
+            WalkInRegistration registrationRecord = registrationQueue.getEntry(i);
+
+            //compare room type guest request with method parameter 
+            if (registrationRecord.getRequestedRoomType().equalsIgnoreCase(roomType)){
+                demandCount++; //aech matching record found, counter ++
+            }
+        }
+        
+        return demandCount;
+    }
+
+    //count all rooms belonging to one room type
+    public int countTotalRoomsByType(String roomType){
+        int totalRoomCount = 0;
+        int totalRooms = roomList.getNumberOfEntries();
+
+        //check every room in the shared Room Queue
+        for (int i = 0; i < totalRooms ; i++){
+            Room room = roomList.getEntry(i);
+
+            //count the room when its type matches the parameter
+            if (room.getRoomType().equalsIgnoreCase(roomType)){
+                totalRoomCount++;
+            }
+        }
+        return totalRoomCount;
+    }
+
+    //count currently available rooms belogingd to one room type
+    public int countAvailableRoomsByType(String roomType){
+        int availableRoomCount = 0;
+        //get total number of current shared Room Queue 
+        int totalRooms = roomList.getNumberOfEntries();
+
+        for (int i = 0; i < totalRooms; i ++){
+            Room room = roomList.getEntry(i);
+
+            //the room must match the type and currently be available
+            if (room.getRoomType().equalsIgnoreCase(roomType) && room.isAvailable()){
+                availableRoomCount++;
+            }
+        }
+        return availableRoomCount;
+    }
+
+    // Returns how many guests are currently waiting in the queue.
     public int getWaitingCount() {
         return registrationQueue.getNumberOfEntries();
     }
