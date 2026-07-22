@@ -21,7 +21,10 @@ public class Booking {
     private Guest guest;
     private Room room;
     private String checkInTime;
+    private String checkOutTime;   // set by Front-Desk on check-out
     private String status; // "ACTIVE", "CHECKED_OUT"
+    private double amount;         // total bill for the stay (RM)
+    private String paymentStatus;  // "PAID", "UNPAID", "PARTIAL"
 
     public Booking() {
     }
@@ -32,6 +35,15 @@ public class Booking {
         this.room = room;
         this.checkInTime = checkInTime;
         this.status = "ACTIVE";
+        this.amount = 0.0;
+        this.paymentStatus = "UNPAID";
+    }
+
+    public Booking(String confirmationNumber, Guest guest, Room room, String checkInTime,
+                   double amount, String paymentStatus) {
+        this(confirmationNumber, guest, room, checkInTime);
+        this.amount = amount;
+        this.paymentStatus = paymentStatus;
     }
 
     public String getConfirmationNumber() {
@@ -66,12 +78,36 @@ public class Booking {
         this.checkInTime = checkInTime;
     }
 
+    public String getCheckOutTime() {
+        return checkOutTime;
+    }
+
+    public void setCheckOutTime(String checkOutTime) {
+        this.checkOutTime = checkOutTime;
+    }
+
     public String getStatus() {
         return status;
     }
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public double getAmount() {
+        return amount;
+    }
+
+    public void setAmount(double amount) {
+        this.amount = amount;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 
     @Override

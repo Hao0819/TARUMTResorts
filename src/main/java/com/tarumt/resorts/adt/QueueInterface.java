@@ -108,10 +108,41 @@ public interface QueueInterface <T> {
     */
     T peekLast();
 
-    // --- Added by: [Front-Desk Service module owner] ---
-    // T searchByKey(String key);
+    // --- Added by: Front-Desk Service module owner ---
+    /**
+     * Performs a key-based linear search over the collection and returns
+     * the first entry whose key equals the given key (case-insensitive).
+     * The caller supplies a KeyExtractor so this generic collection knows
+     * which field of an entry to treat as its key.
+     * @param key the key value to search for
+     * @param extractor knows how to read the key from an entry
+     * @return the first matching entry, or null if no entry matches
+     */
+    T searchByKey(String key, KeyExtractor<T> extractor);
 
     // --- Added by: [Loyalty & Rewards module owner] ---
     // QueueInterface<T> getFilteredEntries(...);
-    
+
+    /**
+     * KeyExtractor (nested helper for searchByKey)
+     * A small functional interface that tells this generic collection how to
+     * obtain the String search-key from an element of type T (e.g. a Booking
+     * is keyed by its confirmation number). Kept nested here so the shared ADT
+     * stays as a single interface plus a single implementation class.
+     *
+     * This is NOT part of the Java Collections Framework; it is a user-defined
+     * interface, which is permitted by the assignment rules.
+     *
+     * Added by: Front-Desk Service module owner
+     *
+     * @param <E> the type of element the key is extracted from
+     */
+    interface KeyExtractor<E> {
+        /**
+         * Returns the String key that identifies the given element.
+         * @param element the element to read the key from
+         * @return the element's key
+         */
+        String getKey(E element);
+    }
 }

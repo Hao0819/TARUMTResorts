@@ -4,3 +4,5 @@ nbproject/private/
 *.class
 nb-configuration.xml
 .netbeans_automatic_build
+# VS Code workspace settings (machine-specific)
+.vscode/
