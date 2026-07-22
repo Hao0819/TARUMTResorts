@@ -146,4 +146,26 @@ public class Queue<T> implements QueueInterface<T> {
         }
         return rear.data;
     }
+
+    // ===== Key-based search behaviour (added by: Front-Desk module owner) =====
+
+    @Override
+    public T searchByKey(String key, KeyExtractor<T> extractor) {
+        if (key == null || extractor == null) {
+            return null;
+        }
+        // Self-implemented linear search: walk the linked nodes from front
+        // to rear, comparing each entry's key with the target key.
+        // Time complexity O(n) - worst case visits every one of the n nodes
+        // (target at the rear or absent); best case O(1) (target at front).
+        Node current = front;
+        while (current != null) {
+            String currentKey = extractor.getKey(current.data);
+            if (currentKey != null && currentKey.equalsIgnoreCase(key)) {
+                return current.data;
+            }
+            current = current.next;
+        }
+        return null;
+    }
 }

@@ -12,8 +12,10 @@ package com.tarumt.resorts;
 import com.tarumt.resorts.adt.Queue;
 import com.tarumt.resorts.boundary.HouseKeepingUI;
 import com.tarumt.resorts.boundary.WalkInRegistrationUI;
+import com.tarumt.resorts.boundary.FrontDeskUI;
 import com.tarumt.resorts.control.HousekeepingControl;
 import com.tarumt.resorts.control.WalkInRegistrationControl;
+import com.tarumt.resorts.control.FrontDeskControl;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
 import com.tarumt.resorts.dao.WalkInRegistrationDAO;
@@ -53,6 +55,10 @@ public class TARUMTResorts {
                                 sharedRooms,
                                 sharedStatusLogs);
 
+                // Front-Desk runs on its own hard-coded sample bookings so it
+                // can be demonstrated independently of the Walk-In workflow.
+                FrontDeskControl frontDeskControl = new FrontDeskControl();
+
                 // All menus read input through the same Scanner object.
                 Scanner scanner = new Scanner(System.in);
 
@@ -62,6 +68,10 @@ public class TARUMTResorts {
 
                 HouseKeepingUI housekeepingUI = new HouseKeepingUI(
                                 housekeepingControl,
+                                scanner);
+
+                FrontDeskUI frontDeskUI = new FrontDeskUI(
+                                frontDeskControl,
                                 scanner);
 
                 int choice;
@@ -82,6 +92,9 @@ public class TARUMTResorts {
                                         "2. Housekeeping & Task Log");
                         System.out.printf(
                                         "| %-46s |%n",
+                                        "3. Front-Desk Service");
+                        System.out.printf(
+                                        "| %-46s |%n",
                                         "0. Exit");
                         System.out.println(
                                         "+------------------------------------------------+");
@@ -100,6 +113,7 @@ public class TARUMTResorts {
                         switch (choice) {
                                 case 1 -> walkInUI.showMenu();
                                 case 2 -> housekeepingUI.showMenu();
+                                case 3 -> frontDeskUI.showMenu();
                                 case 0 -> System.out.println(
                                                 "Thank you for using TARUMT Resorts.");
                                 default -> System.out.println(
