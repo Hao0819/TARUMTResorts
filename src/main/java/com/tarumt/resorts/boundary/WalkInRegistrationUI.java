@@ -125,36 +125,70 @@ public class WalkInRegistrationUI {
         }
 
         private void registerGuest() {
-                String name;
-
-                while (true) {
-                        System.out.print("Enter guest name: ");
-                        name = sc.nextLine().trim();
-
-                        if (control.isValidName(name)) {
-                                break;
-                        }
-                        System.out.println("Guest name cannot be blank!");
-                }
-
                 String contact;
+
                 while (true) {
-                        System.out.print("Enter Malaysian mobile number (10-11 digits, starts with 01): ");
+                        System.out.print(
+                                        "Enter Malaysian mobile number "
+                                                        + "(10-11 digits, starts with 01): ");
+
                         contact = sc.nextLine();
+
                         if (control.isValidContact(contact)) {
                                 break;
                         }
-                        System.out.println("Invalid mobile number. Use 10-11 digits starting with 01.");
+
+                        System.out.println(
+                                        "Invalid mobile number. "
+                                                        + "Use 10-11 digits starting with 01.");
                 }
 
+                // Check whether this contact belongs to an existing Guest.
+                Guest existingGuest = control.findGuestByContact(contact);
+
+                String name;
                 String email;
-                while (true) {
-                        System.out.print("Enter email: ");
-                        email = sc.nextLine().trim();
-                        if (control.isValidEmail(email)) {
-                                break;
+
+                if (existingGuest != null) {
+                        // Reuse the existing profile instead of creating a duplicate Guest.
+                        name = existingGuest.getName();
+                        email = existingGuest.getEmail();
+
+                        System.out.println(
+                                        "Existing guest found: "
+                                                        + existingGuest.getGuestId()
+                                                        + " - "
+                                                        + existingGuest.getName());
+
+                        System.out.println(
+                                        "Using existing guest details. "
+                                                        + "A new walk-in registration will be created.");
+                } else {
+                        // Only request personal details when this is a new Guest.
+                        while (true) {
+                                System.out.print("Enter guest name: ");
+                                name = sc.nextLine().trim();
+
+                                if (control.isValidName(name)) {
+                                        break;
+                                }
+
+                                System.out.println(
+                                                "Guest name cannot be blank!");
                         }
-                        System.out.println("Invalid email. Example: guest@example.com");
+
+                        while (true) {
+                                System.out.print("Enter email: ");
+                                email = sc.nextLine().trim();
+
+                                if (control.isValidEmail(email)) {
+                                        break;
+                                }
+
+                                System.out.println(
+                                                "Invalid email. "
+                                                                + "Example: guest@example.com");
+                        }
                 }
 
                 String roomType;
@@ -486,7 +520,7 @@ public class WalkInRegistrationUI {
                                 "Room Type",
                                 "Waiting Demand",
                                 "Total Rooms",
-                                "Available Rooms",
+                                "Allocatable",
                                 "Balance",
                                 "Assessment");
 

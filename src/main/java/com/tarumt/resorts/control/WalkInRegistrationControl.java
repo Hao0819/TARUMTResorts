@@ -27,9 +27,9 @@ public class WalkInRegistrationControl {
 
     public WalkInRegistrationControl() {
         this(
-            new RoomDAO().getAllRooms(),
-            new GuestDAO().getAllGuests(),
-            new Queue<>());
+                new RoomDAO().getAllRooms(),
+                new GuestDAO().getAllGuests(),
+                new Queue<>());
     }
 
     // Constructor used when Main does not provide registration history.
@@ -151,18 +151,53 @@ public class WalkInRegistrationControl {
         return null;
     }
 
-    private Guest findOrCreateGuest(String name, String contactNumber, String email) {
+    // Search the shared Guest Queue using a normalized contact number.
+    public Guest findGuestByContact(String contactNumber) {
         String normalizedContact = normalizeContact(contactNumber);
-        int totalGuest = guestList.getNumberOfEntries();
-        for (int i = 0; i < totalGuest; i++) {
-            Guest existing = guestList.getEntry(i);
-            String existingContact = normalizeContact(existing.getContactNumber());
-            if (normalizedContact != null && normalizedContact.equals(existingContact)) {
-                return existing;
+
+        if (normalizedContact == null
+                || normalizedContact.isEmpty()) {
+            return null;
+        }
+
+        int totalGuests = guestList.getNumberOfEntries();
+
+        for (int i = 0; i < totalGuests; i++) {
+            Guest existingGuest = guestList.getEntry(i);
+
+            String existingContact = normalizeContact(
+                    existingGuest.getContactNumber());
+
+            if (normalizedContact.equals(existingContact)) {
+                return existingGuest;
             }
         }
+
+        return null;
+    }
+
+    private Guest findOrCreateGuest(
+            String name,
+            String contactNumber,
+            String email) {
+
+        // Reuse the existing Guest when the contact number is registered.
+        Guest existingGuest = findGuestByContact(contactNumber);
+
+        if (existingGuest != null) {
+            return existingGuest;
+        }
+
+        // No matching contact was found, so create a new Guest.
         String newGuestId = generateGuestId();
-        Guest newGuest = new Guest(newGuestId, name, normalizedContact, email, "None");
+
+        Guest newGuest = new Guest(
+                newGuestId,
+                name,
+                normalizeContact(contactNumber),
+                email,
+                "None");
+
         guestList.enqueue(newGuest);
         return newGuest;
     }
@@ -368,52 +403,54 @@ public class WalkInRegistrationControl {
     }
 
     // Count active waiting registrations requesting one room type.
-    public int countWaitingByRoomType(String roomType){
+    public int countWaitingByRoomType(String roomType) {
         int demandCount = 0;
-        int totalWaiting = registrationQueue.getNumberOfEntries(); //get active waiting queue counter
+        int totalWaiting = registrationQueue.getNumberOfEntries(); // get active waiting queue counter
 
-        //check waiting registrations
-        for (int i = 0; i < totalWaiting ; i++){
-            //get current registration object reference
+        // check waiting registrations
+        for (int i = 0; i < totalWaiting; i++) {
+            // get current registration object reference
             WalkInRegistration registrationRecord = registrationQueue.getEntry(i);
 
-            //compare room type guest request with method parameter 
-            if (registrationRecord.getRequestedRoomType().equalsIgnoreCase(roomType)){
-                demandCount++; //aech matching record found, counter ++
+            // compare room type guest request with method parameter
+            if (registrationRecord.getRequestedRoomType().equalsIgnoreCase(roomType)) {
+                demandCount++; // aech matching record found, counter ++
             }
         }
-        
+
         return demandCount;
     }
 
-    //count all rooms belonging to one room type
-    public int countTotalRoomsByType(String roomType){
+    // count all rooms belonging to one room type
+    public int countTotalRoomsByType(String roomType) {
         int totalRoomCount = 0;
         int totalRooms = roomList.getNumberOfEntries();
 
-        //check every room in the shared Room Queue
-        for (int i = 0; i < totalRooms ; i++){
+        // check every room in the shared Room Queue
+        for (int i = 0; i < totalRooms; i++) {
             Room room = roomList.getEntry(i);
 
-            //count the room when its type matches the parameter
-            if (room.getRoomType().equalsIgnoreCase(roomType)){
+            // count the room when its type matches the parameter
+            if (room.getRoomType().equalsIgnoreCase(roomType)) {
                 totalRoomCount++;
             }
         }
         return totalRoomCount;
     }
 
-    //count currently available rooms belogingd to one room type
-    public int countAvailableRoomsByType(String roomType){
+    // count currently available rooms belogingd to one room type
+    public int countAvailableRoomsByType(String roomType) {
         int availableRoomCount = 0;
-        //get total number of current shared Room Queue 
+        // get total number of current shared Room Queue
         int totalRooms = roomList.getNumberOfEntries();
 
-        for (int i = 0; i < totalRooms; i ++){
+        for (int i = 0; i < totalRooms; i++) {
             Room room = roomList.getEntry(i);
 
-            //the room must match the type and currently be available
-            if (room.getRoomType().equalsIgnoreCase(roomType) && room.isAvailable()){
+            // Count only rooms that meet the same conditions used during allocation.
+            if (room.getRoomType().equalsIgnoreCase(roomType)
+                    && room.isAvailable()
+                    && isReadyForAllocation(room)) {
                 availableRoomCount++;
             }
         }
