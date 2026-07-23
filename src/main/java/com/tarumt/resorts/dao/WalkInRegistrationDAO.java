@@ -20,30 +20,34 @@ public class WalkInRegistrationDAO {
 
         Queue<WalkInRegistration> registrationHistory = new Queue<>();
 
-        String[][] sampleData = { 
+        String[][] sampleData = {
                 // Reg ID, Guest ID, Registration Time, Room Type, Status
-                { "WR0001", "G001", "2026-07-20 07:50", "Standard", "ASSIGNED" },
-                { "WR0002", "G002", "2026-07-20 08:15", "Standard", "WAITING" },
-                { "WR0003", "G003", "2026-07-20 08:45", "Standard", "ASSIGNED" },
-                { "WR0004", "G004", "2026-07-20 09:05", "Standard", "WAITING" },
-                { "WR0005", "G005", "2026-07-20 09:30", "Standard", "ASSIGNED" },
-                { "WR0006", "G006", "2026-07-20 10:20", "Standard", "WAITING" },
-                { "WR0007", "G007", "2026-07-20 10:55", "Standard", "ASSIGNED" },
-                { "WR0008", "G008", "2026-07-20 11:10", "Standard", "WAITING" },
 
-                { "WR0009", "G009", "2026-07-20 11:45", "Deluxe", "WAITING" },
-                { "WR0010", "G010", "2026-07-20 12:10", "Deluxe", "ASSIGNED" },
-                { "WR0011", "G011", "2026-07-20 12:30", "Deluxe", "WAITING" },
-                { "WR0012", "G012", "2026-07-20 13:05", "Deluxe", "ASSIGNED" },
-                { "WR0013", "G013", "2026-07-20 13:40", "Deluxe", "WAITING" },
-                { "WR0014", "G014", "2026-07-20 14:10", "Deluxe", "ASSIGNED" },
-                { "WR0015", "G015", "2026-07-20 14:50", "Deluxe", "WAITING" },
+                // Historical records from 18 July.
+                { "WR0001", "G001", "2026-07-18 07:50", "Standard", "ASSIGNED" },
+                { "WR0002", "G003", "2026-07-18 08:15", "Deluxe", "ASSIGNED" },
+                { "WR0003", "G008", "2026-07-18 09:00", "Suite", "CANCELLED" },
+                { "WR0004", "G013", "2026-07-18 10:30", "Standard", "ASSIGNED" },
+                { "WR0005", "G016", "2026-07-18 12:00", "Deluxe", "CANCELLED" },
+                { "WR0006", "G020", "2026-07-18 14:00", "Suite", "ASSIGNED" },
 
-                { "WR0016", "G016", "2026-07-20 15:25", "Suite", "ASSIGNED" },
-                { "WR0017", "G017", "2026-07-20 15:35", "Suite", "WAITING" },
-                { "WR0018", "G018", "2026-07-20 16:05", "Suite", "WAITING" },
-                { "WR0019", "G019", "2026-07-20 16:40", "Suite", "ASSIGNED" },
-                { "WR0020", "G020", "2026-07-20 17:15", "Suite", "WAITING" }
+                // Historical records from 19 July.
+                { "WR0007", "G007", "2026-07-19 08:10", "Standard", "ASSIGNED" },
+                { "WR0008", "G009", "2026-07-19 09:20", "Deluxe", "ASSIGNED" },
+                { "WR0009", "G014", "2026-07-19 10:40", "Suite", "CANCELLED" },
+                { "WR0010", "G015", "2026-07-19 12:15", "Standard", "ASSIGNED" },
+                { "WR0011", "G018", "2026-07-19 14:30", "Deluxe", "ASSIGNED" },
+                { "WR0012", "G019", "2026-07-19 16:00", "Suite", "CANCELLED" },
+
+                // Current active FIFO waiting records from 20 July.
+                { "WR0013", "G002", "2026-07-20 08:00", "Standard", "WAITING" },
+                { "WR0014", "G003", "2026-07-20 08:30", "Deluxe", "WAITING" },
+                { "WR0015", "G008", "2026-07-20 09:00", "Suite", "WAITING" },
+                { "WR0016", "G013", "2026-07-20 09:30", "Standard", "WAITING" },
+                { "WR0017", "G016", "2026-07-20 10:00", "Deluxe", "WAITING" },
+                { "WR0018", "G017", "2026-07-20 10:30", "Suite", "WAITING" },
+                { "WR0019", "G019", "2026-07-20 11:00", "Standard", "WAITING" },
+                { "WR0020", "G020", "2026-07-20 11:30", "Deluxe", "WAITING" }
         };
 
         for (int i = 0; i < sampleData.length; i++) {
@@ -57,6 +61,16 @@ public class WalkInRegistrationDAO {
 
             if (guest == null) {
                 throw new IllegalStateException("Sample Guest not found : " + guestId);
+            }
+
+            // Priority-tier guests must be handled by the VIP allocation module.
+            if (guest.getMembershipTier().isPriorityTier()) {
+                throw new IllegalStateException(
+                        "Priority-tier Guest cannot enter Standard history: "
+                                + guestId
+                                + " ("
+                                + guest.getMembershipTier()
+                                + ")");
             }
 
             WalkInRegistration registrationRecord = new WalkInRegistration(registrationId, guest, registrationTime,
@@ -73,18 +87,14 @@ public class WalkInRegistrationDAO {
 
     }
 
-    private Guest findGuestById(Queue<Guest> guests, String guestId) {
-        int total = guests.getNumberOfEntries();
+    private Guest findGuestById(
+            Queue<Guest> guests,
+            String guestId) {
 
-        for (int i = 0; i < total; i++) {
-            Guest guest = guests.getEntry(i);
-
-            if (guest.getGuestId().equalsIgnoreCase(guestId)) {
-                return guest;
-            }
-        }
-        return null;
-
+        // Search the linked nodes directly using Guest ID as the key.
+        return guests.searchByKey(
+                guestId,
+                guest -> guest.getGuestId());
     }
 
 }

@@ -1,5 +1,6 @@
 package com.tarumt.resorts.adt;
 
+import java.util.Iterator;
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Interface.java to edit this template
@@ -21,10 +22,11 @@ package com.tarumt.resorts.adt;
  *
  * @param <T> the type of element stored in the queue
  */
-public interface QueueInterface <T> {
-    
-     /**
+public interface QueueInterface<T> {
+
+    /**
      * Adds newEntry to the rear of the queue.
+     * 
      * @param newEntry the entry to be added
      * @return true if the entry was added successfully, false if the
      *         queue is full
@@ -33,12 +35,14 @@ public interface QueueInterface <T> {
 
     /**
      * Removes and returns the entry at the front of the queue.
+     * 
      * @return the entry that was removed, or null if the queue is empty
      */
     T dequeue();
 
     /**
      * Returns the entry at the front of the queue without removing it.
+     * 
      * @return the entry at the front, or null if the queue is empty
      */
     T peek();
@@ -47,14 +51,24 @@ public interface QueueInterface <T> {
      * Returns the entry at a given position in the queue, where position 0
      * is the front of the queue. Supports list-style indexed access for
      * traversal and reporting.
+     * 
      * @param position the position of the entry to retrieve
      * @return the entry at the given position
      */
     T getEntry(int position);
 
     /**
+     * Returns an iterator that traverses entries from front to rear.
+     * A complete traversal runs in O(n) time.
+     *
+     * @return iterator positioned before the front entry
+     */
+    Iterator<T> getIterator();
+
+    /**
      * Checks whether a given entry already exists in the queue.
      * Supports set-style duplicate prevention.
+     * 
      * @param anEntry the entry to check for
      * @return true if the entry exists in the queue, false otherwise
      */
@@ -62,18 +76,21 @@ public interface QueueInterface <T> {
 
     /**
      * Returns the number of entries currently in the queue.
+     * 
      * @return the number of entries
      */
     int getNumberOfEntries();
 
     /**
      * Checks whether the queue is empty.
+     * 
      * @return true if the queue contains no entries
      */
     boolean isEmpty();
 
     /**
      * Checks whether the queue is full.
+     * 
      * @return true if the queue cannot accept any more entries
      */
     boolean isFull();
@@ -95,17 +112,19 @@ public interface QueueInterface <T> {
 
     // --- Added by: Housekeeping module owner ---
     /**
-    * Removes and returns the entry most recently added to the rear of the
-    * queue. Supports undo/rollback of the last status change logged.
-    * @return the removed entry, or null if the queue is empty
-    */
+     * Removes and returns the entry most recently added to the rear of the
+     * queue. Supports undo/rollback of the last status change logged.
+     * 
+     * @return the removed entry, or null if the queue is empty
+     */
     T removeLast();
 
     /**
-    * Returns (without removing) the entry most recently added to the rear
-    * of the queue. Used to preview the current value before rolling back.
-    * @return the entry at the rear, or null if the queue is empty
-    */
+     * Returns (without removing) the entry most recently added to the rear
+     * of the queue. Used to preview the current value before rolling back.
+     * 
+     * @return the entry at the rear, or null if the queue is empty
+     */
     T peekLast();
 
     // --- Added by: Front-Desk Service module owner ---
@@ -114,7 +133,8 @@ public interface QueueInterface <T> {
      * the first entry whose key equals the given key (case-insensitive).
      * The caller supplies a KeyExtractor so this generic collection knows
      * which field of an entry to treat as its key.
-     * @param key the key value to search for
+     * 
+     * @param key       the key value to search for
      * @param extractor knows how to read the key from an entry
      * @return the first matching entry, or null if no entry matches
      */
@@ -140,6 +160,7 @@ public interface QueueInterface <T> {
     interface KeyExtractor<E> {
         /**
          * Returns the String key that identifies the given element.
+         * 
          * @param element the element to read the key from
          * @return the element's key
          */

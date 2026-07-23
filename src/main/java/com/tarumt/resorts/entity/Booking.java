@@ -20,11 +20,12 @@ public class Booking {
     private String confirmationNumber;
     private Guest guest;
     private Room room;
+    private String bookingCreatedTime;
     private String checkInTime;
-    private String checkOutTime;   // set by Front-Desk on check-out
+    private String checkOutTime; // set by Front-Desk on check-out
     private String status; // "ACTIVE", "CHECKED_OUT"
-    private double amount;         // total bill for the stay (RM)
-    private String paymentStatus;  // "PAID", "UNPAID", "PARTIAL"
+    private double amount; // total bill for the stay (RM)
+    private String paymentStatus; // "PAID", "UNPAID", "PARTIAL"
 
     public Booking() {
     }
@@ -33,14 +34,34 @@ public class Booking {
         this.confirmationNumber = confirmationNumber;
         this.guest = guest;
         this.room = room;
+        // Temporary compatibility for existing DAO records.
+        this.bookingCreatedTime = checkInTime;
         this.checkInTime = checkInTime;
         this.status = "ACTIVE";
         this.amount = 0.0;
         this.paymentStatus = "UNPAID";
     }
 
+    public Booking(
+            String confirmationNumber,
+            Guest guest,
+            Room room,
+            String bookingCreatedTime,
+            String checkInTime) {
+
+        this(
+                confirmationNumber,
+                guest,
+                room,
+                checkInTime);
+
+        this.bookingCreatedTime = bookingCreatedTime;
+        // No check-in time means the room is booked but the guest has not checked in.
+        this.status = checkInTime == null ? "CONFIRMED" : "ACTIVE";
+    }
+
     public Booking(String confirmationNumber, Guest guest, Room room, String checkInTime,
-                   double amount, String paymentStatus) {
+            double amount, String paymentStatus) {
         this(confirmationNumber, guest, room, checkInTime);
         this.amount = amount;
         this.paymentStatus = paymentStatus;
@@ -68,6 +89,14 @@ public class Booking {
 
     public void setRoom(Room room) {
         this.room = room;
+    }
+
+    public String getBookingCreatedTime() {
+        return bookingCreatedTime;
+    }
+
+    public void setBookingCreatedTime(String bookingCreatedTime) {
+        this.bookingCreatedTime = bookingCreatedTime;
     }
 
     public String getCheckInTime() {
@@ -118,8 +147,10 @@ public class Booking {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof Booking)) return false;
+        if (this == obj)
+            return true;
+        if (!(obj instanceof Booking))
+            return false;
         Booking other = (Booking) obj;
         return confirmationNumber != null && confirmationNumber.equals(other.confirmationNumber);
     }

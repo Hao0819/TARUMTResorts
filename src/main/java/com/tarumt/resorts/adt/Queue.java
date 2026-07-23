@@ -3,6 +3,10 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package com.tarumt.resorts.adt;
+
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
 /**
  * Queue.java
  * Linked-list based implementation of QueueInterface. A dummy-free singly
@@ -18,6 +22,7 @@ public class Queue<T> implements QueueInterface<T> {
     private Node front;
     private Node rear;
     private int numberOfEntries;
+
     /**
      * Node.java (inner class)
      * Represents a single node in the linked queue.
@@ -25,16 +30,19 @@ public class Queue<T> implements QueueInterface<T> {
     private class Node {
         private T data;
         private Node next;
+
         private Node(T data) {
             this.data = data;
             this.next = null;
         }
     }
+
     public Queue() {
         front = null;
         rear = null;
         numberOfEntries = 0;
     }
+
     @Override
     public boolean enqueue(T newEntry) {
         if (isFull()) {
@@ -50,6 +58,7 @@ public class Queue<T> implements QueueInterface<T> {
         numberOfEntries++;
         return true;
     }
+
     @Override
     public T dequeue() {
         if (isEmpty()) {
@@ -63,6 +72,7 @@ public class Queue<T> implements QueueInterface<T> {
         numberOfEntries--;
         return data;
     }
+
     @Override
     public T peek() {
         if (isEmpty()) {
@@ -70,6 +80,7 @@ public class Queue<T> implements QueueInterface<T> {
         }
         return front.data;
     }
+
     @Override
     public T getEntry(int position) {
         if (position < 0 || position >= numberOfEntries) {
@@ -81,6 +92,7 @@ public class Queue<T> implements QueueInterface<T> {
         }
         return current.data;
     }
+
     @Override
     public boolean contains(T anEntry) {
         Node current = front;
@@ -92,14 +104,45 @@ public class Queue<T> implements QueueInterface<T> {
         }
         return false;
     }
+
+    /**
+     * Returns an iterator that traverses the linked nodes from front to rear.
+     * A complete traversal takes O(n) time and uses O(1) extra space.
+     */
+    @Override
+    public Iterator<T> getIterator() {
+        return new Iterator<T>() {
+            private Node currentNode = front;
+
+            @Override
+            public boolean hasNext() {
+                return currentNode != null;
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException(
+                            "No more queue entries.");
+                }
+
+                T currentData = currentNode.data;
+                currentNode = currentNode.next;
+                return currentData;
+            }
+        };
+    }
+
     @Override
     public int getNumberOfEntries() {
         return numberOfEntries;
     }
+
     @Override
     public boolean isEmpty() {
         return numberOfEntries == 0;
     }
+
     @Override
     public boolean isFull() {
         // Linked implementation - queue is only "full" if memory runs out.
@@ -107,6 +150,7 @@ public class Queue<T> implements QueueInterface<T> {
         // if the team decides a bounded queue is more appropriate.
         return false;
     }
+
     @Override
     public void clear() {
         front = null;
