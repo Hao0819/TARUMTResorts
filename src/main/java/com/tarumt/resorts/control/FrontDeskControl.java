@@ -3,7 +3,7 @@ package com.tarumt.resorts.control;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.dao.BookingDAO;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
@@ -23,9 +23,9 @@ import com.tarumt.resorts.dao.RoomDAO;
  */
 public class FrontDeskControl {
 
-    private Queue<Booking> bookingList;
-    private Queue<Guest> guestList;
-    private Queue<Room> roomList;
+    private DoublyLinkedListQueue<Booking> bookingList;
+    private DoublyLinkedListQueue<Guest> guestList;
+    private DoublyLinkedListQueue<Room> roomList;
 
     /**
      * Standalone constructor - loads hard-coded sample data so the module
@@ -46,9 +46,9 @@ public class FrontDeskControl {
      * at runtime by the Walk-In / VIP modules and the current room state.
      */
     public FrontDeskControl(
-            Queue<Booking> sharedBookings,
-            Queue<Guest> sharedGuests,
-            Queue<Room> sharedRooms) {
+            DoublyLinkedListQueue<Booking> sharedBookings,
+            DoublyLinkedListQueue<Guest> sharedGuests,
+            DoublyLinkedListQueue<Room> sharedRooms) {
         bookingList = sharedBookings;
         guestList = sharedGuests;
         roomList = sharedRooms;

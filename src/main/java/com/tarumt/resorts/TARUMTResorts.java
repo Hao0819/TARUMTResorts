@@ -9,7 +9,7 @@ package com.tarumt.resorts;
 * @author junhao
 */
 
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.boundary.HouseKeepingUI;
 import com.tarumt.resorts.boundary.WalkInRegistrationUI;
 import com.tarumt.resorts.boundary.FrontDeskUI;
@@ -33,19 +33,19 @@ public class TARUMTResorts {
 
         public static void main(String[] args) {
                 // Load all initial DAO data only once.
-                Queue<Room> sharedRooms = new RoomDAO().getAllRooms();
+                DoublyLinkedListQueue<Room> sharedRooms = new RoomDAO().getAllRooms();
 
-                Queue<Guest> sharedGuests = new GuestDAO().getAllGuests();
+                DoublyLinkedListQueue<Guest> sharedGuests = new GuestDAO().getAllGuests();
 
                 // Load the hard-coded registration history once.
-                Queue<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
+                DoublyLinkedListQueue<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
                                 .getAllRegistrations(sharedGuests);
 
                 // Build bookings using the same shared Guest and Room objects.
-                Queue<Booking> sharedBookings = new BookingDAO()
+                DoublyLinkedListQueue<Booking> sharedBookings = new BookingDAO()
                                 .getAllBookings(sharedGuests, sharedRooms);
 
-                Queue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
+                DoublyLinkedListQueue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
                 // Both Controls receive the same shared Room Queue reference.
                 WalkInRegistrationControl walkInControl = new WalkInRegistrationControl(
