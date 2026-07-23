@@ -20,6 +20,7 @@ import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
 import com.tarumt.resorts.dao.WalkInRegistrationDAO;
 import com.tarumt.resorts.dao.RoomStatusLogDAO;
+import com.tarumt.resorts.dao.BookingDAO;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
@@ -39,8 +40,10 @@ public class TARUMTResorts {
                 // Load the hard-coded registration history once.
                 Queue<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
                                 .getAllRegistrations(sharedGuests);
- 
-                Queue<Booking> sharedBookings = new Queue<>();
+
+                // Build bookings using the same shared Guest and Room objects.
+                Queue<Booking> sharedBookings = new BookingDAO()
+                                .getAllBookings(sharedGuests, sharedRooms);
 
                 Queue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
@@ -49,15 +52,17 @@ public class TARUMTResorts {
                                 sharedRooms,
                                 sharedGuests,
                                 sharedBookings,
-                                sharedRegistrationHistory );
+                                sharedRegistrationHistory);
 
                 HousekeepingControl housekeepingControl = new HousekeepingControl(
                                 sharedRooms,
                                 sharedStatusLogs);
 
-                // Front-Desk runs on its own hard-coded sample bookings so it
-                // can be demonstrated independently of the Walk-In workflow.
-                FrontDeskControl frontDeskControl = new FrontDeskControl();
+                // Front-Desk shares the same bookings, guests and rooms with other modules.
+                FrontDeskControl frontDeskControl = new FrontDeskControl(
+                                sharedBookings,
+                                sharedGuests,
+                                sharedRooms);
 
                 // All menus read input through the same Scanner object.
                 Scanner scanner = new Scanner(System.in);
