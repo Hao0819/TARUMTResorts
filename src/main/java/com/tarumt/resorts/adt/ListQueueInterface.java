@@ -1,28 +1,36 @@
 package com.tarumt.resorts.adt;
 
 import java.util.Iterator;
+import java.util.Comparator;
+import java.util.function.Predicate;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Interface.java to edit this template
  */
 
 /**
- * QueueInterface.java
- * ADT Specification: A queue is a linear collection of entries of a type T
- * which follows First-In-First-Out (FIFO) order. An entry may only be added
- * to the rear of the queue and removed from the front of the queue.
+ * ListQueueInterface.java
  *
- * This interface also includes indexed-access and containment-check
- * operations to support list-style traversal and duplicate prevention,
- * since the collection may be reused by multiple modules with different
- * access requirements.
+ * Defines the behaviours of the team's shared generic ListQueue ADT.
+ * The ADT supports FIFO queue processing, list-style indexed access,
+ * rear removal, iteration, key-based searching, filtering, and
+ * comparator-based priority insertion.
+ *
+ * Different modules use the same interface according to their business
+ * requirements. Standard Walk-In Registration uses FIFO operations,
+ * VIP Allocation uses priority insertion, Housekeeping uses rear removal,
+ * Front-Desk uses key-based searching, and Loyalty uses filtering.
+ *
+ * The implementation class determines how these behaviours are performed
+ * using linked nodes.
  *
  * Team Component - Shared Collection ADT.
  * Base skeleton authored by: Lim Jun Hao
  *
- * @param <T> the type of element stored in the queue
+ * @param <T> the type of entry stored in this collection
  */
-public interface QueueInterface<T> {
+public interface ListQueueInterface<T> {
 
     /**
      * Adds newEntry to the rear of the queue.
@@ -100,15 +108,20 @@ public interface QueueInterface<T> {
      */
     void clear();
 
-    // =====================================================================
-    // The methods below are placeholders for module-specific additions.
-    // Each module owner should replace the placeholder with their actual
-    // method signature and implementation, and update the Javadoc comment
-    // with their name.
-    // =====================================================================
+    // --- Added for VIP Priority Allocation module ---
 
-    // --- Added by: [VIP Priority Allocation module owner] ---
-    // boolean insertByPriority(T newEntry, int priorityScore);
+    /**
+     * Inserts an entry according to the order defined by the comparator.
+     * Entries with higher priority can be positioned before entries that
+     * were inserted earlier, while equal entries retain insertion order.
+     *
+     * @param newEntry   the entry to insert
+     * @param comparator defines the ordering between entries
+     * @return true if the entry was inserted successfully
+     */
+    boolean priorityEnqueue(
+            T newEntry,
+            Comparator<T> comparator);
 
     // --- Added by: Housekeeping module owner ---
     /**
@@ -140,8 +153,17 @@ public interface QueueInterface<T> {
      */
     T searchByKey(String key, KeyExtractor<T> extractor);
 
-    // --- Added by: [Loyalty & Rewards module owner] ---
-    // QueueInterface<T> getFilteredEntries(...);
+    // --- Added for Loyalty & Rewards and reporting modules ---
+
+    /**
+     * Creates a new collection containing entries that satisfy the condition.
+     * The original collection and its entry order remain unchanged.
+     *
+     * @param condition determines whether an entry should be included
+     * @return a new collection containing the matching entries
+     */
+    ListQueueInterface<T> filter(
+            Predicate<T> condition);
 
     /**
      * KeyExtractor (nested helper for searchByKey)

@@ -3,7 +3,7 @@ package com.tarumt.resorts.boundary;
 import com.tarumt.resorts.control.HousekeepingControl;
 import com.tarumt.resorts.entity.RoomStatusLog;
 import com.tarumt.resorts.entity.StageDuration;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import java.util.Scanner;
 
 /**
@@ -230,7 +230,7 @@ public class HouseKeepingUI {
             return;
         }
 
-        Queue<RoomStatusLog> history = control.getHistoryForRoom(roomNumber);
+        DoublyLinkedListQueue<RoomStatusLog> history = control.getHistoryForRoom(roomNumber);
         int total = history.getNumberOfEntries();
 
         System.out.println();
@@ -277,7 +277,7 @@ public class HouseKeepingUI {
             System.out.println("Invalid room type entered. Please enter Standard, Deluxe, Suite, or press Enter for ALL.");
         }
 
-        Queue<RoomStatusLog> filtered = control.getRoomsByCurrentStatus(statusFilter.toUpperCase(), roomTypeFilter);
+        DoublyLinkedListQueue<RoomStatusLog> filtered = control.getRoomsByCurrentStatus(statusFilter.toUpperCase(), roomTypeFilter);
 
         String border = "+------------+------------+------------------+------------------+";
         int contentWidth = border.length() - 4;
@@ -328,7 +328,7 @@ public class HouseKeepingUI {
             System.out.println("Invalid stage entered. Please enter DIRTY, CLEANING, INSPECTED, or press Enter for ALL.");
         }
 
-        Queue<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
+        DoublyLinkedListQueue<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
 
         String border = "+----------------------+------------------+";
         int contentWidth = border.length() - 4;

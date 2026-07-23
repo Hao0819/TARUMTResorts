@@ -1,7 +1,7 @@
 package com.tarumt.resorts.dao;
 
 import com.tarumt.resorts.entity.Room;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 
 /**
  * RoomDAO.java
@@ -13,8 +13,8 @@ import com.tarumt.resorts.adt.Queue;
  */
 public class RoomDAO {
 
-    public Queue<Room> getAllRooms() {
-        Queue<Room> rooms = new Queue<>();
+    public DoublyLinkedListQueue<Room> getAllRooms() {
+        DoublyLinkedListQueue<Room> rooms = new DoublyLinkedListQueue<>();
         rooms.enqueue(new Room("101", "Standard", true));
         rooms.enqueue(new Room("102", "Standard", true));
         rooms.enqueue(new Room("103", "Standard", false));

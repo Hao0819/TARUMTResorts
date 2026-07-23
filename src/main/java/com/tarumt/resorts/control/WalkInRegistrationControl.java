@@ -5,7 +5,8 @@ import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.entity.WalkInRegistration;
 import com.tarumt.resorts.entity.MembershipTier;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
+import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
 import java.time.LocalDateTime;
@@ -20,40 +21,39 @@ import java.util.Iterator;
  */
 public class WalkInRegistrationControl {
 
-    private Queue<WalkInRegistration> registrationQueue;
-    private Queue<WalkInRegistration> registrationHistory;
-    private Queue<Room> roomList;
+    private DoublyLinkedListQueue<WalkInRegistration> registrationQueue;
+    private DoublyLinkedListQueue<WalkInRegistration> registrationHistory;
+    private DoublyLinkedListQueue<Room> roomList;
     private int confirmationCounter;
     private int registrationCounter;
     private int guestCounter;
-    private Queue<Booking> bookingList;
-    private Queue<Guest> guestList;
+    private DoublyLinkedListQueue<Booking> bookingList;
+    private ListQueueInterface<Guest> guestList;
 
     public WalkInRegistrationControl() {
-        this(
-                new RoomDAO().getAllRooms(),
+        this(new RoomDAO().getAllRooms(),
                 new GuestDAO().getAllGuests(),
-                new Queue<>());
+                new DoublyLinkedListQueue<>());
     }
 
     // Constructor used when Main does not provide registration history.
     public WalkInRegistrationControl(
-            Queue<Room> sharedRooms,
-            Queue<Guest> sharedGuests,
-            Queue<Booking> sharedBookings) {
-        this(sharedRooms, sharedGuests, sharedBookings, new Queue<>());
+            DoublyLinkedListQueue<Room> sharedRooms,
+            DoublyLinkedListQueue<Guest> sharedGuests,
+            DoublyLinkedListQueue<Booking> sharedBookings) {
+        this(sharedRooms, sharedGuests, sharedBookings, new DoublyLinkedListQueue<>());
     }
 
     // Constructor used when Main provides hard-coded registration history.
     public WalkInRegistrationControl(
-            Queue<Room> sharedRooms,
-            Queue<Guest> sharedGuests,
-            Queue<Booking> sharedBookings,
-            Queue<WalkInRegistration> sharedRegistrationHistory) {
+            DoublyLinkedListQueue<Room> sharedRooms,
+            DoublyLinkedListQueue<Guest> sharedGuests,
+            DoublyLinkedListQueue<Booking> sharedBookings,
+            DoublyLinkedListQueue<WalkInRegistration> sharedRegistrationHistory) {
 
         // use the registration history created by WalkInRegistrationDAO
         registrationHistory = sharedRegistrationHistory;
-        registrationQueue = new Queue<>();
+        registrationQueue = new DoublyLinkedListQueue<>();
 
         // Copy history references and arrange them by arrival time.
         WalkInRegistration[] chronologicalHistory = getAllRegistrationHistory();
@@ -709,7 +709,7 @@ public class WalkInRegistrationControl {
         return registrationQueue.getNumberOfEntries();
     }
 
-    public Queue<Booking> getBookingList() {
+    public DoublyLinkedListQueue<Booking> getBookingList() {
         return bookingList;
     }
 }

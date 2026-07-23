@@ -4,7 +4,7 @@
  */
 package com.tarumt.resorts.dao;
 
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.WalkInRegistration;
 
@@ -16,9 +16,9 @@ import com.tarumt.resorts.entity.WalkInRegistration;
  */
 public class WalkInRegistrationDAO {
 
-    public Queue<WalkInRegistration> getAllRegistrations(Queue<Guest> sharedGuests) {
+    public DoublyLinkedListQueue<WalkInRegistration> getAllRegistrations(DoublyLinkedListQueue<Guest> sharedGuests) {
 
-        Queue<WalkInRegistration> registrationHistory = new Queue<>();
+        DoublyLinkedListQueue<WalkInRegistration> registrationHistory = new DoublyLinkedListQueue<>();
 
         String[][] sampleData = {
                 // Reg ID, Guest ID, Registration Time, Room Type, Status
@@ -88,7 +88,7 @@ public class WalkInRegistrationDAO {
     }
 
     private Guest findGuestById(
-            Queue<Guest> guests,
+            DoublyLinkedListQueue<Guest> guests,
             String guestId) {
 
         // Search the linked nodes directly using Guest ID as the key.
