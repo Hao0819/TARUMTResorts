@@ -20,7 +20,7 @@ public class WalkInRegistrationDAO {
 
         Queue<WalkInRegistration> registrationHistory = new Queue<>();
 
-        String[][] sampleData = {
+        String[][] sampleData = { 
                 // Reg ID, Guest ID, Registration Time, Room Type, Status
                 { "WR0001", "G001", "2026-07-20 07:50", "Standard", "ASSIGNED" },
                 { "WR0002", "G002", "2026-07-20 08:15", "Standard", "WAITING" },
