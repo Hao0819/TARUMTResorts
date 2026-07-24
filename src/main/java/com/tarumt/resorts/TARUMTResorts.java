@@ -10,6 +10,7 @@ package com.tarumt.resorts;
 */
 
 import com.tarumt.resorts.adt.DoublyLinkedListQueue;
+import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.boundary.HouseKeepingUI;
 import com.tarumt.resorts.boundary.WalkInRegistrationUI;
 import com.tarumt.resorts.boundary.FrontDeskUI;
@@ -38,7 +39,8 @@ public class TARUMTResorts {
                 DoublyLinkedListQueue<Guest> sharedGuests = new GuestDAO().getAllGuests();
 
                 // Load the hard-coded registration history once.
-                DoublyLinkedListQueue<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
+                // Store the DAO result using the shared ADT interface.
+                ListQueueInterface<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
                                 .getAllRegistrations(sharedGuests);
 
                 // Build bookings using the same shared Guest and Room objects.

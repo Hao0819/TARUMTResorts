@@ -4,6 +4,7 @@
  */
 package com.tarumt.resorts.dao;
 
+import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.WalkInRegistration;
@@ -16,9 +17,11 @@ import com.tarumt.resorts.entity.WalkInRegistration;
  */
 public class WalkInRegistrationDAO {
 
-    public DoublyLinkedListQueue<WalkInRegistration> getAllRegistrations(DoublyLinkedListQueue<Guest> sharedGuests) {
+    public ListQueueInterface<WalkInRegistration> getAllRegistrations(
+            ListQueueInterface<Guest> sharedGuests) {
 
-        DoublyLinkedListQueue<WalkInRegistration> registrationHistory = new DoublyLinkedListQueue<>();
+        // Interface reference with a doubly linked implementation.
+        ListQueueInterface<WalkInRegistration> registrationHistory = new DoublyLinkedListQueue<>();
 
         String[][] sampleData = {
                 // Reg ID, Guest ID, Registration Time, Room Type, Status
@@ -88,10 +91,10 @@ public class WalkInRegistrationDAO {
     }
 
     private Guest findGuestById(
-            DoublyLinkedListQueue<Guest> guests,
+            ListQueueInterface<Guest> guests,
             String guestId) {
 
-        // Search the linked nodes directly using Guest ID as the key.
+        // Search the linked entries directly using Guest ID as the key.
         return guests.searchByKey(
                 guestId,
                 guest -> guest.getGuestId());

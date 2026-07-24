@@ -21,13 +21,19 @@ import java.util.Iterator;
  */
 public class WalkInRegistrationControl {
 
-    private DoublyLinkedListQueue<WalkInRegistration> registrationQueue;
-    private DoublyLinkedListQueue<WalkInRegistration> registrationHistory;
-    private DoublyLinkedListQueue<Room> roomList;
+    // Active registrations processed using strict FIFO behaviour.
+    private ListQueueInterface<WalkInRegistration> registrationQueue;
+
+    // Complete registration records used for searching and reporting.
+    private ListQueueInterface<WalkInRegistration> registrationHistory;
+
+    // Shared room collection provided by Main.
+    private ListQueueInterface<Room> roomList;
     private int confirmationCounter;
     private int registrationCounter;
     private int guestCounter;
-    private DoublyLinkedListQueue<Booking> bookingList;
+    // Shared bookings created by Standard and VIP allocation modules.
+    private ListQueueInterface<Booking> bookingList;
     private ListQueueInterface<Guest> guestList;
 
     public WalkInRegistrationControl() {
@@ -38,18 +44,23 @@ public class WalkInRegistrationControl {
 
     // Constructor used when Main does not provide registration history.
     public WalkInRegistrationControl(
-            DoublyLinkedListQueue<Room> sharedRooms,
-            DoublyLinkedListQueue<Guest> sharedGuests,
-            DoublyLinkedListQueue<Booking> sharedBookings) {
-        this(sharedRooms, sharedGuests, sharedBookings, new DoublyLinkedListQueue<>());
+            ListQueueInterface<Room> sharedRooms,
+            ListQueueInterface<Guest> sharedGuests,
+            ListQueueInterface<Booking> sharedBookings) {
+
+        this(
+                sharedRooms,
+                sharedGuests,
+                sharedBookings,
+                new DoublyLinkedListQueue<>());
     }
 
     // Constructor used when Main provides hard-coded registration history.
     public WalkInRegistrationControl(
-            DoublyLinkedListQueue<Room> sharedRooms,
-            DoublyLinkedListQueue<Guest> sharedGuests,
-            DoublyLinkedListQueue<Booking> sharedBookings,
-            DoublyLinkedListQueue<WalkInRegistration> sharedRegistrationHistory) {
+            ListQueueInterface<Room> sharedRooms,
+            ListQueueInterface<Guest> sharedGuests,
+            ListQueueInterface<Booking> sharedBookings,
+            ListQueueInterface<WalkInRegistration> sharedRegistrationHistory) {
 
         // use the registration history created by WalkInRegistrationDAO
         registrationHistory = sharedRegistrationHistory;
@@ -709,7 +720,7 @@ public class WalkInRegistrationControl {
         return registrationQueue.getNumberOfEntries();
     }
 
-    public DoublyLinkedListQueue<Booking> getBookingList() {
+    public ListQueueInterface<Booking> getBookingList() {
         return bookingList;
     }
 }
