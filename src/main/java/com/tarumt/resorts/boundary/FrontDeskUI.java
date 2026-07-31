@@ -98,9 +98,30 @@ public class FrontDeskUI {
         if (booking == null) {
             System.out.println("No booking found for that confirmation number.");
         } else {
-            printReportHeader("BOOKING DETAILS", null, null);
-            printBookingTable(new Booking[] { booking });
+            printBookingDetails(booking);
         }
+    }
+
+    /**
+     * Full detail card for one booking: guest identification, room, stay
+     * dates/status, and the hardcoded billing details (amount + payment status)
+     * a front-desk agent needs when answering a billing enquiry.
+     */
+    private void printBookingDetails(Booking booking) {
+        printReportHeader("BOOKING & BILLING DETAILS", null, null);
+        System.out.printf("  Confirmation No : %s%n", booking.getConfirmationNumber());
+        System.out.printf("  Guest ID        : %s%n", booking.getGuest().getGuestId());
+        System.out.printf("  Guest Name      : %s%n", booking.getGuest().getName());
+        System.out.printf("  Membership Tier : %s%n", booking.getGuest().getMembershipTier());
+        System.out.printf("  Room            : %s (%s)%n",
+                booking.getRoom().getRoomNumber(), booking.getRoom().getRoomType());
+        System.out.printf("  Check-In        : %s%n", booking.getCheckInTime());
+        System.out.printf("  Check-Out       : %s%n",
+                booking.getCheckOutTime() == null ? "-" : booking.getCheckOutTime());
+        System.out.printf("  Booking Status  : %s%n", booking.getStatus());
+        System.out.println("  ----------------- Billing -----------------");
+        System.out.printf("  Total Amount    : RM %,.2f%n", booking.getAmount());
+        System.out.printf("  Payment Status  : %s%n", booking.getPaymentStatus());
     }
 
     // =====================================================================
