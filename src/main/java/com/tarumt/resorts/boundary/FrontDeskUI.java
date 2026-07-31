@@ -98,9 +98,30 @@ public class FrontDeskUI {
         if (booking == null) {
             System.out.println("No booking found for that confirmation number.");
         } else {
-            printReportHeader("BOOKING DETAILS", null, null);
-            printBookingTable(new Booking[] { booking });
+            printBookingDetails(booking);
         }
+    }
+
+    /**
+     * Full detail card for one booking: guest identification, room, stay
+     * dates/status, and the hardcoded billing details (amount + payment status)
+     * a front-desk agent needs when answering a billing enquiry.
+     */
+    private void printBookingDetails(Booking booking) {
+        printReportHeader("BOOKING & BILLING DETAILS", null, null);
+        System.out.printf("  Confirmation No : %s%n", booking.getConfirmationNumber());
+        System.out.printf("  Guest ID        : %s%n", booking.getGuest().getGuestId());
+        System.out.printf("  Guest Name      : %s%n", booking.getGuest().getName());
+        System.out.printf("  Membership Tier : %s%n", booking.getGuest().getMembershipTier());
+        System.out.printf("  Room            : %s (%s)%n",
+                booking.getRoom().getRoomNumber(), booking.getRoom().getRoomType());
+        System.out.printf("  Check-In        : %s%n", booking.getCheckInTime());
+        System.out.printf("  Check-Out       : %s%n",
+                booking.getCheckOutTime() == null ? "-" : booking.getCheckOutTime());
+        System.out.printf("  Booking Status  : %s%n", booking.getStatus());
+        System.out.println("  ----------------- Billing -----------------");
+        System.out.printf("  Total Amount    : RM %,.2f%n", booking.getAmount());
+        System.out.printf("  Payment Status  : %s%n", booking.getPaymentStatus());
     }
 
     // =====================================================================
@@ -112,22 +133,32 @@ public class FrontDeskUI {
         Room[] available = control.getAvailableRooms(roomType);
 
         printReportHeader("ROOM AVAILABILITY",
-                "Room type filter: " + roomType, null);
+                "Room type filter: " + roomType,
+                "Bookable = vacant AND Housekeeping status READY");
 
-        String border = "+----------+------------+-------------+";
+        String border = "+----------+------------+-------------+--------------+------------+";
         System.out.println(border);
-        System.out.printf("| %-8s | %-10s | %-11s |%n", "Room No", "Room Type", "Status");
+        System.out.printf("| %-8s | %-10s | %-11s | %-12s | %-10s |%n",
+                "Room No", "Room Type", "Occupancy", "Housekeeping", "Bookable");
         System.out.println(border);
+
+        int bookable = 0;
         if (available.length == 0) {
-            System.out.printf("| %-35s |%n", "No available rooms for this filter.");
+            System.out.printf("| %-62s |%n", "No vacant rooms for this filter.");
         } else {
             for (Room r : available) {
-                System.out.printf("| %-8.8s | %-10.10s | %-11s |%n",
-                        r.getRoomNumber(), r.getRoomType(), "AVAILABLE");
+                boolean ok = control.isBookable(r);
+                if (ok) {
+                    bookable++;
+                }
+                System.out.printf("| %-8.8s | %-10.10s | %-11s | %-12.12s | %-10s |%n",
+                        r.getRoomNumber(), r.getRoomType(), "VACANT",
+                        r.getCleaningStatus(), ok ? "YES" : "NO");
             }
         }
         System.out.println(border);
-        System.out.println("Total available rooms: " + available.length);
+        System.out.println("Vacant rooms: " + available.length
+                + "   |   Bookable now: " + bookable);
     }
 
     // =====================================================================
@@ -337,7 +368,7 @@ public class FrontDeskUI {
                         b.getGuest().getName(),
                         b.getRoom().getRoomNumber(),
                         b.getRoom().getRoomType(),
-                        b.getCheckInTime(),
+                        b.getCheckInTime() == null ? "-" : b.getCheckInTime(),
                         b.getStatus());
             }
         }

@@ -3,7 +3,7 @@ package com.tarumt.resorts.control;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
-import com.tarumt.resorts.adt.DoublyLinkedListQueue;
+import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.dao.BookingDAO;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
@@ -23,9 +23,14 @@ import com.tarumt.resorts.dao.RoomDAO;
  */
 public class FrontDeskControl {
 
-    private DoublyLinkedListQueue<Booking> bookingList;
-    private DoublyLinkedListQueue<Guest> guestList;
-    private DoublyLinkedListQueue<Room> roomList;
+    private ListQueueInterface<Booking> bookingList;
+    private ListQueueInterface<Guest> guestList;
+    private ListQueueInterface<Room> roomList;
+
+    // Optional collaborator (Housekeeping module). When wired in by Main, a
+    // check-out also writes a DIRTY entry into Housekeeping's status log so
+    // their View/reports reflect the handover — not just the Room field.
+    private HousekeepingControl housekeeping;
 
     /**
      * Standalone constructor - loads hard-coded sample data so the module
@@ -46,12 +51,22 @@ public class FrontDeskControl {
      * at runtime by the Walk-In / VIP modules and the current room state.
      */
     public FrontDeskControl(
-            DoublyLinkedListQueue<Booking> sharedBookings,
-            DoublyLinkedListQueue<Guest> sharedGuests,
-            DoublyLinkedListQueue<Room> sharedRooms) {
+            ListQueueInterface<Booking> sharedBookings,
+            ListQueueInterface<Guest> sharedGuests,
+            ListQueueInterface<Room> sharedRooms) {
         bookingList = sharedBookings;
         guestList = sharedGuests;
         roomList = sharedRooms;
+    }
+
+    /**
+     * Wires in the shared Housekeeping control so that checking a guest out
+     * also logs the room as DIRTY in Housekeeping's status log. Optional:
+     * when left null (standalone mode), check-out still updates the shared
+     * Room object's cleaningStatus field directly.
+     */
+    public void setHousekeepingControl(HousekeepingControl housekeeping) {
+        this.housekeeping = housekeeping;
     }
 
     // =====================================================================
@@ -106,8 +121,15 @@ public class FrontDeskControl {
 
     /**
      * Checks a guest out: marks the booking CHECKED_OUT, records the check-out
-     * time, and releases the room back to availability on the shared Room
-     * object. Returns false if the booking is missing or already checked out.
+     * time, and hands the room over to Housekeeping on the shared Room object.
+     *
+     * The room becomes vacant (available) but is flagged DIRTY, so it is NOT
+     * immediately allocatable: Walk-In/VIP allocation only accepts rooms whose
+     * cleaning status is READY (or never logged). Housekeeping must run the
+     * DIRTY -> CLEANING -> INSPECTED -> READY cycle before the room can be
+     * given to the next guest.
+     *
+     * @return false if the booking is missing or already checked out
      */
     public boolean checkOutBooking(String confirmationNumber, String checkOutTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
@@ -116,10 +138,34 @@ public class FrontDeskControl {
         }
         booking.setStatus("CHECKED_OUT");
         booking.setCheckOutTime(checkOutTime);
-        if (booking.getRoom() != null) {
-            booking.getRoom().setAvailable(true);   // update shared Room state
+        Room room = booking.getRoom();
+        if (room != null) {
+            room.setAvailable(true);            // no longer occupied
+            room.setCleaningStatus("DIRTY");    // hand over to Housekeeping (Room field)
+            // Also record the handover in Housekeeping's status log, so their
+            // View current status / reports show the room as DIRTY. Non-fatal:
+            // if Housekeeping isn't wired in (standalone) or its transition rule
+            // rejects the entry, the check-out itself still succeeds.
+            if (housekeeping != null) {
+                housekeeping.logStatusChange(room.getRoomNumber(), "DIRTY", checkOutTime);
+            }
         }
         return true;
+    }
+
+    /**
+     * Mirrors the allocation readiness rule used by Walk-In/VIP: a vacant room
+     * can only be given to a new guest once Housekeeping has it READY (or it
+     * has never been logged, i.e. UNKNOWN).
+     */
+    public boolean isBookable(Room room) {
+        if (room == null || !room.isAvailable()) {
+            return false;
+        }
+        String cleaning = room.getCleaningStatus();
+        return cleaning == null
+                || cleaning.equalsIgnoreCase("READY")
+                || cleaning.equalsIgnoreCase("UNKNOWN");
     }
 
     // =====================================================================
@@ -192,17 +238,42 @@ public class FrontDeskControl {
      * Insertion sort ordering bookings by check-in time ascending. The time
      * strings use "yyyy-MM-dd HH:mm", so lexicographic comparison is already
      * chronological.
+     *
+     * A booking created by Walk-In/VIP that has been allocated a room but not
+     * yet checked in has a null check-in time (status CONFIRMED). Those are
+     * ordered AFTER every checked-in booking rather than dereferenced, so the
+     * report never crashes on a not-yet-checked-in booking.
      */
     public void sortByCheckInTime(Booking[] bookings) {
         for (int i = 1; i < bookings.length; i++) {
             Booking key = bookings[i];
             int j = i - 1;
-            while (j >= 0 && bookings[j].getCheckInTime().compareTo(key.getCheckInTime()) > 0) {
+            while (j >= 0 && compareCheckInTime(bookings[j], key) > 0) {
                 bookings[j + 1] = bookings[j];
                 j--;
             }
             bookings[j + 1] = key;
         }
+    }
+
+    /**
+     * Null-safe check-in time comparison. A null check-in time (booked but not
+     * yet checked in) is treated as "later than" any real time, so such
+     * bookings sort to the end of the ascending list.
+     */
+    private int compareCheckInTime(Booking a, Booking b) {
+        String timeA = a.getCheckInTime();
+        String timeB = b.getCheckInTime();
+        if (timeA == null && timeB == null) {
+            return 0;
+        }
+        if (timeA == null) {
+            return 1;
+        }
+        if (timeB == null) {
+            return -1;
+        }
+        return timeA.compareTo(timeB);
     }
 
     // =====================================================================

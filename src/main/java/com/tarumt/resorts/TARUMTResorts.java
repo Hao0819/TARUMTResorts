@@ -43,7 +43,9 @@ public class TARUMTResorts {
                 ListQueueInterface<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
                                 .getAllRegistrations(sharedGuests);
 
-                // Build bookings using the same shared Guest and Room objects.
+                // Seed the shared booking collection ONCE from BookingDAO,
+                // against the same Guest and Room objects above, so Walk-In and
+                // Front-Desk read and write the exact same Booking/Room state.
                 DoublyLinkedListQueue<Booking> sharedBookings = new BookingDAO()
                                 .getAllBookings(sharedGuests, sharedRooms);
 
@@ -60,11 +62,17 @@ public class TARUMTResorts {
                                 sharedRooms,
                                 sharedStatusLogs);
 
-                // Front-Desk shares the same bookings, guests and rooms with other modules.
+                // Front-Desk receives the SAME shared references, so it can see
+                // bookings created at runtime by Walk-In, and its check-out
+                // updates the same Room objects Walk-In/Housekeeping query.
                 FrontDeskControl frontDeskControl = new FrontDeskControl(
                                 sharedBookings,
                                 sharedGuests,
                                 sharedRooms);
+
+                // Let a Front-Desk check-out also log the freed room as DIRTY
+                // in Housekeeping's status log, keeping both modules in sync.
+                frontDeskControl.setHousekeepingControl(housekeepingControl);
 
                 // All menus read input through the same Scanner object.
                 Scanner scanner = new Scanner(System.in);
