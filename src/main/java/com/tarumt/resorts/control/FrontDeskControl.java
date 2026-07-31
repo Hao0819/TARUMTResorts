@@ -27,6 +27,11 @@ public class FrontDeskControl {
     private ListQueueInterface<Guest> guestList;
     private ListQueueInterface<Room> roomList;
 
+    // Optional collaborator (Housekeeping module). When wired in by Main, a
+    // check-out also writes a DIRTY entry into Housekeeping's status log so
+    // their View/reports reflect the handover — not just the Room field.
+    private HousekeepingControl housekeeping;
+
     /**
      * Standalone constructor - loads hard-coded sample data so the module
      * can be demonstrated on its own without the Walk-In module running.
@@ -52,6 +57,16 @@ public class FrontDeskControl {
         bookingList = sharedBookings;
         guestList = sharedGuests;
         roomList = sharedRooms;
+    }
+
+    /**
+     * Wires in the shared Housekeeping control so that checking a guest out
+     * also logs the room as DIRTY in Housekeeping's status log. Optional:
+     * when left null (standalone mode), check-out still updates the shared
+     * Room object's cleaningStatus field directly.
+     */
+    public void setHousekeepingControl(HousekeepingControl housekeeping) {
+        this.housekeeping = housekeeping;
     }
 
     // =====================================================================
@@ -126,7 +141,14 @@ public class FrontDeskControl {
         Room room = booking.getRoom();
         if (room != null) {
             room.setAvailable(true);            // no longer occupied
-            room.setCleaningStatus("DIRTY");    // hand over to Housekeeping
+            room.setCleaningStatus("DIRTY");    // hand over to Housekeeping (Room field)
+            // Also record the handover in Housekeeping's status log, so their
+            // View current status / reports show the room as DIRTY. Non-fatal:
+            // if Housekeeping isn't wired in (standalone) or its transition rule
+            // rejects the entry, the check-out itself still succeeds.
+            if (housekeeping != null) {
+                housekeeping.logStatusChange(room.getRoomNumber(), "DIRTY", checkOutTime);
+            }
         }
         return true;
     }
@@ -216,17 +238,42 @@ public class FrontDeskControl {
      * Insertion sort ordering bookings by check-in time ascending. The time
      * strings use "yyyy-MM-dd HH:mm", so lexicographic comparison is already
      * chronological.
+     *
+     * A booking created by Walk-In/VIP that has been allocated a room but not
+     * yet checked in has a null check-in time (status CONFIRMED). Those are
+     * ordered AFTER every checked-in booking rather than dereferenced, so the
+     * report never crashes on a not-yet-checked-in booking.
      */
     public void sortByCheckInTime(Booking[] bookings) {
         for (int i = 1; i < bookings.length; i++) {
             Booking key = bookings[i];
             int j = i - 1;
-            while (j >= 0 && bookings[j].getCheckInTime().compareTo(key.getCheckInTime()) > 0) {
+            while (j >= 0 && compareCheckInTime(bookings[j], key) > 0) {
                 bookings[j + 1] = bookings[j];
                 j--;
             }
             bookings[j + 1] = key;
         }
+    }
+
+    /**
+     * Null-safe check-in time comparison. A null check-in time (booked but not
+     * yet checked in) is treated as "later than" any real time, so such
+     * bookings sort to the end of the ascending list.
+     */
+    private int compareCheckInTime(Booking a, Booking b) {
+        String timeA = a.getCheckInTime();
+        String timeB = b.getCheckInTime();
+        if (timeA == null && timeB == null) {
+            return 0;
+        }
+        if (timeA == null) {
+            return 1;
+        }
+        if (timeB == null) {
+            return -1;
+        }
+        return timeA.compareTo(timeB);
     }
 
     // =====================================================================

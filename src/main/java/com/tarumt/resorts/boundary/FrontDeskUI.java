@@ -368,7 +368,7 @@ public class FrontDeskUI {
                         b.getGuest().getName(),
                         b.getRoom().getRoomNumber(),
                         b.getRoom().getRoomType(),
-                        b.getCheckInTime(),
+                        b.getCheckInTime() == null ? "-" : b.getCheckInTime(),
                         b.getStatus());
             }
         }
