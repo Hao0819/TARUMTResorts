@@ -3,9 +3,15 @@ package com.tarumt.resorts.control;
 import com.tarumt.resorts.entity.RoomStatusLog;
 import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.entity.StageDuration;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.dao.RoomStatusLogDAO;
 import com.tarumt.resorts.dao.RoomDAO;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * HousekeepingControl.java
@@ -17,16 +23,41 @@ import com.tarumt.resorts.dao.RoomDAO;
  * this singly linked Queue (it must walk from front to find the node
  * before rear); peekLast() is O(1).
  *
+ * NOTE ON AUTO-TRANSITION (added feature): whenever a room is logged as
+ * CLEANING, a background timer is scheduled to automatically log that
+ * same room as INSPECTED 1 minute later (simulating the supervisor
+ * assigning staff to check the room during that window). This reuses
+ * logStatusChange() itself, so all the existing validation, Room
+ * cleaningStatus sync, and history logging behave exactly the same as a
+ * manual log. Because this is a console application, the auto-updated
+ * status is only "seen" the next time the user opens View Current
+ * Status / View Full History — there is no live on-screen refresh while
+ * the user is sitting at a menu prompt, since the main thread is
+ * blocked waiting for console input. The data itself, however, is
+ * updated in real time by the scheduler thread.
+ *
  * @author KohJun
  */
 public class HousekeepingControl {
 
-    private Queue<RoomStatusLog> statusLog;
-    private Queue<Room> roomList;
+    private DoublyLinkedListQueue<RoomStatusLog> statusLog;
+    private DoublyLinkedListQueue<Room> roomList;
 
     private static final String[] STATUS_SEQUENCE = {
         "DIRTY", "CLEANING", "INSPECTED", "READY"
     };
+
+    // --- Added: auto-transition timer support ---
+    private static final long AUTO_INSPECT_DELAY_SECONDS = 5; // 1 minute
+    private static final DateTimeFormatter TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private final ScheduledExecutorService scheduler =
+            Executors.newSingleThreadScheduledExecutor(runnable -> {
+                // Daemon thread so it never blocks the program from exiting.
+                Thread t = new Thread(runnable, "housekeeping-auto-inspect");
+                t.setDaemon(true);
+                return t;
+            });
 
     public HousekeepingControl() {
         this(
@@ -36,8 +67,9 @@ public class HousekeepingControl {
 
     // Constructor used when Main provides shared application data.
     public HousekeepingControl(
-            Queue<Room> sharedRooms,
-            Queue<RoomStatusLog> sharedStatusLog) {
+            DoublyLinkedListQueue<Room> sharedRooms,
+            DoublyLinkedListQueue<RoomStatusLog> sharedStatusLog) {
+
         // Keep the same Queue references provided by Main.
         roomList = sharedRooms;
         statusLog = sharedStatusLog;
@@ -169,6 +201,10 @@ public class HousekeepingControl {
      * (3) the transition is legal, (4) enqueue actually succeeds.
      * After a successful log, the shared Room's cleaningStatus is
      * updated so Walk-In immediately sees the new readiness state.
+     *
+     * Added: if the newly logged status is CLEANING, a one-minute
+     * auto-transition to INSPECTED is scheduled (see
+     * scheduleAutoInspect()).
      */
     public boolean logStatusChange(String roomNumber, String status, String timestamp) {
         if (!isValidRoomNumber(roomNumber)) {
@@ -191,7 +227,33 @@ public class HousekeepingControl {
         if (room != null) {
             room.setCleaningStatus(status.toUpperCase());
         }
+
+        // --- Added: schedule the automatic CLEANING -> INSPECTED step ---
+        if (status.equalsIgnoreCase("CLEANING")) {
+            scheduleAutoInspect(roomNumber);
+        }
+
         return true;
+    }
+
+    /**
+     * Added: schedules a background task that automatically logs the
+     * given room as INSPECTED, AUTO_INSPECT_DELAY_SECONDS after this
+     * call. Simulates the supervisor assigning staff to check the room
+     * during the cleaning window.
+     *
+     * Re-validates isValidNextStatus() at execution time (not just at
+     * scheduling time) so a room that was rolled back, or otherwise
+     * changed, in the meantime doesn't get an illegal status forced
+     * onto it by a stale timer.
+     */
+    private void scheduleAutoInspect(String roomNumber) {
+        scheduler.schedule(() -> {
+            if (isValidNextStatus(roomNumber, "INSPECTED")) {
+                String autoTimestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
+                logStatusChange(roomNumber, "INSPECTED", autoTimestamp);
+            }
+        }, AUTO_INSPECT_DELAY_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
@@ -216,8 +278,8 @@ public class HousekeepingControl {
      * Retrieves the FULL status history for a given room, in
      * chronological order, using a self-implemented linear filter.
      */
-    public Queue<RoomStatusLog> getHistoryForRoom(String roomNumber) {
-        Queue<RoomStatusLog> history = new Queue<>();
+    public DoublyLinkedListQueue<RoomStatusLog> getHistoryForRoom(String roomNumber) {
+        DoublyLinkedListQueue<RoomStatusLog> history = new DoublyLinkedListQueue<>();
         int total = statusLog.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             RoomStatusLog entry = statusLog.getEntry(i);
@@ -266,9 +328,10 @@ public class HousekeepingControl {
      * excluded from this report rather than silently misreported as
      * DIRTY/READY/etc.
      */
-    public Queue<RoomStatusLog> getRoomsByCurrentStatus(String statusFilter, String roomTypeFilter) {
-        Queue<RoomStatusLog> result = new Queue<>();
-        Queue<String> seenRooms = new Queue<>();
+    public DoublyLinkedListQueue<RoomStatusLog> getRoomsByCurrentStatus(
+            String statusFilter, String roomTypeFilter) {
+        DoublyLinkedListQueue<RoomStatusLog> result = new DoublyLinkedListQueue<>();
+        DoublyLinkedListQueue<String> seenRooms = new DoublyLinkedListQueue<>();
         int total = statusLog.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             String roomNumber = statusLog.getEntry(i).getRoomNumber();
@@ -299,16 +362,26 @@ public class HousekeepingControl {
      * Business decision: READY is the END of a cleaning cycle. The gap
      * from READY to the next DIRTY includes guest occupancy / waiting
      * time, not actual cleaning-stage duration, so READY is
-     * intentionally excluded from this average. Malformed timestamps
-     * or accidental negative/zero gaps are skipped rather than
-     * corrupting the average or crashing the report.
+     * intentionally excluded from this average.
+     *
+     * CLEANING is also excluded: since scheduleAutoInspect() now logs
+     * INSPECTED automatically at a fixed delay
+     * (AUTO_INSPECT_DELAY_SECONDS) rather than whenever staff actually
+     * finish, that gap no longer reflects real cleaning time — it would
+     * always average out to ~1 minute regardless of true performance.
+     *
+     * Only DIRTY (time waiting before cleaning starts) remains a
+     * genuine, staff/queue-driven duration in this report.
+     *
+     * Malformed timestamps or accidental negative/zero gaps are skipped
+     * rather than corrupting the average or crashing the report.
      */
-    public Queue<StageDuration> getAverageDurationPerStage(String stageFilter) {
-        Queue<String> stageNames = new Queue<>();
-        Queue<Long> stageTotalMinutes = new Queue<>();
-        Queue<Integer> stageCount = new Queue<>();
+    public DoublyLinkedListQueue<StageDuration> getAverageDurationPerStage(String stageFilter) {
+        DoublyLinkedListQueue<String> stageNames = new DoublyLinkedListQueue<>();
+        DoublyLinkedListQueue<Long> stageTotalMinutes = new DoublyLinkedListQueue<>();
+        DoublyLinkedListQueue<Integer> stageCount = new DoublyLinkedListQueue<>();
 
-        Queue<String> distinctRooms = new Queue<>();
+        DoublyLinkedListQueue<String> distinctRooms = new DoublyLinkedListQueue<>();
         int total = statusLog.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             String roomNumber = statusLog.getEntry(i).getRoomNumber();
@@ -320,7 +393,7 @@ public class HousekeepingControl {
         int totalRooms = distinctRooms.getNumberOfEntries();
         for (int r = 0; r < totalRooms; r++) {
             String roomNumber = distinctRooms.getEntry(r);
-            Queue<RoomStatusLog> roomEntries = new Queue<>();
+            DoublyLinkedListQueue<RoomStatusLog> roomEntries = new DoublyLinkedListQueue<>();
             for (int i = 0; i < total; i++) {
                 RoomStatusLog entry = statusLog.getEntry(i);
                 if (entry.getRoomNumber().equalsIgnoreCase(roomNumber)) {
@@ -337,6 +410,15 @@ public class HousekeepingControl {
                 if (stage.equalsIgnoreCase("READY")) {
                     // READY -> next DIRTY spans guest occupancy, not a
                     // cleaning stage — excluded by design (see above).
+                    continue;
+                }
+                if (stage.equalsIgnoreCase("CLEANING")) {
+                    // Added: CLEANING -> INSPECTED is now auto-logged by
+                    // scheduleAutoInspect() at a FIXED delay
+                    // (AUTO_INSPECT_DELAY_SECONDS), not a real staff-timed
+                    // duration. Averaging a fixed constant would be
+                    // meaningless/misleading, so this stage is excluded
+                    // the same way READY is.
                     continue;
                 }
                 if (!stageFilter.equalsIgnoreCase("ALL") && !stage.equalsIgnoreCase(stageFilter)) {
@@ -364,7 +446,7 @@ public class HousekeepingControl {
             }
         }
 
-        Queue<StageDuration> resultList = new Queue<>();
+        DoublyLinkedListQueue<StageDuration> resultList = new DoublyLinkedListQueue<>();
         int stagesFound = stageNames.getNumberOfEntries();
         for (int i = 0; i < stagesFound; i++) {
             String stage = stageNames.getEntry(i);
@@ -381,18 +463,16 @@ public class HousekeepingControl {
      * instead of crashing the whole report.
      */
     private long minutesBetween(String startTimestamp, String endTimestamp) {
-        java.time.format.DateTimeFormatter formatter =
-                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         try {
-            java.time.LocalDateTime start = java.time.LocalDateTime.parse(startTimestamp, formatter);
-            java.time.LocalDateTime end = java.time.LocalDateTime.parse(endTimestamp, formatter);
+            LocalDateTime start = LocalDateTime.parse(startTimestamp, TIMESTAMP_FORMAT);
+            LocalDateTime end = LocalDateTime.parse(endTimestamp, TIMESTAMP_FORMAT);
             return java.time.Duration.between(start, end).toMinutes();
         } catch (java.time.format.DateTimeParseException e) {
             return -1;
         }
     }
 
-    private int indexOfStageName(Queue<String> stageNames, String stage) {
+    private int indexOfStageName(DoublyLinkedListQueue<String> stageNames, String stage) {
         int total = stageNames.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             if (stageNames.getEntry(i).equalsIgnoreCase(stage)) {
@@ -402,8 +482,8 @@ public class HousekeepingControl {
         return -1;
     }
 
-    private void replaceAt(Queue<Long> queue, int position, long newValue) {
-        Queue<Long> rebuilt = new Queue<>();
+    private void replaceAt(DoublyLinkedListQueue<Long> queue, int position, long newValue) {
+        DoublyLinkedListQueue<Long> rebuilt = new DoublyLinkedListQueue<>();
         int total = queue.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             rebuilt.enqueue(i == position ? newValue : queue.getEntry(i));
@@ -414,8 +494,8 @@ public class HousekeepingControl {
         }
     }
 
-    private void replaceAt(Queue<Integer> queue, int position, int newValue) {
-        Queue<Integer> rebuilt = new Queue<>();
+    private void replaceAt(DoublyLinkedListQueue<Integer> queue, int position, int newValue) {
+        DoublyLinkedListQueue<Integer> rebuilt = new DoublyLinkedListQueue<>();
         int total = queue.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             rebuilt.enqueue(i == position ? newValue : queue.getEntry(i));
@@ -426,7 +506,8 @@ public class HousekeepingControl {
         }
     }
 
-    private Queue<RoomStatusLog> sortByRoomNumber(Queue<RoomStatusLog> input) {
+    private DoublyLinkedListQueue<RoomStatusLog> sortByRoomNumber(
+            DoublyLinkedListQueue<RoomStatusLog> input) {
         int n = input.getNumberOfEntries();
         RoomStatusLog[] arr = new RoomStatusLog[n];
         for (int i = 0; i < n; i++) {
@@ -441,14 +522,15 @@ public class HousekeepingControl {
             }
             arr[j + 1] = key;
         }
-        Queue<RoomStatusLog> sorted = new Queue<>();
+        DoublyLinkedListQueue<RoomStatusLog> sorted = new DoublyLinkedListQueue<>();
         for (RoomStatusLog r : arr) {
             sorted.enqueue(r);
         }
         return sorted;
     }
 
-    private Queue<StageDuration> sortByDurationDescending(Queue<StageDuration> input) {
+    private DoublyLinkedListQueue<StageDuration> sortByDurationDescending(
+            DoublyLinkedListQueue<StageDuration> input) {
         int n = input.getNumberOfEntries();
         StageDuration[] arr = new StageDuration[n];
         for (int i = 0; i < n; i++) {
@@ -465,7 +547,7 @@ public class HousekeepingControl {
             arr[i] = arr[maxIndex];
             arr[maxIndex] = swapTemp;
         }
-        Queue<StageDuration> sorted = new Queue<>();
+        DoublyLinkedListQueue<StageDuration> sorted = new DoublyLinkedListQueue<>();
         for (StageDuration sd : arr) {
             sorted.enqueue(sd);
         }
@@ -478,8 +560,8 @@ public class HousekeepingControl {
      * cannot accidentally clear(), dequeue(), or removeLast() on the
      * real shared statusLog by mutating what this method returns.
      */
-    public Queue<RoomStatusLog> getFullLog() {
-        Queue<RoomStatusLog> copy = new Queue<>();
+    public DoublyLinkedListQueue<RoomStatusLog> getFullLog() {
+        DoublyLinkedListQueue<RoomStatusLog> copy = new DoublyLinkedListQueue<>();
         int total = statusLog.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             copy.enqueue(statusLog.getEntry(i));

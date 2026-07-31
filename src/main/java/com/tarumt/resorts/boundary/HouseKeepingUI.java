@@ -3,14 +3,14 @@ package com.tarumt.resorts.boundary;
 import com.tarumt.resorts.control.HousekeepingControl;
 import com.tarumt.resorts.entity.RoomStatusLog;
 import com.tarumt.resorts.entity.StageDuration;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import java.util.Scanner;
 
 /**
  * HouseKeepingUI.java
  * Console interface for the Housekeeping & Task Log module.
  *
- * @author YourName
+ * @author KohJun
  */
 public class HouseKeepingUI {
 
@@ -56,7 +56,7 @@ public class HouseKeepingUI {
             System.out.println(menuBorder);
             System.out.printf("| %-64s |%n", "1. Log new room status change");
             System.out.printf("| %-64s |%n", "2. View current status of a room");
-            System.out.printf("| %-64s |%n", "3. Rollback last status change (global)");
+            System.out.printf("| %-64s |%n", "3. Rollback last status change");
             System.out.printf("| %-64s |%n", "4. View full history of a room");
             System.out.printf("| %-64s |%n", "5. Report 1: Rooms by current status");
             System.out.printf("| %-64s |%n", "6. Report 2: Avg time per stage");
@@ -177,7 +177,18 @@ public class HouseKeepingUI {
             System.out.println("No status log entries to rollback.");
             return;
         }
-        System.out.println("Most recent entry (global, across all rooms): " + preview);
+
+        String previewBorder = "+------------+------------------+------------------+";
+        int previewWidth = previewBorder.length() - 4;
+        System.out.println();
+        System.out.println(previewBorder);
+        printCentered("MOST RECENT STATUS CHANGE", previewWidth);
+        System.out.println(previewBorder);
+        System.out.printf("| %-10s | %-16s | %-16s |%n", "Room", "Status", "Timestamp");
+        System.out.println(previewBorder);
+        System.out.printf("| %-10.10s | %-16.16s | %-16.16s |%n",
+                preview.getRoomNumber(), preview.getStatus(), preview.getTimestamp());
+        System.out.println(previewBorder);
         System.out.print("Confirm rollback? (Y/N): ");
         String confirm = sc.nextLine();
         if (confirm.equalsIgnoreCase("Y")) {
@@ -224,13 +235,12 @@ public class HouseKeepingUI {
             System.out.println(border);
             printCentered("STATUS HISTORY", contentWidth);
             System.out.println(border);
-            System.out.printf("| %-" + contentWidth + "s |%n",
-                    "Room " + roomNumber + " does not exist.");
+            System.out.printf("| %-" + contentWidth + "s |%n", "Room " + roomNumber + " does not exist.");
             System.out.println(border);
             return;
         }
 
-        Queue<RoomStatusLog> history = control.getHistoryForRoom(roomNumber);
+        DoublyLinkedListQueue<RoomStatusLog> history = control.getHistoryForRoom(roomNumber);
         int total = history.getNumberOfEntries();
 
         System.out.println();
@@ -277,7 +287,8 @@ public class HouseKeepingUI {
             System.out.println("Invalid room type entered. Please enter Standard, Deluxe, Suite, or press Enter for ALL.");
         }
 
-        Queue<RoomStatusLog> filtered = control.getRoomsByCurrentStatus(statusFilter.toUpperCase(), roomTypeFilter);
+        DoublyLinkedListQueue<RoomStatusLog> filtered =
+                control.getRoomsByCurrentStatus(statusFilter.toUpperCase(), roomTypeFilter);
 
         String border = "+------------+------------+------------------+------------------+";
         int contentWidth = border.length() - 4;
@@ -307,28 +318,36 @@ public class HouseKeepingUI {
         }
         System.out.println(border);
         System.out.println("Total records: " + total);
-        System.out.println("Note: rooms with no status log yet are excluded (their status is UNKNOWN).");
     }
 
+    /**
+     * Report 2: average time per cleaning stage.
+     *
+     * Added: CLEANING removed from the selectable filter options.
+     * Since HousekeepingControl now auto-logs INSPECTED at a fixed
+     * delay (scheduleAutoInspect()), CLEANING duration is no longer a
+     * real, staff-timed measurement — the control layer excludes it
+     * from the calculation, so offering it here as a filter would only
+     * ever return "No data available for this filter."
+     */
     private void reportAverageDuration() {
         String stageFilter;
         while (true) {
-            System.out.print("Filter by stage (DIRTY/CLEANING/INSPECTED), or press Enter for ALL: ");
+            System.out.print("Filter by stage (DIRTY/INSPECTED), or press Enter for ALL: ");
             String stageInput = sc.nextLine().trim();
             if (stageInput.isEmpty()) {
                 stageFilter = "ALL";
                 break;
             }
             if (stageInput.equalsIgnoreCase("DIRTY")
-                    || stageInput.equalsIgnoreCase("CLEANING")
                     || stageInput.equalsIgnoreCase("INSPECTED")) {
                 stageFilter = stageInput;
                 break;
             }
-            System.out.println("Invalid stage entered. Please enter DIRTY, CLEANING, INSPECTED, or press Enter for ALL.");
+            System.out.println("Invalid stage entered. Please enter DIRTY, INSPECTED, or press Enter for ALL.");
         }
 
-        Queue<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
+        DoublyLinkedListQueue<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
 
         String border = "+----------------------+------------------+";
         int contentWidth = border.length() - 4;
@@ -355,7 +374,5 @@ public class HouseKeepingUI {
         }
         System.out.println(border);
         System.out.println("Total stages measured: " + total);
-        System.out.println("Note: READY duration is intentionally excluded - it would measure");
-        System.out.println("guest occupancy/waiting time, not an actual cleaning stage.");
     }
 }

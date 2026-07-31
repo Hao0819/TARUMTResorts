@@ -4,9 +4,14 @@ import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.entity.WalkInRegistration;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.entity.MembershipTier;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
+import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Iterator;
 
 /**
  * WalkInRegistrationControl.java
@@ -16,40 +21,50 @@ import com.tarumt.resorts.dao.RoomDAO;
  */
 public class WalkInRegistrationControl {
 
-    private Queue<WalkInRegistration> registrationQueue;
-    private Queue<WalkInRegistration> registrationHistory;
-    private Queue<Room> roomList;
+    // Active registrations processed using strict FIFO behaviour.
+    private ListQueueInterface<WalkInRegistration> registrationQueue;
+
+    // Complete registration records used for searching and reporting.
+    private ListQueueInterface<WalkInRegistration> registrationHistory;
+
+    // Shared room collection provided by Main.
+    private ListQueueInterface<Room> roomList;
     private int confirmationCounter;
     private int registrationCounter;
     private int guestCounter;
-    private Queue<Booking> bookingList;
-    private Queue<Guest> guestList;
+    // Shared bookings created by Standard and VIP allocation modules.
+    private ListQueueInterface<Booking> bookingList;
+    private ListQueueInterface<Guest> guestList;
 
     public WalkInRegistrationControl() {
-        this(
-            new RoomDAO().getAllRooms(),
-            new GuestDAO().getAllGuests(),
-            new Queue<>());
+        this(new RoomDAO().getAllRooms(),
+                new GuestDAO().getAllGuests(),
+                new DoublyLinkedListQueue<>());
     }
 
     // Constructor used when Main does not provide registration history.
     public WalkInRegistrationControl(
-            Queue<Room> sharedRooms,
-            Queue<Guest> sharedGuests,
-            Queue<Booking> sharedBookings) {
-        this(sharedRooms, sharedGuests, sharedBookings, new Queue<>());
+            ListQueueInterface<Room> sharedRooms,
+            ListQueueInterface<Guest> sharedGuests,
+            ListQueueInterface<Booking> sharedBookings) {
+
+        this(
+                sharedRooms,
+                sharedGuests,
+                sharedBookings,
+                new DoublyLinkedListQueue<>());
     }
 
     // Constructor used when Main provides hard-coded registration history.
     public WalkInRegistrationControl(
-            Queue<Room> sharedRooms,
-            Queue<Guest> sharedGuests,
-            Queue<Booking> sharedBookings,
-            Queue<WalkInRegistration> sharedRegistrationHistory) {
+            ListQueueInterface<Room> sharedRooms,
+            ListQueueInterface<Guest> sharedGuests,
+            ListQueueInterface<Booking> sharedBookings,
+            ListQueueInterface<WalkInRegistration> sharedRegistrationHistory) {
 
         // use the registration history created by WalkInRegistrationDAO
         registrationHistory = sharedRegistrationHistory;
-        registrationQueue = new Queue<>();
+        registrationQueue = new DoublyLinkedListQueue<>();
 
         // Copy history references and arrange them by arrival time.
         WalkInRegistration[] chronologicalHistory = getAllRegistrationHistory();
@@ -72,19 +87,27 @@ public class WalkInRegistrationControl {
         bookingList = sharedBookings;
 
         registrationCounter = registrationHistory.getNumberOfEntries() + 1;
-        confirmationCounter = 1;
+        // Continue after the existing shared booking records.
+        confirmationCounter = bookingList.getNumberOfEntries() + 1;
         guestCounter = guestList.getNumberOfEntries() + 1;
     }
 
+    /*
+     * Expected flow
+     * Generate WR0021
+     * → search history
+     * → exists: try WR0022
+     * → not exists: use generated ID
+     */
     private boolean registrationIdExists(String registrationId) {
-        int total = registrationHistory.getNumberOfEntries();
-        for (int i = 0; i < total; i++) {
-            WalkInRegistration existing = registrationHistory.getEntry(i);
-            if (existing.getRegistrationId().equalsIgnoreCase(registrationId)) {
-                return true;
-            }
-        }
-        return false;
+        WalkInRegistration existingRegistration =
+                // search within the complete registrationHistory
+                registrationHistory.searchByKey(
+                        registrationId,
+                        // every record using registrationId as key
+                        registration -> registration.getRegistrationId());
+        // Returns true if a record is found, otherwise returns false.
+        return existingRegistration != null;
     }
 
     private String generateRegistrationId() {
@@ -96,15 +119,20 @@ public class WalkInRegistrationControl {
         return registrationId;
     }
 
+    /*
+     * Expected flow
+     * Generate G021
+     * → search all shared Guests
+     * → duplicate: try next ID
+     * → unique: create Guest
+     */
     private boolean guestIdExists(String guestId) {
-        int total = guestList.getNumberOfEntries();
-        for (int i = 0; i < total; i++) {
-            Guest existing = guestList.getEntry(i);
-            if (existing.getGuestId().equalsIgnoreCase(guestId)) {
-                return true;
-            }
-        }
-        return false;
+        // Simply traverse the Queue nodes.
+        Guest existingGuest = guestList.searchByKey(
+                guestId,
+                guest -> guest.getGuestId()); // Specify Guest ID as search key
+
+        return existingGuest != null; // Return true if a matching Guest is found.
     }
 
     private String generateGuestId() {
@@ -116,59 +144,172 @@ public class WalkInRegistrationControl {
         return guestId;
     }
 
-    private boolean confirmationNumberExists(String confirmationNumber) {
-        int total = bookingList.getNumberOfEntries();
-        for (int i = 0; i < total; i++) {
-            Booking existing = bookingList.getEntry(i);
-            if (existing.getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
-                return true;
-            }
-        }
-        return false;
+    /*
+     * Expected flow
+     * Generate candidate ID
+     * → search shared booking Queue
+     * → duplicate: generate next ID
+     * → unique: return ID
+     */
+    private boolean confirmationNumberExists(
+            String confirmationNumber) {
+        // use shared ADT search
+        Booking existingBooking = bookingList.searchByKey(
+                confirmationNumber,
+                booking -> booking.getConfirmationNumber());// Specify the search key for each Booking.
+
+        return existingBooking != null;// found same number return true
     }
 
-    /**
-     * Generates the team's standard confirmation number: a unique 8-digit
-     * numeric value ("2026" year prefix + 4-digit running counter), as required
-     * by the assignment specification and relied on by the Front-Desk lookup.
-     * Numbers already used by the seeded sample bookings are skipped.
-     */
     private String generateConfirmationNumber() {
         String confirmationNumber;
         do {
-            confirmationNumber = String.format("2026%04d", confirmationCounter);
+            // Four-digit year + four-digit running number = 8 numeric digits.
+            confirmationNumber = String.format(
+                    "%04d%04d",
+                    LocalDateTime.now().getYear(),
+                    confirmationCounter);
             confirmationCounter++;
         } while (confirmationNumberExists(confirmationNumber));
         return confirmationNumber;
     }
 
     public Guest findGuestById(String guestId) {
+        // reject invalid Guest ID
         if (guestId == null || guestId.trim().isEmpty()) {
             return null;
         }
-        String normalizedId = guestId.trim();
-        int total = guestList.getNumberOfEntries();
-        for (int i = 0; i < total; i++) {
-            Guest existing = guestList.getEntry(i);
-            if (existing.getGuestId().equalsIgnoreCase(normalizedId)) {
-                return existing;
-            }
-        }
-        return null;
+        return guestList.searchByKey(
+                guestId.trim(), // Remove spaces before and after the input.
+                guest -> guest.getGuestId());
     }
 
-    private Guest findOrCreateGuest(String name, String contactNumber, String email) {
-        String normalizedContact = normalizeContact(contactNumber);
-        int totalGuest = guestList.getNumberOfEntries();
-        for (int i = 0; i < totalGuest; i++) {
-            Guest existing = guestList.getEntry(i);
-            String existingContact = normalizeContact(existing.getContactNumber());
-            if (normalizedContact != null && normalizedContact.equals(existingContact)) {
-                return existing;
+    /**
+     * Returns all shared Guest references in their current stored order.
+     */
+    public Guest[] getAllGuests() {
+        int guestCount = guestList.getNumberOfEntries();
+
+        Guest[] guests = new Guest[guestCount];
+
+        Iterator<Guest> iterator = guestList.getIterator();
+
+        int arrayIndex = 0;
+
+        while (iterator.hasNext()) {
+            guests[arrayIndex] = iterator.next();
+            arrayIndex++;
+        }
+
+        return guests;
+    }
+
+    // Search the shared Guest Queue using a normalized contact number.
+    /*
+     * Input 0123456789
+     * → normalize
+     * → traverse shared Guest Queue once
+     * → DAO has 012-3456789
+     * → existing Guest found
+     */
+    public Guest findGuestByContact(String contactNumber) {
+        String normalizedContact = normalizeContact(contactNumber);// Remove spaces and -
+
+        if (normalizedContact == null
+                || normalizedContact.isEmpty()) {
+            return null;
+        }
+
+        return guestList.searchByKey(
+                normalizedContact,
+                guest -> normalizeContact(guest.getContactNumber()));
+    }
+
+    /**
+     * Updates the requested room type without changing the guest's FIFO position.
+     */
+    public boolean updateRequestedRoomType(String guestId, String newRoomType) {
+        if (guestId == null || newRoomType == null) {
+            return false;
+        }
+
+        String normalizedRoomType;
+
+        // Convert the input into the standard room-type spelling.
+        if (newRoomType.equalsIgnoreCase("Standard")) {
+            normalizedRoomType = "Standard";
+        } else if (newRoomType.equalsIgnoreCase("Deluxe")) {
+            normalizedRoomType = "Deluxe";
+        } else if (newRoomType.equalsIgnoreCase("Suite")) {
+            normalizedRoomType = "Suite";
+        } else {
+            return false;
+        }
+
+        WalkInRegistration registration = searchByGuestId(guestId.trim());
+
+        // Only an active WaITING registration may be updated
+        if (registration == null || !"WAITING".equalsIgnoreCase(registration.getStatus())) {
+            return false;
+        }
+
+        registration.setRequestedRoomType(normalizedRoomType);
+        return true;
+
+    }
+
+    /**
+     * Cancels one waiting registration while preserving the FIFO order
+     * of all remaining registrations.
+     */
+    public boolean cancelWaitingRegistration(String guestId) {
+        if (guestId == null || guestId.trim().isEmpty()) {
+            return false;
+        }
+
+        String targetGuestId = guestId.trim();
+        int queueSize = registrationQueue.getNumberOfEntries();
+        boolean isCancelled = false;
+
+        // Check every original queue entry once.
+        for (int i = 0; i < queueSize; i++) {
+            WalkInRegistration registration = registrationQueue.dequeue();
+
+            if (!isCancelled && registration.getGuest().getGuestId().equalsIgnoreCase(targetGuestId)) {
+
+                // Remove from active queue but retain it in history
+                registration.setStatus("CANCELLED");
+                isCancelled = true;
+            } else {
+                // Put non-target registrations back in their original FIFO order
+                registrationQueue.enqueue(registration);
             }
         }
+        return isCancelled;
+    }
+
+    private Guest findOrCreateGuest(
+            String name,
+            String contactNumber,
+            String email) {
+
+        // Reuse the existing Guest when the contact number is registered.
+        Guest existingGuest = findGuestByContact(contactNumber);
+
+        if (existingGuest != null) {
+            return existingGuest;
+        }
+
+        // No matching contact was found, so create a new Guest.
         String newGuestId = generateGuestId();
-        Guest newGuest = new Guest(newGuestId, name, normalizedContact, email, "None");
+
+        Guest newGuest = new Guest(
+                newGuestId,
+                name,
+                normalizeContact(contactNumber),
+                email,
+                MembershipTier.NONE);
+
         guestList.enqueue(newGuest);
         return newGuest;
     }
@@ -216,14 +357,21 @@ public class WalkInRegistrationControl {
     public Guest registerGuest(
             String name, String contactNumber, String email,
             String registrationTime, String requestedRoomType) {
+        /*
+         * Find/Create Guest
+         * → Search active queue once
+         * → Found WAITING record: reject
+         * → Not found: create registration
+         */
         Guest guest = findOrCreateGuest(name, contactNumber, email);
-        int totalWaiting = registrationQueue.getNumberOfEntries();
-        for (int i = 0; i < totalWaiting; i++) {
-            WalkInRegistration existing = registrationQueue.getEntry(i);
-            if (existing.getGuest().getGuestId().equalsIgnoreCase(guest.getGuestId())
-                    && existing.getStatus().equals("WAITING")) {
-                return null;
-            }
+        // avoid O(n^2) indexede traversal, decrease duplicate code
+        // Prevent the same guest from having two active waiting registrations.
+        WalkInRegistration existingRegistration = searchByGuestId(guest.getGuestId());// using adt O(n) node traversal
+
+        if (existingRegistration != null
+                && "WAITING".equalsIgnoreCase(
+                        existingRegistration.getStatus())) {
+            return null;
         }
         String registrationId = generateRegistrationId();
         WalkInRegistration registration = new WalkInRegistration(
@@ -246,6 +394,12 @@ public class WalkInRegistrationControl {
                 || cleaningStatus.equalsIgnoreCase("READY")
                 || cleaningStatus.equalsIgnoreCase("UNKNOWN");
     }
+    /*
+     * peek front guest
+     * → iterate rooms
+     * → matching room found or null
+     * → no room: front guest remains
+     */
 
     public Booking processNextGuest() {
         WalkInRegistration nextGuest = registrationQueue.peek();
@@ -254,13 +408,21 @@ public class WalkInRegistrationControl {
         }
 
         Room assignedRoom = null;
-        int totalRoom = roomList.getNumberOfEntries();
-        for (int i = 0; i < totalRoom; i++) {
-            Room candidate = roomList.getEntry(i);
-            if (candidate.isAvailable()
-                    && candidate.getRoomType().equalsIgnoreCase(nextGuest.getRequestedRoomType())
-                    && isReadyForAllocation(candidate)) {
-                assignedRoom = candidate;
+
+        // roomIterator only traversal Room nodes
+        Iterator<Room> roomIterator = roomList.getIterator();
+
+        while (roomIterator.hasNext()) {
+            Room candidateRoom = roomIterator.next();
+
+            boolean roomTypeMatches = candidateRoom.getRoomType().equalsIgnoreCase(
+                    nextGuest.getRequestedRoomType());
+
+            if (roomTypeMatches
+                    && candidateRoom.isAvailable()
+                    && isReadyForAllocation(candidateRoom)) {
+
+                assignedRoom = candidateRoom;
                 break;
             }
         }
@@ -270,8 +432,17 @@ public class WalkInRegistrationControl {
         }
 
         String confirmationNumber = generateConfirmationNumber();
-        Booking booking = new Booking(confirmationNumber, nextGuest.getGuest(), assignedRoom,
-                nextGuest.getRegistrationTime());
+
+        // Record when the booking is created; actual check-in is handled by Front-Desk.
+        String bookingCreatedTime = LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+
+        Booking booking = new Booking(
+                confirmationNumber,
+                nextGuest.getGuest(),
+                assignedRoom,
+                bookingCreatedTime,
+                null);
 
         boolean bookingSaved = bookingList.enqueue(booking);
         if (!bookingSaved) {
@@ -284,24 +455,94 @@ public class WalkInRegistrationControl {
         return booking;
     }
 
+    /*
+     * Guest ID input
+     * → Queue.searchByKey()
+     * → traverse linked nodes once
+     * → return matching registration
+     */
     public WalkInRegistration searchByGuestId(String guestId) {
-        int totalWaiting = registrationQueue.getNumberOfEntries();
-        for (int i = 0; i < totalWaiting; i++) {
-            WalkInRegistration reg = registrationQueue.getEntry(i);
-            if (reg.getGuest().getGuestId().equalsIgnoreCase(guestId)) {
-                return reg;
-            }
+        if (guestId == null || guestId.trim().isEmpty()) {
+            return null;
         }
-        return null;
+
+        // Search linked nodes directly using each registration's Guest ID.
+        return registrationQueue.searchByKey(
+                guestId.trim(),
+                registration -> registration.getGuest().getGuestId());
     }
 
-    public WalkInRegistration[] getAllWaitingRegistrations() {
-        int total = registrationQueue.getNumberOfEntries();
-        WalkInRegistration[] all = new WalkInRegistration[total];
-        for (int i = 0; i < total; i++) {
-            all[i] = registrationQueue.getEntry(i);
+    /**
+     * Returns every historical registration belonging to one Guest ID.
+     * Results retain their original chronological order.
+     */
+    public WalkInRegistration[] searchRegistrationHistoryByGuestId(
+            String guestId) {
+
+        if (guestId == null || guestId.trim().isEmpty()) {
+            return new WalkInRegistration[0];
         }
-        return all;
+
+        String targetGuestId = guestId.trim();
+        int matchingRecordCount = 0;
+
+        // First traversal: count matching records.
+        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator();
+
+        while (countIterator.hasNext()) {
+            WalkInRegistration registration = countIterator.next();
+
+            if (registration.getGuest().getGuestId()
+                    .equalsIgnoreCase(targetGuestId)) {
+                matchingRecordCount++;
+            }
+        }
+
+        WalkInRegistration[] matchingRegistrations = new WalkInRegistration[matchingRecordCount];
+
+        // Second traversal: store matching record references.
+        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator();
+
+        int arrayIndex = 0;
+
+        while (storeIterator.hasNext()) {
+            WalkInRegistration registration = storeIterator.next();
+
+            if (registration.getGuest().getGuestId()
+                    .equalsIgnoreCase(targetGuestId)) {
+
+                matchingRegistrations[arrayIndex] = registration;
+                arrayIndex++;
+            }
+        }
+
+        return matchingRegistrations;
+    }
+
+    /*
+     * Queue: A → B → C
+     * Iterator reads: A, B, C
+     * Array: [A, B, C]
+     */
+    public WalkInRegistration[] getAllWaitingRegistrations() {
+        // queueSize determine the length of array
+        int queueSize = registrationQueue.getNumberOfEntries();
+        WalkInRegistration[] registrations = new WalkInRegistration[queueSize];
+
+        // getIterator() traversal start from Queue front
+        Iterator<WalkInRegistration> iterator = registrationQueue.getIterator();
+
+        int arrayIndex = 0;
+
+        // hasNext() Check if there are still registrations.
+        while (iterator.hasNext()) {
+            // next() get the current entry then move to next dode
+            // arrayIndex determine position of the entry in array
+            registrations[arrayIndex] = iterator.next();
+            arrayIndex++;
+        }
+
+        return registrations;
     }
 
     public WalkInRegistration[] filterRegistrationHistory(String roomTypeFilter, String statusFilter) {
@@ -364,65 +605,113 @@ public class WalkInRegistrationControl {
         return registrations;
     }
 
+    /*
+     * History Queue
+     * → iterator traverses once
+     * → array keeps chronological queue order
+     * → filter and sort report
+     */
     public WalkInRegistration[] getAllRegistrationHistory() {
-        int total = registrationHistory.getNumberOfEntries();
-        WalkInRegistration[] history = new WalkInRegistration[total];
-        for (int i = 0; i < total; i++) {
-            history[i] = registrationHistory.getEntry(i);
+        // historySize include WAITING, ASSIGNED, CANCELLED
+        int historySize = registrationHistory.getNumberOfEntries();
+
+        WalkInRegistration[] registrations = new WalkInRegistration[historySize];
+
+        Iterator<WalkInRegistration> iterator = registrationHistory.getIterator();
+
+        // Fill the array in sequence.
+        int arrayIndex = 0;
+
+        while (iterator.hasNext()) {
+            registrations[arrayIndex] = iterator.next();
+            arrayIndex++;
         }
-        return history;
+
+        return registrations;
     }
 
+    /*
+     * Waiting Queue:
+     * Standard → Deluxe → Standard
+     * 
+     * countWaitingByRoomType("Standard")
+     * → result = 2
+     */
     // Count active waiting registrations requesting one room type.
-    public int countWaitingByRoomType(String roomType){
+    public int countWaitingByRoomType(String roomType) {
+        if (roomType == null || roomType.trim().isEmpty()) {
+            return 0;
+        }
+
         int demandCount = 0;
-        int totalWaiting = registrationQueue.getNumberOfEntries(); //get active waiting queue counter
 
-        //check waiting registrations
-        for (int i = 0; i < totalWaiting ; i++){
-            //get current registration object reference
-            WalkInRegistration registrationRecord = registrationQueue.getEntry(i);
+        // Direct access to linked nodes
+        Iterator<WalkInRegistration> iterator = registrationQueue.getIterator();
 
-            //compare room type guest request with method parameter 
-            if (registrationRecord.getRequestedRoomType().equalsIgnoreCase(roomType)){
-                demandCount++; //aech matching record found, counter ++
+        while (iterator.hasNext()) {
+            WalkInRegistration registration = iterator.next();
+
+            if (registration.getRequestedRoomType()
+                    .equalsIgnoreCase(roomType.trim())) {
+                demandCount++;
             }
         }
-        
+
         return demandCount;
     }
 
-    //count all rooms belonging to one room type
-    public int countTotalRoomsByType(String roomType){
-        int totalRoomCount = 0;
-        int totalRooms = roomList.getNumberOfEntries();
+    // count all rooms belonging to one room type , not check availability
+    public int countTotalRoomsByType(String roomType) {
+        if (roomType == null || roomType.trim().isEmpty()) {
+            return 0;
+        }
 
-        //check every room in the shared Room Queue
-        for (int i = 0; i < totalRooms ; i++){
-            Room room = roomList.getEntry(i);
+        int roomCount = 0;
 
-            //count the room when its type matches the parameter
-            if (room.getRoomType().equalsIgnoreCase(roomType)){
-                totalRoomCount++;
+        // From the first room to the last room
+        Iterator<Room> iterator = roomList.getIterator();
+
+        while (iterator.hasNext()) {
+            Room room = iterator.next();
+
+            if (room.getRoomType()
+                    .equalsIgnoreCase(roomType.trim())) {
+                roomCount++;
             }
         }
-        return totalRoomCount;
+
+        return roomCount;
     }
 
-    //count currently available rooms belogingd to one room type
-    public int countAvailableRoomsByType(String roomType){
+    /*
+     * Correct type
+     * + available
+     * + READY/UNKNOWN
+     * = counted as allocatable
+     */
+    // count currently available rooms belogingd to one room type
+    public int countAvailableRoomsByType(String roomType) {
+        if (roomType == null || roomType.trim().isEmpty()) {
+            return 0;
+        }
+
         int availableRoomCount = 0;
-        //get total number of current shared Room Queue 
-        int totalRooms = roomList.getNumberOfEntries();
 
-        for (int i = 0; i < totalRooms; i ++){
-            Room room = roomList.getEntry(i);
+        Iterator<Room> iterator = roomList.getIterator();
 
-            //the room must match the type and currently be available
-            if (room.getRoomType().equalsIgnoreCase(roomType) && room.isAvailable()){
+        while (iterator.hasNext()) {
+            Room room = iterator.next();
+
+            boolean roomTypeMatches = room.getRoomType()
+                    .equalsIgnoreCase(roomType.trim());
+
+            if (roomTypeMatches
+                    && room.isAvailable()
+                    && isReadyForAllocation(room)) {
                 availableRoomCount++;
             }
         }
+
         return availableRoomCount;
     }
 
@@ -431,7 +720,7 @@ public class WalkInRegistrationControl {
         return registrationQueue.getNumberOfEntries();
     }
 
-    public Queue<Booking> getBookingList() {
+    public ListQueueInterface<Booking> getBookingList() {
         return bookingList;
     }
 }

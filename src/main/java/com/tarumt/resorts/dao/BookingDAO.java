@@ -3,7 +3,8 @@ package com.tarumt.resorts.dao;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
-import com.tarumt.resorts.adt.Queue;
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
+import com.tarumt.resorts.adt.ListQueueInterface;
 
 /**
  * BookingDAO.java
@@ -22,8 +23,8 @@ import com.tarumt.resorts.adt.Queue;
  */
 public class BookingDAO {
 
-    private Queue<Guest> guests;
-    private Queue<Room> rooms;
+    private ListQueueInterface<Guest> guests;
+    private ListQueueInterface<Room> rooms;
 
     /**
      * Builds the sample bookings against the SAME shared Guest and Room
@@ -32,10 +33,10 @@ public class BookingDAO {
      * "stale room copy" problem where a check-out frees one copy of a room but
      * the availability view still reads a different copy.
      */
-    public Queue<Booking> getAllBookings(Queue<Guest> sharedGuests, Queue<Room> sharedRooms) {
+    public DoublyLinkedListQueue<Booking> getAllBookings(ListQueueInterface<Guest> sharedGuests, ListQueueInterface<Room> sharedRooms) {
         this.guests = sharedGuests;
         this.rooms = sharedRooms;
-        Queue<Booking> bookings = new Queue<>();
+        DoublyLinkedListQueue<Booking> bookings = new DoublyLinkedListQueue<>();
 
         // ACTIVE bookings - guests currently occupying the rooms marked
         // unavailable in RoomDAO (103, 106, 202, 205, 302, 303). These guests

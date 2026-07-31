@@ -18,17 +18,29 @@ public class Guest {
     private String name;
     private String contactNumber;
     private String email;
-    private String membershipTier;
+    private MembershipTier membershipTier = MembershipTier.NONE;
 
     public Guest() {
     }
 
-    public Guest(String guestId, String name, String contactNumber, String email, String membershipTier) {
+    /**
+     * Creates a Guest using the shared MembershipTier enum.
+     */
+    public Guest(
+            String guestId,
+            String name,
+            String contactNumber,
+            String email,
+            MembershipTier membershipTier) {
+
         this.guestId = guestId;
         this.name = name;
         this.contactNumber = contactNumber;
         this.email = email;
-        this.membershipTier = membershipTier;
+
+        this.membershipTier = membershipTier == null
+                ? MembershipTier.NONE
+                : membershipTier;
     }
 
     public String getGuestId() {
@@ -63,12 +75,16 @@ public class Guest {
         this.email = email;
     }
 
-    public String getMembershipTier() {
+    public MembershipTier getMembershipTier() {
         return membershipTier;
     }
 
-    public void setMembershipTier(String membershipTier) {
-        this.membershipTier = membershipTier;
+    public void setMembershipTier(
+            MembershipTier membershipTier) {
+
+        this.membershipTier = membershipTier == null
+                ? MembershipTier.NONE
+                : membershipTier;
     }
 
     @Override
@@ -78,8 +94,10 @@ public class Guest {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof Guest)) return false;
+        if (this == obj)
+            return true;
+        if (!(obj instanceof Guest))
+            return false;
         Guest other = (Guest) obj;
         return guestId != null && guestId.equals(other.guestId);
     }
