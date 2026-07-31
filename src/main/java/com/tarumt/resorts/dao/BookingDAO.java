@@ -37,22 +37,30 @@ public class BookingDAO {
         this.rooms = sharedRooms;
         Queue<Booking> bookings = new Queue<>();
 
-        // ACTIVE bookings - guests currently occupying rooms marked
-        // unavailable in RoomDAO (103, 106, 202, 205, 302, 303).
-        // Amount and payment status give the Billing Summary Report real data.
+        // ACTIVE bookings - guests currently occupying the rooms marked
+        // unavailable in RoomDAO (103, 106, 202, 205, 302, 303). These guests
+        // are all ASSIGNED in WalkInRegistrationDAO, never WAITING, so nobody
+        // is queuing for a room while already occupying one. Amount and payment
+        // status give the Billing Summary Report real data.
         bookings.enqueue(new Booking("20260001", findGuest("G001"), findRoom("103"), "2026-07-15 13:20", 450.00, "UNPAID"));
-        bookings.enqueue(new Booking("20260002", findGuest("G004"), findRoom("202"), "2026-07-16 15:45", 980.00, "PARTIAL"));
-        bookings.enqueue(new Booking("20260003", findGuest("G002"), findRoom("106"), "2026-07-17 11:10", 420.00, "PAID"));
-        bookings.enqueue(new Booking("20260004", findGuest("G008"), findRoom("302"), "2026-07-17 18:30", 2100.00, "UNPAID"));
-        bookings.enqueue(new Booking("20260005", findGuest("G011"), findRoom("205"), "2026-07-18 09:05", 1150.00, "UNPAID"));
-        bookings.enqueue(new Booking("20260006", findGuest("G014"), findRoom("303"), "2026-07-19 20:15", 1875.00, "PARTIAL"));
+        bookings.enqueue(new Booking("20260002", findGuest("G003"), findRoom("106"), "2026-07-16 15:45", 420.00, "PAID"));
+        bookings.enqueue(new Booking("20260003", findGuest("G010"), findRoom("202"), "2026-07-17 11:10", 980.00, "PARTIAL"));
+        bookings.enqueue(new Booking("20260004", findGuest("G012"), findRoom("205"), "2026-07-17 18:30", 1150.00, "UNPAID"));
+        bookings.enqueue(new Booking("20260005", findGuest("G016"), findRoom("302"), "2026-07-18 09:05", 2100.00, "UNPAID"));
+        bookings.enqueue(new Booking("20260006", findGuest("G019"), findRoom("303"), "2026-07-19 20:15", 1875.00, "PARTIAL"));
 
-        // CHECKED_OUT bookings - past stays kept so reports have a mix of
-        // statuses to filter and sort on.
-        bookings.enqueue(markCheckedOut(new Booking("20260007", findGuest("G003"), findRoom("101"), "2026-07-10 12:00", 380.00, "PAID"), "2026-07-12 11:30"));
-        bookings.enqueue(markCheckedOut(new Booking("20260008", findGuest("G005"), findRoom("201"), "2026-07-11 14:00", 890.00, "PAID"), "2026-07-14 10:15"));
-        bookings.enqueue(markCheckedOut(new Booking("20260009", findGuest("G007"), findRoom("301"), "2026-07-12 16:30", 1650.00, "PAID"), "2026-07-15 12:00"));
-        bookings.enqueue(markCheckedOut(new Booking("20260010", findGuest("G010"), findRoom("104"), "2026-07-13 10:45", 300.00, "UNPAID"), "2026-07-14 09:40"));
+        // CHECKED_OUT bookings - completed past stays in rooms that are free
+        // again. A guest who checked out earlier may legitimately be WAITING in
+        // today's walk-in queue (a returning guest), so these may reuse guests
+        // from the waiting list.
+        bookings.enqueue(markCheckedOut(new Booking("20260007", findGuest("G005"), findRoom("101"), "2026-07-10 12:00", 380.00, "PAID"), "2026-07-12 11:30"));
+        bookings.enqueue(markCheckedOut(new Booking("20260008", findGuest("G007"), findRoom("201"), "2026-07-11 14:00", 890.00, "PAID"), "2026-07-14 10:15"));
+        bookings.enqueue(markCheckedOut(new Booking("20260009", findGuest("G014"), findRoom("301"), "2026-07-12 16:30", 1650.00, "PAID"), "2026-07-15 12:00"));
+        bookings.enqueue(markCheckedOut(new Booking("20260010", findGuest("G002"), findRoom("104"), "2026-07-13 10:45", 300.00, "UNPAID"), "2026-07-14 09:40"));
+        bookings.enqueue(markCheckedOut(new Booking("20260011", findGuest("G009"), findRoom("105"), "2026-07-08 15:20", 520.00, "PAID"), "2026-07-10 11:00"));
+        bookings.enqueue(markCheckedOut(new Booking("20260012", findGuest("G013"), findRoom("203"), "2026-07-09 13:10", 1020.00, "PARTIAL"), "2026-07-11 10:30"));
+        bookings.enqueue(markCheckedOut(new Booking("20260013", findGuest("G017"), findRoom("304"), "2026-07-06 16:00", 1980.00, "PAID"), "2026-07-09 12:15"));
+        bookings.enqueue(markCheckedOut(new Booking("20260014", findGuest("G020"), findRoom("305"), "2026-07-07 09:45", 2250.00, "UNPAID"), "2026-07-10 10:05"));
 
         return bookings;
     }

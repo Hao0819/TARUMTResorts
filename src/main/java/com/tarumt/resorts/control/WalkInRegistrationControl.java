@@ -127,10 +127,16 @@ public class WalkInRegistrationControl {
         return false;
     }
 
+    /**
+     * Generates the team's standard confirmation number: a unique 8-digit
+     * numeric value ("2026" year prefix + 4-digit running counter), as required
+     * by the assignment specification and relied on by the Front-Desk lookup.
+     * Numbers already used by the seeded sample bookings are skipped.
+     */
     private String generateConfirmationNumber() {
         String confirmationNumber;
         do {
-            confirmationNumber = String.format("CNF%04d", confirmationCounter);
+            confirmationNumber = String.format("2026%04d", confirmationCounter);
             confirmationCounter++;
         } while (confirmationNumberExists(confirmationNumber));
         return confirmationNumber;

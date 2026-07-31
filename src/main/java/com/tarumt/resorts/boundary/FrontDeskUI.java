@@ -112,22 +112,32 @@ public class FrontDeskUI {
         Room[] available = control.getAvailableRooms(roomType);
 
         printReportHeader("ROOM AVAILABILITY",
-                "Room type filter: " + roomType, null);
+                "Room type filter: " + roomType,
+                "Bookable = vacant AND Housekeeping status READY");
 
-        String border = "+----------+------------+-------------+";
+        String border = "+----------+------------+-------------+--------------+------------+";
         System.out.println(border);
-        System.out.printf("| %-8s | %-10s | %-11s |%n", "Room No", "Room Type", "Status");
+        System.out.printf("| %-8s | %-10s | %-11s | %-12s | %-10s |%n",
+                "Room No", "Room Type", "Occupancy", "Housekeeping", "Bookable");
         System.out.println(border);
+
+        int bookable = 0;
         if (available.length == 0) {
-            System.out.printf("| %-35s |%n", "No available rooms for this filter.");
+            System.out.printf("| %-62s |%n", "No vacant rooms for this filter.");
         } else {
             for (Room r : available) {
-                System.out.printf("| %-8.8s | %-10.10s | %-11s |%n",
-                        r.getRoomNumber(), r.getRoomType(), "AVAILABLE");
+                boolean ok = control.isBookable(r);
+                if (ok) {
+                    bookable++;
+                }
+                System.out.printf("| %-8.8s | %-10.10s | %-11s | %-12.12s | %-10s |%n",
+                        r.getRoomNumber(), r.getRoomType(), "VACANT",
+                        r.getCleaningStatus(), ok ? "YES" : "NO");
             }
         }
         System.out.println(border);
-        System.out.println("Total available rooms: " + available.length);
+        System.out.println("Vacant rooms: " + available.length
+                + "   |   Bookable now: " + bookable);
     }
 
     // =====================================================================

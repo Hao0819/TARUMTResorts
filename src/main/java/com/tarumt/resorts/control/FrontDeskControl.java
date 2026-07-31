@@ -106,8 +106,15 @@ public class FrontDeskControl {
 
     /**
      * Checks a guest out: marks the booking CHECKED_OUT, records the check-out
-     * time, and releases the room back to availability on the shared Room
-     * object. Returns false if the booking is missing or already checked out.
+     * time, and hands the room over to Housekeeping on the shared Room object.
+     *
+     * The room becomes vacant (available) but is flagged DIRTY, so it is NOT
+     * immediately allocatable: Walk-In/VIP allocation only accepts rooms whose
+     * cleaning status is READY (or never logged). Housekeeping must run the
+     * DIRTY -> CLEANING -> INSPECTED -> READY cycle before the room can be
+     * given to the next guest.
+     *
+     * @return false if the booking is missing or already checked out
      */
     public boolean checkOutBooking(String confirmationNumber, String checkOutTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
@@ -116,10 +123,27 @@ public class FrontDeskControl {
         }
         booking.setStatus("CHECKED_OUT");
         booking.setCheckOutTime(checkOutTime);
-        if (booking.getRoom() != null) {
-            booking.getRoom().setAvailable(true);   // update shared Room state
+        Room room = booking.getRoom();
+        if (room != null) {
+            room.setAvailable(true);            // no longer occupied
+            room.setCleaningStatus("DIRTY");    // hand over to Housekeeping
         }
         return true;
+    }
+
+    /**
+     * Mirrors the allocation readiness rule used by Walk-In/VIP: a vacant room
+     * can only be given to a new guest once Housekeeping has it READY (or it
+     * has never been logged, i.e. UNKNOWN).
+     */
+    public boolean isBookable(Room room) {
+        if (room == null || !room.isAvailable()) {
+            return false;
+        }
+        String cleaning = room.getCleaningStatus();
+        return cleaning == null
+                || cleaning.equalsIgnoreCase("READY")
+                || cleaning.equalsIgnoreCase("UNKNOWN");
     }
 
     // =====================================================================

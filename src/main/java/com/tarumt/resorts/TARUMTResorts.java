@@ -20,6 +20,7 @@ import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
 import com.tarumt.resorts.dao.WalkInRegistrationDAO;
 import com.tarumt.resorts.dao.RoomStatusLogDAO;
+import com.tarumt.resorts.dao.BookingDAO;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
@@ -40,7 +41,11 @@ public class TARUMTResorts {
                 Queue<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
                                 .getAllRegistrations(sharedGuests);
  
-                Queue<Booking> sharedBookings = new Queue<>();
+                // Seed the shared booking collection ONCE from BookingDAO,
+                // against the same Guest and Room objects above, so Walk-In and
+                // Front-Desk read and write the exact same Booking/Room state.
+                Queue<Booking> sharedBookings = new BookingDAO()
+                                .getAllBookings(sharedGuests, sharedRooms);
 
                 Queue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
@@ -55,9 +60,13 @@ public class TARUMTResorts {
                                 sharedRooms,
                                 sharedStatusLogs);
 
-                // Front-Desk runs on its own hard-coded sample bookings so it
-                // can be demonstrated independently of the Walk-In workflow.
-                FrontDeskControl frontDeskControl = new FrontDeskControl();
+                // Front-Desk receives the SAME shared references, so it can see
+                // bookings created at runtime by Walk-In, and its check-out
+                // updates the same Room objects Walk-In/Housekeeping query.
+                FrontDeskControl frontDeskControl = new FrontDeskControl(
+                                sharedBookings,
+                                sharedGuests,
+                                sharedRooms);
 
                 // All menus read input through the same Scanner object.
                 Scanner scanner = new Scanner(System.in);
