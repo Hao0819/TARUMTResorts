@@ -48,7 +48,7 @@ public class HousekeepingControl {
     };
 
     // --- Added: auto-transition timer support ---
-    private static final long AUTO_INSPECT_DELAY_SECONDS = 5; // 1 minute
+    private static final long AUTO_INSPECT_DELAY_SECONDS = 60; // 1 minute
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private final ScheduledExecutorService scheduler =
@@ -164,10 +164,20 @@ public class HousekeepingControl {
      * restarting at DIRTY. A room with no prior log may only start at
      * DIRTY. Null/unknown status values are safely rejected instead of
      * throwing a NullPointerException.
+     *
+     * Added (Front-Desk integration, checkout sync — Option 1 agreed
+     * with Front-Desk on 31 Jul): a guest checkout dirties the room
+     * regardless of whatever housekeeping stage it was in (CLEANING,
+     * INSPECTED, READY, or even no history yet). So ANY current status
+     * -> DIRTY is always legal; this check runs before the normal cycle
+     * check so it isn't blocked by the strict cycle rule below.
      */
     public boolean isValidNextStatus(String roomNumber, String newStatus) {
         if (newStatus == null || !isValidStatus(newStatus)) {
             return false;
+        }
+        if (newStatus.equalsIgnoreCase("DIRTY")) {
+            return true;
         }
         RoomStatusLog current = getCurrentStatus(roomNumber);
         if (current == null) {
@@ -179,9 +189,6 @@ public class HousekeepingControl {
         // unmapped index (-1) accidentally satisfy the "+1" check below.
         if (currentIndex == -1 || newIndex == -1) {
             return false;
-        }
-        if (currentIndex == STATUS_SEQUENCE.length - 1 && newStatus.equalsIgnoreCase("DIRTY")) {
-            return true;
         }
         return newIndex == currentIndex + 1;
     }
