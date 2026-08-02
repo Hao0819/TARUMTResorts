@@ -28,6 +28,11 @@ import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.entity.RoomStatusLog;
 import com.tarumt.resorts.entity.WalkInRegistration;
 
+import com.tarumt.resorts.boundary.VIPAllocationUI;
+import com.tarumt.resorts.control.VIPAllocationControl;
+import com.tarumt.resorts.dao.VIPAllocationDAO;
+import com.tarumt.resorts.entity.VIPAllocationRequest;
+
 import com.tarumt.resorts.boundary.LoyaltyRewardsUI;
 import com.tarumt.resorts.control.LoyaltyRewardsControl;
 import com.tarumt.resorts.dao.LoyaltyInitializerData;
@@ -94,6 +99,16 @@ public class TARUMTResorts {
                                 sharedLoyaltyAccounts,
                                 sharedLoyaltyTransactions,
                                 sharedGuests);
+                
+                // Load the hard-coded VIP allocation request history.
+                ListQueueInterface<VIPAllocationRequest> sharedVipRequestHistory =
+                        new VIPAllocationDAO().getAllRequests(sharedGuests);
+
+                VIPAllocationControl vipControl = new VIPAllocationControl(
+                                sharedRooms,
+                                sharedGuests,
+                                sharedBookings,
+                                sharedVipRequestHistory);
 
                 // All menus read input through the same Scanner object.
                 Scanner scanner = new Scanner(System.in);
@@ -115,6 +130,10 @@ public class TARUMTResorts {
                                 loyaltyControl,
                                 scanner);
 
+                VIPAllocationUI vipUI = new VIPAllocationUI(
+                vipControl,
+                scanner);
+                
                 int choice;
 
                 do {
@@ -139,6 +158,9 @@ public class TARUMTResorts {
                                         "4. Loyalty & Rewards Service");
                         System.out.printf(
                                         "| %-46s |%n",
+                                        "5. VIP & Loyalty Tier Priority Allocation");
+                        System.out.printf(
+                                        "| %-46s |%n",
                                         "0. Exit");
                         System.out.println(
                                         "+------------------------------------------------+");
@@ -159,6 +181,7 @@ public class TARUMTResorts {
                                 case 2 -> housekeepingUI.showMenu();
                                 case 3 -> frontDeskUI.showMenu();
                                 case 4 -> loyaltyUI.showMenu();
+                                case 5 -> vipUI.showMenu();
                                 case 0 -> System.out.println(
                                                 "Thank you for using TARUMT Resorts.");
                                 default -> System.out.println(
