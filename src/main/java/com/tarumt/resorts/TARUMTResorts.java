@@ -36,7 +36,6 @@ import com.tarumt.resorts.entity.LoyaltyTransaction;
 
 import java.util.Scanner;
 
-
 public class TARUMTResorts {
 
         public static void main(String[] args) {
@@ -59,16 +58,14 @@ public class TARUMTResorts {
                 DoublyLinkedListQueue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
                 // Initialize Loyalty data using the same shared Guest collection.
-                LoyaltyInitializerData loyaltyInitializer =
-                   new LoyaltyInitializerData(sharedGuests);
+                LoyaltyInitializerData loyaltyInitializer = new LoyaltyInitializerData(sharedGuests);
 
-               // Retrieve the initialized loyalty accounts.
-               ListQueueInterface<LoyaltyAccount> sharedLoyaltyAccounts =
-                  loyaltyInitializer.getLoyaltyAccounts();
+                // Retrieve the initialized loyalty accounts.
+                ListQueueInterface<LoyaltyAccount> sharedLoyaltyAccounts = loyaltyInitializer.getLoyaltyAccounts();
 
-               // Retrieve the initialized loyalty transaction history.
-               ListQueueInterface<LoyaltyTransaction> sharedLoyaltyTransactions =
-                  loyaltyInitializer.getLoyaltyTransactions();
+                // Retrieve the initialized loyalty transaction history.
+                ListQueueInterface<LoyaltyTransaction> sharedLoyaltyTransactions = loyaltyInitializer
+                                .getLoyaltyTransactions();
                 // Both Controls receive the same shared Room Queue reference.
                 WalkInRegistrationControl walkInControl = new WalkInRegistrationControl(
                                 sharedRooms,
@@ -91,14 +88,13 @@ public class TARUMTResorts {
                 // Let a Front-Desk check-out also log the freed room as DIRTY
                 // in Housekeeping's status log, keeping both modules in sync.
                 frontDeskControl.setHousekeepingControl(housekeepingControl);
-          
+
                 // Create the Loyalty control using the shared system data.
-LoyaltyRewardsControl loyaltyControl =
-        new LoyaltyRewardsControl(
-                sharedLoyaltyAccounts,
-                sharedLoyaltyTransactions,
-                sharedGuests);
-          
+                LoyaltyRewardsControl loyaltyControl = new LoyaltyRewardsControl(
+                                sharedLoyaltyAccounts,
+                                sharedLoyaltyTransactions,
+                                sharedGuests);
+
                 // All menus read input through the same Scanner object.
                 Scanner scanner = new Scanner(System.in);
 
@@ -115,11 +111,10 @@ LoyaltyRewardsControl loyaltyControl =
                                 scanner);
 
                 // Create the Loyalty UI using the Loyalty control and shared Scanner.
-LoyaltyRewardsUI loyaltyUI =
-        new LoyaltyRewardsUI(
-                loyaltyControl,
-                scanner);
-          
+                LoyaltyRewardsUI loyaltyUI = new LoyaltyRewardsUI(
+                                loyaltyControl,
+                                scanner);
+
                 int choice;
 
                 do {
@@ -140,8 +135,8 @@ LoyaltyRewardsUI loyaltyUI =
                                         "| %-46s |%n",
                                         "3. Front-Desk Service");
                         System.out.printf(
-        "| %-46s |%n",
-        "4. Loyalty & Rewards Service");
+                                        "| %-46s |%n",
+                                        "4. Loyalty & Rewards Service");
                         System.out.printf(
                                         "| %-46s |%n",
                                         "0. Exit");
