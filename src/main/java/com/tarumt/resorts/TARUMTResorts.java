@@ -5,6 +5,7 @@
 package com.tarumt.resorts;
 
 /**
+<<<<<<< HEAD
  *
  * @author junha
  */
@@ -14,3 +15,162 @@ public class TARUMTResorts {
         System.out.println("Hello World!");
     }
 }
+=======
+*
+* @author junhao
+*/
+
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
+import com.tarumt.resorts.adt.ListQueueInterface;
+import com.tarumt.resorts.boundary.HouseKeepingUI;
+import com.tarumt.resorts.boundary.WalkInRegistrationUI;
+import com.tarumt.resorts.boundary.FrontDeskUI;
+import com.tarumt.resorts.control.HousekeepingControl;
+import com.tarumt.resorts.control.WalkInRegistrationControl;
+import com.tarumt.resorts.control.FrontDeskControl;
+import com.tarumt.resorts.dao.GuestDAO;
+import com.tarumt.resorts.dao.RoomDAO;
+import com.tarumt.resorts.dao.WalkInRegistrationDAO;
+import com.tarumt.resorts.dao.RoomStatusLogDAO;
+import com.tarumt.resorts.dao.BookingDAO;
+import com.tarumt.resorts.entity.Booking;
+import com.tarumt.resorts.entity.Guest;
+import com.tarumt.resorts.entity.Room;
+import com.tarumt.resorts.entity.RoomStatusLog;
+import com.tarumt.resorts.entity.WalkInRegistration;
+
+import com.tarumt.resorts.boundary.LoyaltyRewardsUI;
+import com.tarumt.resorts.control.LoyaltyRewardsControl;
+import com.tarumt.resorts.dao.LoyaltyInitializerData;
+import com.tarumt.resorts.entity.LoyaltyAccount;
+import com.tarumt.resorts.entity.LoyaltyTransaction;
+
+import java.util.Scanner;
+
+public class TARUMTResorts {
+
+        public static void main(String[] args) {
+                // Load all initial DAO data only once.
+                DoublyLinkedListQueue<Room> sharedRooms = new RoomDAO().getAllRooms();
+
+                DoublyLinkedListQueue<Guest> sharedGuests = new GuestDAO().getAllGuests();
+
+                // Load the hard-coded registration history once.
+                // Store the DAO result using the shared ADT interface.
+                ListQueueInterface<WalkInRegistration> sharedRegistrationHistory = new WalkInRegistrationDAO()
+                                .getAllRegistrations(sharedGuests);
+
+                // Build bookings using the same shared Guest and Room objects.
+                DoublyLinkedListQueue<Booking> sharedBookings = new BookingDAO()
+                                .getAllBookings(sharedGuests, sharedRooms);
+
+                DoublyLinkedListQueue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
+                
+                // Load Loyalty and Rewards data only once.
+                LoyaltyInitializerData loyaltyInitializer =
+                                new LoyaltyInitializerData(sharedGuests);
+
+                ListQueueInterface<LoyaltyAccount> sharedLoyaltyAccounts =
+                                loyaltyInitializer.getLoyaltyAccounts();
+
+                ListQueueInterface<LoyaltyTransaction> sharedLoyaltyTransactions =
+                                loyaltyInitializer.getLoyaltyTransactions();
+
+                // Both Controls receive the same shared Room Queue reference.
+                WalkInRegistrationControl walkInControl = new WalkInRegistrationControl(
+                                sharedRooms,
+                                sharedGuests,
+                                sharedBookings,
+                                sharedRegistrationHistory);
+
+                HousekeepingControl housekeepingControl = new HousekeepingControl(
+                                sharedRooms,
+                                sharedStatusLogs);
+
+                // Front-Desk shares the same bookings, guests and rooms with other modules.
+                FrontDeskControl frontDeskControl = new FrontDeskControl(
+                                sharedBookings,
+                                sharedGuests,
+                                sharedRooms);
+                
+                // Loyalty Control receives the shared custom ADT collections.
+                LoyaltyRewardsControl loyaltyControl = new LoyaltyRewardsControl(
+                                sharedLoyaltyAccounts,
+                                sharedLoyaltyTransactions,
+                                sharedGuests);
+
+                // All menus read input through the same Scanner object.
+                Scanner scanner = new Scanner(System.in);
+
+                WalkInRegistrationUI walkInUI = new WalkInRegistrationUI(
+                                walkInControl,
+                                scanner);
+
+                HouseKeepingUI housekeepingUI = new HouseKeepingUI(
+                                housekeepingControl,
+                                scanner);
+
+                FrontDeskUI frontDeskUI = new FrontDeskUI(
+                                frontDeskControl,
+                                scanner);
+                LoyaltyRewardsUI loyaltyUI = new LoyaltyRewardsUI(
+                                loyaltyControl,
+                                scanner);
+
+                int choice;
+
+                do {
+                        System.out.println();
+                        System.out.println(
+                                        "+------------------------------------------------+");
+                        System.out.println(
+                                        "|            TARUMT RESORTS MAIN MENU            |");
+                        System.out.println(
+                                        "+------------------------------------------------+");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "1. Walk-In Registration & Standard Booking");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "2. Housekeeping & Task Log");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "3. Front-Desk Service");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "4. Loyalty & Rewards Service");
+                        System.out.printf(
+                                        "| %-46s |%n",
+                                        "0. Exit");
+                        System.out.println(
+                                        "+------------------------------------------------+");
+                        System.out.print("Enter choice: ");
+
+                        try {
+                                choice = Integer.parseInt(
+                                                scanner.nextLine().trim());
+                        } catch (NumberFormatException e) {
+                                System.out.println(
+                                                "Invalid input. Please enter a number.");
+                                choice = -1;
+                                continue;
+                        }
+
+                        switch (choice) {
+                                case 1 -> walkInUI.showMenu();
+                                case 2 -> housekeepingUI.showMenu();
+                                case 3 -> frontDeskUI.showMenu();
+                                case 4 -> loyaltyUI.showMenu();
+                                case 0 -> System.out.println(
+                                                "Thank you for using TARUMT Resorts.");
+                                default -> System.out.println(
+                                                "Invalid choice. Please try again.");
+                        }
+
+                } while (choice != 0);
+
+                // Close System.in only when the entire application exits.
+                scanner.close();
+        }
+}
+>>>>>>> 439a4b7 (Complete loyalty and rewards service)
