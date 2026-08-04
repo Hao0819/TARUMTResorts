@@ -7,7 +7,6 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.dao.RoomStatusLogDAO;
 import com.tarumt.resorts.dao.RoomDAO;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.Executors;
@@ -20,9 +19,11 @@ import java.util.concurrent.TimeUnit;
  *
  * NOTE ON ROLLBACK: rollbackLastChange() / previewLastChange() operate on
  * the queue's rear entry, i.e. "the most recently logged status change
- * across ALL rooms", not a room-specific undo. removeLast() is O(n) on
- * this singly linked Queue (it must walk from front to find the node
- * before rear); peekLast() is O(1).
+ * across ALL rooms", not a room-specific undo. The shared ADT is now a
+ * Doubly Linked List: removeLast() is O(1) and peekLast() is O(1).
+ * rollbackLastChange() is still O(n) overall, because after removing the
+ * rear entry it calls getCurrentStatus() to scan the remaining history
+ * and determine the affected room's new current status.
  *
  * NOTE ON AUTO-TRANSITION (added feature): whenever a room is logged as
  * CLEANING, a background timer is scheduled to automatically log that
@@ -45,30 +46,32 @@ public class HousekeepingControl {
     private ListQueueInterface<Room> roomList;
 
     private static final String[] STATUS_SEQUENCE = {
-            "DIRTY", "CLEANING", "INSPECTED", "READY"
+        "DIRTY", "CLEANING", "INSPECTED", "READY"
     };
 
     // --- Added: auto-transition timer support ---
-    private static final long AUTO_INSPECT_DELAY_SECONDS = 5; // 1 minute
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        // Daemon thread so it never blocks the program from exiting.
-        Thread t = new Thread(runnable, "housekeeping-auto-inspect");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final long AUTO_INSPECT_DELAY_SECONDS = 60; // 1 minute
+    private static final DateTimeFormatter TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private final ScheduledExecutorService scheduler =
+            Executors.newSingleThreadScheduledExecutor(runnable -> {
+                // Daemon thread so it never blocks the program from exiting.
+                Thread t = new Thread(runnable, "housekeeping-auto-inspect");
+                t.setDaemon(true);
+                return t;
+            });
 
     public HousekeepingControl() {
         this(
-                new RoomDAO().getAllRooms(),
-                new RoomStatusLogDAO().getAllLogs());
+            new RoomDAO().getAllRooms(),
+            new RoomStatusLogDAO().getAllLogs());
     }
 
     // Constructor used when Main provides shared application data.
     public HousekeepingControl(
             ListQueueInterface<Room> sharedRooms,
             ListQueueInterface<RoomStatusLog> sharedStatusLog) {
-
         // Keep the same Queue references provided by Main.
         roomList = sharedRooms;
         statusLog = sharedStatusLog;
@@ -163,10 +166,21 @@ public class HousekeepingControl {
      * restarting at DIRTY. A room with no prior log may only start at
      * DIRTY. Null/unknown status values are safely rejected instead of
      * throwing a NullPointerException.
+     *
+     * Front-Desk checkout integration rule: a checkout must always be
+     * able to mark a room DIRTY, regardless of its previous housekeeping
+     * status (e.g. a guest checking out of a room that Housekeeping had
+     * only just marked CLEANING/INSPECTED). This check runs BEFORE the
+     * normal DIRTY -> CLEANING -> INSPECTED -> READY sequence validation
+     * below, so the Room object and the housekeeping status log never
+     * fall out of sync.
      */
     public boolean isValidNextStatus(String roomNumber, String newStatus) {
         if (newStatus == null || !isValidStatus(newStatus)) {
             return false;
+        }
+        if (newStatus.equalsIgnoreCase("DIRTY")) {
+            return true;
         }
         RoomStatusLog current = getCurrentStatus(roomNumber);
         if (current == null) {
@@ -226,12 +240,10 @@ public class HousekeepingControl {
         if (room != null) {
             room.setCleaningStatus(status.toUpperCase());
         }
-
         // --- Added: schedule the automatic CLEANING -> INSPECTED step ---
         if (status.equalsIgnoreCase("CLEANING")) {
             scheduleAutoInspect(roomNumber);
         }
-
         return true;
     }
 
@@ -256,10 +268,11 @@ public class HousekeepingControl {
     }
 
     /**
-     * Finds the CURRENT (most recent) status of a given room. Because
-     * this is a singly linked Queue, "most recent" is found by scanning
-     * forward and keeping the last match — this relies on the DAO/log
-     * insertion order being chronological (see RoomStatusLogDAO).
+     * Finds the CURRENT (most recent) status of a given room. This
+     * performs an O(n) forward search through the shared ADT interface,
+     * scanning every entry and keeping the last match — this relies on
+     * the DAO/log insertion order being chronological (see
+     * RoomStatusLogDAO).
      */
     public RoomStatusLog getCurrentStatus(String roomNumber) {
         RoomStatusLog latest = null;
@@ -291,10 +304,13 @@ public class HousekeepingControl {
 
     /**
      * Rolls back the most recently logged status change GLOBALLY
-     * (across all rooms) using removeLast() — an O(n) operation on this
-     * singly linked Queue. After removal, the affected shared Room's
-     * cleaningStatus is restored to whatever its new latest log says,
-     * or "UNKNOWN" if no log remains for that room.
+     * (across all rooms) using removeLast() — an O(1) operation on the
+     * shared Doubly Linked List ADT. rollbackLastChange() is still O(n)
+     * overall, however, because after removing the rear entry it calls
+     * getCurrentStatus() to scan the remaining history and determine
+     * the affected room's new current status. After removal, the
+     * affected shared Room's cleaningStatus is restored to whatever its
+     * new latest log says, or "UNKNOWN" if no log remains for that room.
      */
     public RoomStatusLog rollbackLastChange() {
         RoomStatusLog removed = statusLog.removeLast();
@@ -331,6 +347,7 @@ public class HousekeepingControl {
             String statusFilter, String roomTypeFilter) {
         DoublyLinkedListQueue<RoomStatusLog> result = new DoublyLinkedListQueue<>();
         DoublyLinkedListQueue<String> seenRooms = new DoublyLinkedListQueue<>();
+
         int total = statusLog.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             String roomNumber = statusLog.getEntry(i).getRoomNumber();
@@ -367,7 +384,8 @@ public class HousekeepingControl {
      * INSPECTED automatically at a fixed delay
      * (AUTO_INSPECT_DELAY_SECONDS) rather than whenever staff actually
      * finish, that gap no longer reflects real cleaning time — it would
-     * always average out to ~1 minute regardless of true performance.
+     * always average out to a fixed constant regardless of true
+     * performance.
      *
      * Only DIRTY (time waiting before cleaning starts) remains a
      * genuine, staff/queue-driven duration in this report.
@@ -379,8 +397,8 @@ public class HousekeepingControl {
         DoublyLinkedListQueue<String> stageNames = new DoublyLinkedListQueue<>();
         DoublyLinkedListQueue<Long> stageTotalMinutes = new DoublyLinkedListQueue<>();
         DoublyLinkedListQueue<Integer> stageCount = new DoublyLinkedListQueue<>();
-
         DoublyLinkedListQueue<String> distinctRooms = new DoublyLinkedListQueue<>();
+
         int total = statusLog.getNumberOfEntries();
         for (int i = 0; i < total; i++) {
             String roomNumber = statusLog.getEntry(i).getRoomNumber();
