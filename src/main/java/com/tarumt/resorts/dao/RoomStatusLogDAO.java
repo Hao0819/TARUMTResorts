@@ -2,7 +2,7 @@ package com.tarumt.resorts.dao;
 
 import com.tarumt.resorts.entity.RoomStatusLog;
 import com.tarumt.resorts.adt.DoublyLinkedListQueue;
-
+import com.tarumt.resorts.adt.ListQueueInterface;
 /**
  * RoomStatusLogDAO.java
  * Returns a collection pre-filled with 20 hard-coded sample RoomStatusLog
@@ -21,8 +21,8 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
  */
 public class RoomStatusLogDAO {
 
-    public DoublyLinkedListQueue<RoomStatusLog> getAllLogs() {
-        DoublyLinkedListQueue<RoomStatusLog> logs = new DoublyLinkedListQueue<>();
+    public ListQueueInterface<RoomStatusLog> getAllLogs() {
+        ListQueueInterface<RoomStatusLog> logs = new DoublyLinkedListQueue<>();
 
         // Room 101 (Standard) — full cycle, ends READY
         logs.enqueue(new RoomStatusLog("101", "DIRTY",     "2026-07-19 07:00"));

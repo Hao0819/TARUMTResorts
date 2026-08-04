@@ -33,10 +33,10 @@ public class BookingDAO {
      * "stale room copy" problem where a check-out frees one copy of a room but
      * the availability view still reads a different copy.
      */
-    public DoublyLinkedListQueue<Booking> getAllBookings(ListQueueInterface<Guest> sharedGuests, ListQueueInterface<Room> sharedRooms) {
+    public ListQueueInterface<Booking> getAllBookings(ListQueueInterface<Guest> sharedGuests, ListQueueInterface<Room> sharedRooms) {
         this.guests = sharedGuests;
         this.rooms = sharedRooms;
-        DoublyLinkedListQueue<Booking> bookings = new DoublyLinkedListQueue<>();
+        ListQueueInterface<Booking> bookings = new DoublyLinkedListQueue<>();
 
         // ACTIVE bookings - guests currently occupying the rooms marked
         // unavailable in RoomDAO (103, 106, 202, 205, 302, 303). These guests

@@ -60,7 +60,8 @@ public interface ListQueueInterface<T> {
      * is the front of the queue. Supports list-style indexed access for
      * traversal and reporting.
      * 
-     * @param position the position of the entry to retrieve
+     * @param position the position of the entry 
+     * to retrieve
      * @return the entry at the given position
      */
     T getEntry(int position);
