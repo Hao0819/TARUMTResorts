@@ -9,7 +9,7 @@ package com.tarumt.resorts.entity;
  * Represents a single walk-in guest registration record within the
  * standard booking queue.
  *
- * @author junha
+ * @author Junhao
  */
 public class WalkInRegistration {
 

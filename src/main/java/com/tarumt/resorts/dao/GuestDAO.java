@@ -9,7 +9,7 @@ import com.tarumt.resorts.adt.ListQueueInterface;
  * Returns a collection pre-filled with hard-coded sample Guest entities.
  * Per tutor clarification: no file/database I/O, just sample data.
  *
- * @author junha
+ * @author Junhao
  */
 public class GuestDAO {
 

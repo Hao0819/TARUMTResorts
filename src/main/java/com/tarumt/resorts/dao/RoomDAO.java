@@ -10,7 +10,7 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
  * Used by Walk-In Registration's own Room Allocation step, since no other
  * module currently owns Room Allocation.
  *
- * @author junha
+ * @author Junhao
  */
 public class RoomDAO {
 

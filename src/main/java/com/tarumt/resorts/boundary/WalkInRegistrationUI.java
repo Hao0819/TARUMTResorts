@@ -15,7 +15,7 @@ import java.util.Scanner;
  * WalkInRegistrationUI.java
  * Console interface for the Walk-In Registrations module.
  *
- * @author junha
+ * @author Junhao
  */
 public class WalkInRegistrationUI {
 

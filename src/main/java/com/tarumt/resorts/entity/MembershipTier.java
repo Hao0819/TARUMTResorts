@@ -7,7 +7,7 @@ package com.tarumt.resorts.entity;
 /**
  *Shared loyalty-tier definition used by Registration,
  * VIP Allocation and Loyalty modules.
- * @author junha
+ * @author Junhao
  */
 public enum MembershipTier {
 
