@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class HousekeepingControl {
 
+    
     private DoublyLinkedListQueue<RoomStatusLog> statusLog;
     private DoublyLinkedListQueue<Room> roomList;
 
