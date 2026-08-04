@@ -9,7 +9,6 @@ package com.tarumt.resorts;
 * @author junhao
 */
 
-import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.boundary.HouseKeepingUI;
 import com.tarumt.resorts.boundary.WalkInRegistrationUI;
@@ -45,9 +44,9 @@ public class TARUMTResorts {
 
         public static void main(String[] args) {
                 // Load all initial DAO data only once.
-                DoublyLinkedListQueue<Room> sharedRooms = new RoomDAO().getAllRooms();
+                ListQueueInterface<Room> sharedRooms = new RoomDAO().getAllRooms();
 
-                DoublyLinkedListQueue<Guest> sharedGuests = new GuestDAO().getAllGuests();
+                ListQueueInterface<Guest> sharedGuests = new GuestDAO().getAllGuests();
 
                 // Load the hard-coded registration history once.
                 // Store the DAO result using the shared ADT interface.
@@ -57,10 +56,10 @@ public class TARUMTResorts {
                 // Seed the shared booking collection ONCE from BookingDAO,
                 // against the same Guest and Room objects above, so Walk-In and
                 // Front-Desk read and write the exact same Booking/Room state.
-                DoublyLinkedListQueue<Booking> sharedBookings = new BookingDAO()
+                ListQueueInterface<Booking> sharedBookings = new BookingDAO()
                                 .getAllBookings(sharedGuests, sharedRooms);
 
-                DoublyLinkedListQueue<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
+                ListQueueInterface<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
                 // Initialize Loyalty data using the same shared Guest collection.
                 LoyaltyInitializerData loyaltyInitializer = new LoyaltyInitializerData(sharedGuests);

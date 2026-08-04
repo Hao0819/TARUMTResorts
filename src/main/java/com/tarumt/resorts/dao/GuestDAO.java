@@ -3,7 +3,7 @@ package com.tarumt.resorts.dao;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.MembershipTier;
 import com.tarumt.resorts.adt.DoublyLinkedListQueue;
-
+import com.tarumt.resorts.adt.ListQueueInterface;
 /**
  * GuestDAO.java
  * Returns a collection pre-filled with hard-coded sample Guest entities.
@@ -13,8 +13,8 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
  */
 public class GuestDAO {
 
-    public DoublyLinkedListQueue<Guest> getAllGuests() {
-        DoublyLinkedListQueue<Guest> guests = new DoublyLinkedListQueue<>();
+    public ListQueueInterface<Guest> getAllGuests() {
+        ListQueueInterface<Guest> guests = new DoublyLinkedListQueue<>();
         guests.enqueue(new Guest(
                 "G001", "Amy Tan", "012-3456789", "amy@mail.com",
                 MembershipTier.NONE));
