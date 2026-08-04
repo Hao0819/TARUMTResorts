@@ -56,12 +56,11 @@ public interface ListQueueInterface<T> {
     T peek();
 
     /**
-     * Returns the entry at a given position in the queue, where position 0
+     * Retrieves the entry at the given zero-based position. Position 0
      * is the front of the queue. Supports list-style indexed access for
      * traversal and reporting.
-     * 
-     * @param position the position of the entry 
-     * to retrieve
+     *
+     * @param position the position of the entry to retrieve
      * @return the entry at the given position
      */
     T getEntry(int position);

@@ -13,7 +13,7 @@ import com.tarumt.resorts.entity.WalkInRegistration;
  * Provides hard-coded Walk-In registration records for reporting.
  * The registrations reuse Guest objects from the shared Guest Queue.
  * 
- * @author junha
+ * @author JunHao
  */
 public class WalkInRegistrationDAO {
 

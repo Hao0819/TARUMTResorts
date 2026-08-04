@@ -14,7 +14,7 @@ package com.tarumt.resorts.entity;
  * Per ECB rules, this entity only references other entities (Guest, Room),
  * never a Control or Boundary class.
  *
- * @author junha
+ * @author Junhao
  */
 public class Booking {
     private String confirmationNumber;

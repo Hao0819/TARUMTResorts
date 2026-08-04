@@ -6,7 +6,7 @@ package com.tarumt.resorts;
 
 /**
 *
-* @author junhao
+* @author Junhao
 */
 
 import com.tarumt.resorts.adt.ListQueueInterface;

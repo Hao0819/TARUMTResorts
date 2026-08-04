@@ -10,7 +10,7 @@ package com.tarumt.resorts.entity;
  * Represents a hotel guest's core profile. Shared entity used across
  * multiple modules.
  *
- * @author junha
+ * @author Junhao
  */
 public class Guest {
 

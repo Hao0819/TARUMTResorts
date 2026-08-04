@@ -10,7 +10,7 @@ package com.tarumt.resorts.entity;
  * Housekeeping, and Front-Desk modules — availability is toggled as guests
  * check in/out, and cleaning status is tracked separately by Housekeeping.
  *
- * @author junha
+ * @author Junhao
  */
 public class Room {
     private String roomNumber;
