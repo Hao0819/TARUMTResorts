@@ -15,6 +15,8 @@ package com.tarumt.resorts.entity;
 public class Room {
     private String roomNumber;
     private String roomType;
+    // Fixed nightly price for this room in Malaysian Ringgit.
+    private double dailyRate;
     private boolean isAvailable;
     // Current housekeeping state, synchronized from the latest status log.
     private String cleaningStatus = "UNKNOWN";
@@ -22,10 +24,35 @@ public class Room {
     public Room() {
     }
 
-    public Room(String roomNumber, String roomType, boolean isAvailable) {
+    /**
+     * Compatibility constructor for existing code that does not provide a rate.
+     */
+    public Room(
+            String roomNumber,
+            String roomType,
+            boolean isAvailable) {
+
+        this(roomNumber, roomType, isAvailable, 0.0);
+    }
+
+    /**
+     * Creates a room with its fixed nightly rate.
+     */
+    public Room(
+            String roomNumber,
+            String roomType,
+            boolean isAvailable,
+            double dailyRate) {
+
+        if (dailyRate < 0) {
+            throw new IllegalArgumentException(
+                    "Daily rate cannot be negative.");
+        }
+
         this.roomNumber = roomNumber;
         this.roomType = roomType;
         this.isAvailable = isAvailable;
+        this.dailyRate = dailyRate;
     }
 
     public String getRoomNumber() {
@@ -42,6 +69,19 @@ public class Room {
 
     public void setRoomType(String roomType) {
         this.roomType = roomType;
+    }
+
+    public double getDailyRate() {
+        return dailyRate;
+    }
+
+    public void setDailyRate(double dailyRate) {
+        if (dailyRate < 0) {
+            throw new IllegalArgumentException(
+                    "Daily rate cannot be negative.");
+        }
+
+        this.dailyRate = dailyRate;
     }
 
     public boolean isAvailable() {
