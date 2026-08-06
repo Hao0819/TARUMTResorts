@@ -4,6 +4,7 @@ import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.adt.ListQueueInterface;
+import java.time.LocalDate;
 import com.tarumt.resorts.dao.BookingDAO;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
@@ -197,6 +198,76 @@ public class FrontDeskControl {
     }
 
     // =====================================================================
+    // Date-range availability. Answers "for a given date range and room type,
+    // which rooms are free, and is that type full?" A room is taken for the
+    // range if it has a CONFIRMED or ACTIVE booking whose scheduled stay
+    // overlaps [checkIn, checkOut). CHECKED_OUT / CANCELLED bookings, and
+    // bookings without a schedule, do not block. Uses the shared Booking
+    // scheduled dates provided by Walk-In/VIP. Self-implemented, O(rooms*bookings).
+    // =====================================================================
+
+    /**
+     * Returns rooms of the given type (or "ALL") that have NO CONFIRMED/ACTIVE
+     * booking overlapping the requested [checkIn, checkOut) date range.
+     */
+    public Room[] getAvailableRoomsForRange(LocalDate checkIn, LocalDate checkOut, String roomTypeFilter) {
+        String type = (roomTypeFilter == null || roomTypeFilter.trim().isEmpty()) ? "ALL" : roomTypeFilter.trim();
+        int totalRooms = roomList.getNumberOfEntries();
+        Room[] temp = new Room[totalRooms];
+        int count = 0;
+        for (int i = 0; i < totalRooms; i++) {
+            Room r = roomList.getEntry(i);
+            boolean typeOk = type.equalsIgnoreCase("ALL") || type.equalsIgnoreCase(r.getRoomType());
+            if (typeOk && !isRoomTakenInRange(r, checkIn, checkOut)) {
+                temp[count++] = r;
+            }
+        }
+        return trim(temp, count);
+    }
+
+    /** Total rooms of a given type (or "ALL"), so the UI can report "N of M free". */
+    public int countRoomsByType(String roomTypeFilter) {
+        String type = (roomTypeFilter == null || roomTypeFilter.trim().isEmpty()) ? "ALL" : roomTypeFilter.trim();
+        int total = 0;
+        for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
+            Room r = roomList.getEntry(i);
+            if (type.equalsIgnoreCase("ALL") || type.equalsIgnoreCase(r.getRoomType())) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * True if the room has a CONFIRMED or ACTIVE booking whose scheduled stay
+     * overlaps [checkIn, checkOut). Two ranges overlap when each starts before
+     * the other ends: existingIn < checkOut AND existingOut > checkIn.
+     */
+    private boolean isRoomTakenInRange(Room room, LocalDate checkIn, LocalDate checkOut) {
+        int total = bookingList.getNumberOfEntries();
+        for (int i = 0; i < total; i++) {
+            Booking b = bookingList.getEntry(i);
+            if (b.getRoom() == null
+                    || !b.getRoom().getRoomNumber().equalsIgnoreCase(room.getRoomNumber())) {
+                continue;
+            }
+            String status = b.getStatus();
+            if (!"CONFIRMED".equalsIgnoreCase(status) && !"ACTIVE".equalsIgnoreCase(status)) {
+                continue; // CHECKED_OUT / CANCELLED do not hold the room
+            }
+            LocalDate existingIn = b.getScheduledCheckInDate();
+            LocalDate existingOut = b.getScheduledCheckOutDate();
+            if (existingIn == null || existingOut == null) {
+                continue; // no schedule -> cannot determine overlap
+            }
+            if (existingIn.isBefore(checkOut) && existingOut.isAfter(checkIn)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // =====================================================================
     // Report 1 support: Booking / Occupancy (filter status + type, sort time).
     // =====================================================================
 
@@ -337,8 +408,9 @@ public class FrontDeskControl {
 
     /**
      * Checks a guest in: a CONFIRMED booking (booked but not yet arrived)
-     * becomes ACTIVE and gets its check-in time recorded. Only CONFIRMED
-     * bookings can be checked in.
+     * becomes ACTIVE and gets its check-in time recorded. The bill is settled
+     * on arrival, so the payment status is marked PAID at check-in. Only
+     * CONFIRMED bookings can be checked in.
      *
      * @return false if the booking is missing or not in CONFIRMED state
      */
@@ -349,6 +421,7 @@ public class FrontDeskControl {
         }
         booking.setCheckInTime(checkInTime);
         booking.setStatus("ACTIVE");
+        booking.setPaymentStatus("PAID"); // guest settles the bill on check-in
         return true;
     }
 

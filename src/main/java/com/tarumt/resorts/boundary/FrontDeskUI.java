@@ -52,10 +52,10 @@ public class FrontDeskUI {
                     + " ".repeat(rightPadding) + " |");
             System.out.println(menuBorder);
 
-            System.out.printf("| %-64s |%n", "1. Look up booking by confirmation number");
-            System.out.printf("| %-64s |%n", "2. Search bookings (by any keyword)");
-            System.out.printf("| %-64s |%n", "3. Filter bookings (multi-field: name/ID/tier/type/date)");
-            System.out.printf("| %-64s |%n", "4. Check room availability");
+            System.out.printf("| %-64s |%n", "1. Search bookings (keyword; incl. confirmation no)");
+            System.out.printf("| %-64s |%n", "2. Filter bookings (multi-field: name/ID/tier/type/date)");
+            System.out.printf("| %-64s |%n", "3. Check room availability (now)");
+            System.out.printf("| %-64s |%n", "4. Check availability by date range");
             System.out.printf("| %-64s |%n", "5. Check in guest");
             System.out.printf("| %-64s |%n", "6. Check out guest");
             System.out.printf("| %-64s |%n", "7. Cancel booking");
@@ -75,10 +75,10 @@ public class FrontDeskUI {
             }
 
             switch (choice) {
-                case 1 -> lookupBooking();
-                case 2 -> searchBookings();
-                case 3 -> filterBookings();
-                case 4 -> checkAvailability();
+                case 1 -> searchBookings();
+                case 2 -> filterBookings();
+                case 3 -> checkAvailability();
+                case 4 -> checkAvailabilityByDate();
                 case 5 -> checkInGuest();
                 case 6 -> checkOutGuest();
                 case 7 -> cancelBooking();
@@ -88,24 +88,6 @@ public class FrontDeskUI {
                 default -> System.out.println("Invalid choice.");
             }
         } while (choice != 0);
-    }
-
-    // =====================================================================
-    // Core feature: look up a booking by its 8-digit confirmation number.
-    // =====================================================================
-
-    private void lookupBooking() {
-        if (control.getBookingCount() == 0) {
-            System.out.println("\nNo bookings are available to search.");
-            return;
-        }
-
-        Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
-        if (booking == null) {
-            System.out.println("No booking found for that confirmation number.");
-        } else {
-            printBookingDetails(booking);
-        }
     }
 
     /**
@@ -146,6 +128,31 @@ public class FrontDeskUI {
                 "Keywords: " + (query.isEmpty() ? "(blank - all bookings)" : query),
                 "A booking matches only if it contains EVERY keyword (in any field)");
         printBookingTable(results);
+
+        // Look-up behaviour folded in: a single match shows its full detail
+        // card; multiple matches let the user drill into one.
+        if (results.length == 1) {
+            printBookingDetails(results[0]);
+        } else if (results.length > 1) {
+            System.out.print("\nView full details? Enter a confirmation / room / guest ID (0 = back): ");
+            String pick = sc.nextLine().trim();
+            if (!pick.equals("0")) {
+                Booking chosen = null;
+                for (Booking b : results) {
+                    if (b.getConfirmationNumber().equalsIgnoreCase(pick)
+                            || b.getRoom().getRoomNumber().equalsIgnoreCase(pick)
+                            || b.getGuest().getGuestId().equalsIgnoreCase(pick)) {
+                        chosen = b;
+                        break;
+                    }
+                }
+                if (chosen != null) {
+                    printBookingDetails(chosen);
+                } else {
+                    System.out.println("No matching booking in the results above.");
+                }
+            }
+        }
     }
 
     // =====================================================================
@@ -225,28 +232,73 @@ public class FrontDeskUI {
     }
 
     // =====================================================================
+    // Date-range availability: is a room type full or free for a period?
+    // =====================================================================
+
+    private void checkAvailabilityByDate() {
+        java.time.LocalDate checkIn = promptDate("Check-in date");
+        java.time.LocalDate checkOut;
+        while (true) {
+            checkOut = promptDate("Check-out date");
+            if (checkOut.isAfter(checkIn)) {
+                break;
+            }
+            System.out.println("Check-out date must be after the check-in date.");
+        }
+        String roomType = readRoomTypeFilter();
+
+        Room[] free = control.getAvailableRoomsForRange(checkIn, checkOut, roomType);
+        int totalOfType = control.countRoomsByType(roomType);
+
+        printReportHeader("AVAILABILITY BY DATE RANGE",
+                "Period: " + checkIn + " to " + checkOut + " | Room type = " + roomType,
+                free.length == 0
+                        ? "Result: FULL - no rooms of this type are free for this period"
+                        : "Result: " + free.length + " of " + totalOfType + " room(s) free for this period");
+
+        String border = "+----------+------------+";
+        System.out.println(border);
+        System.out.printf("| %-8s | %-10s |%n", "Room No", "Room Type");
+        System.out.println(border);
+        if (free.length == 0) {
+            System.out.printf("| %-21s |%n", "No rooms available.");
+        } else {
+            for (Room r : free) {
+                System.out.printf("| %-8.8s | %-10.10s |%n", r.getRoomNumber(), r.getRoomType());
+            }
+        }
+        System.out.println(border);
+    }
+
+    /** Prompts for a yyyy-MM-dd date, re-asking until the input parses. */
+    private java.time.LocalDate promptDate(String label) {
+        while (true) {
+            System.out.print("\n" + label + " (yyyy-MM-dd): ");
+            String input = sc.nextLine().trim();
+            try {
+                return java.time.LocalDate.parse(input);
+            } catch (java.time.format.DateTimeParseException e) {
+                System.out.println("Invalid date format. Please use yyyy-MM-dd, e.g. 2026-08-10.");
+            }
+        }
+    }
+
+    // =====================================================================
     // Front-Desk write operations: check-in, check-out, cancel.
     // (Payment status is fixed hard-coded billing data — read-only, so
     // there is no payment-update operation.)
     // =====================================================================
 
     private void checkOutGuest() {
-        Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
-        if (booking == null) {
-            System.out.println("No booking found for that confirmation number.");
+        // Only ACTIVE bookings (checked-in, in-house) can be checked out.
+        Booking[] inHouse = control.filterByStatusAndType("ACTIVE", "ALL");
+        if (inHouse.length == 0) {
+            System.out.println("\nNo in-house guests to check out (no ACTIVE bookings).");
             return;
         }
-        String status = booking.getStatus();
-        if (!"ACTIVE".equalsIgnoreCase(status)) {
-            if ("CONFIRMED".equalsIgnoreCase(status)) {
-                System.out.println("Guest has not checked in yet - please Check in first (or Cancel the booking).");
-            } else if ("CHECKED_OUT".equalsIgnoreCase(status)) {
-                System.out.println("This booking is already checked out.");
-            } else if ("CANCELLED".equalsIgnoreCase(status)) {
-                System.out.println("This booking has been cancelled.");
-            } else {
-                System.out.println("Only an active (checked-in) booking can be checked out. Current status: " + status);
-            }
+        Booking booking = selectBooking(inHouse, "SELECT A GUEST TO CHECK OUT  (status: ACTIVE / in-house)");
+        if (booking == null) {
+            System.out.println("Check-out cancelled.");
             return;
         }
 
@@ -261,15 +313,62 @@ public class FrontDeskUI {
         }
     }
 
+    /**
+     * Shows the given bookings as a numbered list and lets the user pick one
+     * by row number, room number, or guest ID. Returns null if the user
+     * enters 0 to go back.
+     */
+    private Booking selectBooking(Booking[] list, String title) {
+        printReportHeader(title, "Pick by row number, room number, or guest ID (0 to go back)", null);
+        String border = "+-----+------------+----------+----------------------+----------+------------+";
+        System.out.println(border);
+        System.out.printf("| %-3s | %-10s | %-8s | %-20s | %-8s | %-10s |%n",
+                "No", "Confirm No", "Guest ID", "Guest Name", "Room No", "Room Type");
+        System.out.println(border);
+        for (int i = 0; i < list.length; i++) {
+            Booking b = list[i];
+            System.out.printf("| %-3d | %-10.10s | %-8.8s | %-20.20s | %-8.8s | %-10.10s |%n",
+                    i + 1, b.getConfirmationNumber(), b.getGuest().getGuestId(),
+                    b.getGuest().getName(), b.getRoom().getRoomNumber(), b.getRoom().getRoomType());
+        }
+        System.out.println(border);
+
+        while (true) {
+            System.out.print("Enter selection (row no / room no / guest ID, 0 = back): ");
+            String input = sc.nextLine().trim();
+            if (input.equals("0")) {
+                return null;
+            }
+            // 1) plain row number within range
+            try {
+                int row = Integer.parseInt(input);
+                if (row >= 1 && row <= list.length) {
+                    return list[row - 1];
+                }
+            } catch (NumberFormatException ignored) {
+                // not a row number - fall through to room / guest matching
+            }
+            // 2) match by room number, then 3) by guest ID, within this list
+            for (Booking b : list) {
+                if (b.getRoom().getRoomNumber().equalsIgnoreCase(input)
+                        || b.getGuest().getGuestId().equalsIgnoreCase(input)) {
+                    return b;
+                }
+            }
+            System.out.println("No matching row/room/guest in the list above. Please try again.");
+        }
+    }
+
     private void checkInGuest() {
-        Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
-        if (booking == null) {
-            System.out.println("No booking found for that confirmation number.");
+        // Only CONFIRMED bookings (booked, guest not yet arrived) can check in.
+        Booking[] awaiting = control.filterByStatusAndType("CONFIRMED", "ALL");
+        if (awaiting.length == 0) {
+            System.out.println("\nNo bookings are awaiting check-in (no CONFIRMED bookings).");
             return;
         }
-        if (!"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
-            System.out.println("Only a CONFIRMED booking (booked, not yet arrived) can be checked in. "
-                    + "Current status: " + booking.getStatus());
+        Booking booking = selectBooking(awaiting, "SELECT A BOOKING TO CHECK IN  (status: CONFIRMED)");
+        if (booking == null) {
+            System.out.println("Check-in cancelled.");
             return;
         }
 
@@ -277,7 +376,7 @@ public class FrontDeskUI {
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
         if (control.checkInBooking(booking.getConfirmationNumber(), checkInTime)) {
-            System.out.println("Guest checked in. Booking is now ACTIVE. Room "
+            System.out.println("Guest checked in. Booking is now ACTIVE and payment marked PAID. Room "
                     + booking.getRoom().getRoomNumber() + " | Check-in time: " + checkInTime);
         } else {
             System.out.println("Check-in failed.");
@@ -285,23 +384,16 @@ public class FrontDeskUI {
     }
 
     private void cancelBooking() {
-        Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
-        if (booking == null) {
-            System.out.println("No booking found for that confirmation number.");
+        // Only CONFIRMED bookings can be cancelled (an ACTIVE guest must be
+        // checked out instead), so list those and let the user choose one.
+        Booking[] cancellable = control.filterByStatusAndType("CONFIRMED", "ALL");
+        if (cancellable.length == 0) {
+            System.out.println("\nNo cancellable bookings (no CONFIRMED bookings).");
             return;
         }
-        String status = booking.getStatus();
-        if (!"CONFIRMED".equalsIgnoreCase(status)) {
-            if ("ACTIVE".equalsIgnoreCase(status)) {
-                System.out.println("Guest has already checked in - use Check out (early check-out) instead of cancel.");
-            } else if ("CHECKED_OUT".equalsIgnoreCase(status)) {
-                System.out.println("A completed (checked-out) stay cannot be cancelled.");
-            } else if ("CANCELLED".equalsIgnoreCase(status)) {
-                System.out.println("This booking is already cancelled.");
-            } else {
-                System.out.println("Only a CONFIRMED booking (booked, not yet checked in) can be cancelled. "
-                        + "Current status: " + status);
-            }
+        Booking booking = selectBooking(cancellable, "SELECT A BOOKING TO CANCEL  (status: CONFIRMED)");
+        if (booking == null) {
+            System.out.println("No booking cancelled.");
             return;
         }
 
@@ -358,18 +450,6 @@ public class FrontDeskUI {
     // =====================================================================
     // Filter prompts.
     // =====================================================================
-
-    private String promptConfirmationNumber() {
-        String confirmationNumber;
-        while (true) {
-            System.out.print("\nEnter 8-digit confirmation number: ");
-            confirmationNumber = sc.nextLine().trim();
-            if (control.isValidConfirmationNumber(confirmationNumber)) {
-                return confirmationNumber;
-            }
-            System.out.println("Invalid format. A confirmation number must be exactly 8 digits.");
-        }
-    }
 
     private String readStatusFilter() {
         while (true) {
