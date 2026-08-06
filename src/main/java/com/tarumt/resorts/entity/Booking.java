@@ -1,4 +1,6 @@
 package com.tarumt.resorts.entity;
+
+import java.time.LocalDate;
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -21,6 +23,10 @@ public class Booking {
     private Guest guest;
     private Room room;
     private String bookingCreatedTime;
+    // Planned stay dates used for room schedule availability.
+    private LocalDate scheduledCheckInDate;
+    private LocalDate scheduledCheckOutDate;
+    private int stayDurationDays;
     private String checkInTime;
     private String checkOutTime; // set by Front-Desk on check-out
     private String status; // "ACTIVE", "CHECKED_OUT"
@@ -40,6 +46,40 @@ public class Booking {
         this.status = "ACTIVE";
         this.amount = 0.0;
         this.paymentStatus = "UNPAID";
+    }
+
+    /**
+     * Creates a booking with its planned stay schedule and calculated amount.
+     */
+    public Booking(
+            String confirmationNumber,
+            Guest guest,
+            Room room,
+            String bookingCreatedTime,
+            String checkInTime,
+            LocalDate scheduledCheckInDate,
+            int stayDurationDays) {
+
+        this(
+                confirmationNumber,
+                guest,
+                room,
+                bookingCreatedTime,
+                checkInTime);
+
+        if (scheduledCheckInDate == null) {
+            throw new IllegalArgumentException(
+                    "Scheduled check-in date cannot be null.");
+        }
+
+        if (stayDurationDays <= 0) {
+            throw new IllegalArgumentException(
+                    "Stay duration must be greater than zero.");
+        }
+
+        setSchedule(
+                scheduledCheckInDate,
+                stayDurationDays);
     }
 
     public Booking(
@@ -65,6 +105,49 @@ public class Booking {
         this(confirmationNumber, guest, room, checkInTime);
         this.amount = amount;
         this.paymentStatus = paymentStatus;
+    }
+
+    public LocalDate getScheduledCheckInDate() {
+        return scheduledCheckInDate;
+    }
+
+    public LocalDate getScheduledCheckOutDate() {
+        return scheduledCheckOutDate;
+    }
+
+    /**
+     * Updates the planned stay dates and recalculates the booking amount.
+     * The Control must check room availability before calling this method.
+     */
+    public void setSchedule(
+            LocalDate scheduledCheckInDate,
+            int stayDurationDays) {
+
+        if (scheduledCheckInDate == null) {
+            throw new IllegalArgumentException(
+                    "Scheduled check-in date cannot be null.");
+        }
+
+        if (stayDurationDays <= 0) {
+            throw new IllegalArgumentException(
+                    "Stay duration must be greater than zero.");
+        }
+
+        this.scheduledCheckInDate = scheduledCheckInDate;
+
+        this.stayDurationDays = stayDurationDays;
+
+        this.scheduledCheckOutDate = scheduledCheckInDate.plusDays(
+                stayDurationDays);
+
+        // Recalculate the total whenever the schedule changes.
+        this.amount = room == null
+                ? 0.0
+                : room.getDailyRate() * stayDurationDays;
+    }
+
+    public int getStayDurationDays() {
+        return stayDurationDays;
     }
 
     public String getConfirmationNumber() {
