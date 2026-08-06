@@ -31,7 +31,7 @@ import com.tarumt.resorts.boundary.VIPAllocationUI;
 import com.tarumt.resorts.control.VIPAllocationControl;
 import com.tarumt.resorts.dao.VIPAllocationDAO;
 import com.tarumt.resorts.entity.VIPAllocationRequest;
-
+import com.tarumt.resorts.boundary.MainMenuUI;
 import com.tarumt.resorts.boundary.LoyaltyRewardsUI;
 import com.tarumt.resorts.control.LoyaltyRewardsControl;
 import com.tarumt.resorts.dao.LoyaltyInitializerData;
@@ -98,10 +98,10 @@ public class TARUMTResorts {
                                 sharedLoyaltyAccounts,
                                 sharedLoyaltyTransactions,
                                 sharedGuests);
-                
+
                 // Load the hard-coded VIP allocation request history.
-                ListQueueInterface<VIPAllocationRequest> sharedVipRequestHistory =
-                        new VIPAllocationDAO().getAllRequests(sharedGuests);
+                ListQueueInterface<VIPAllocationRequest> sharedVipRequestHistory = new VIPAllocationDAO()
+                                .getAllRequests(sharedGuests);
 
                 VIPAllocationControl vipControl = new VIPAllocationControl(
                                 sharedRooms,
@@ -130,67 +130,24 @@ public class TARUMTResorts {
                                 scanner);
 
                 VIPAllocationUI vipUI = new VIPAllocationUI(
-                vipControl,
-                scanner);
-                
-                int choice;
+                                vipControl,
+                                scanner);
 
-                do {
-                        System.out.println();
-                        System.out.println(
-                                        "+------------------------------------------------+");
-                        System.out.println(
-                                        "|            TARUMT RESORTS MAIN MENU            |");
-                        System.out.println(
-                                        "+------------------------------------------------+");
-                        System.out.printf(
-                                        "| %-46s |%n",
-                                        "1. Walk-In Registration & Standard Booking");
-                        System.out.printf(
-                                        "| %-46s |%n",
-                                        "2. Housekeeping & Task Log");
-                        System.out.printf(
-                                        "| %-46s |%n",
-                                        "3. Front-Desk Service");
-                        System.out.printf(
-                                        "| %-46s |%n",
-                                        "4. Loyalty & Rewards Service");
-                        System.out.printf(
-                                        "| %-46s |%n",
-                                        "5. VIP & Loyalty Tier Priority Allocation");
-                        System.out.printf(
-                                        "| %-46s |%n",
-                                        "0. Exit");
-                        System.out.println(
-                                        "+------------------------------------------------+");
-                        System.out.print("Enter choice: ");
+                // Main only wires the module boundaries together.
+                // Menu display and input handling belong to the Boundary layer.
+                MainMenuUI mainMenuUI = new MainMenuUI(
+                                walkInUI,
+                                housekeepingUI,
+                                frontDeskUI,
+                                loyaltyUI,
+                                vipUI,
+                                scanner);
 
-                        try {
-                                choice = Integer.parseInt(
-                                                scanner.nextLine().trim());
-                        } catch (NumberFormatException e) {
-                                System.out.println(
-                                                "Invalid input. Please enter a number.");
-                                choice = -1;
-                                continue;
-                        }
+                mainMenuUI.showMenu();
 
-                        switch (choice) {
-                                case 1 -> walkInUI.showMenu();
-                                case 2 -> housekeepingUI.showMenu();
-                                case 3 -> frontDeskUI.showMenu();
-                                case 4 -> loyaltyUI.showMenu();
-                                case 5 -> vipUI.showMenu();
-                                case 0 -> System.out.println(
-                                                "Thank you for using TARUMT Resorts.");
-                                default -> System.out.println(
-                                                "Invalid choice. Please try again.");
-                        }
-
-                } while (choice != 0);
-
-                // Close System.in only when the entire application exits.
+                // Close System.in only after the entire application exits.
                 scanner.close();
+
         }
 
 }
