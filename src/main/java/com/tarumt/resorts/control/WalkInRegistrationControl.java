@@ -12,6 +12,7 @@ import com.tarumt.resorts.dao.RoomDAO;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
+import java.time.LocalDate;
 
 /**
  * WalkInRegistrationControl.java
@@ -22,7 +23,7 @@ import java.util.Iterator;
 public class WalkInRegistrationControl {
 
     // Active registrations processed using strict FIFO behaviour.
-    private ListQueueInterface<WalkInRegistration> registrationQueue;
+    private ListQueueInterface<WalkInRegistration> registrationQueue = new DoublyLinkedListQueue<>();// ADT declaration
 
     // Complete registration records used for searching and reporting.
     private ListQueueInterface<WalkInRegistration> registrationHistory;
@@ -64,7 +65,6 @@ public class WalkInRegistrationControl {
 
         // use the registration history created by WalkInRegistrationDAO
         registrationHistory = sharedRegistrationHistory;
-        registrationQueue = new DoublyLinkedListQueue<>();
 
         // Copy history references and arrange them by arrival time.
         WalkInRegistration[] chronologicalHistory = getAllRegistrationHistory();
@@ -77,7 +77,7 @@ public class WalkInRegistrationControl {
 
             if (registrationRecord.getStatus()
                     .equalsIgnoreCase("WAITING")) {
-                registrationQueue.enqueue(registrationRecord);
+                registrationQueue.enqueue(registrationRecord);// ADT method called enque
             }
         }
 
@@ -259,33 +259,61 @@ public class WalkInRegistrationControl {
     }
 
     /**
-     * Cancels one waiting registration while preserving the FIFO order
-     * of all remaining registrations.
+     * Cancels one WAITING registration only when both the registration ID
+     * and guest ID match. All other registrations retain their FIFO order.
      */
-    public boolean cancelWaitingRegistration(String guestId) {
-        if (guestId == null || guestId.trim().isEmpty()) {
+    public boolean cancelWaitingRegistration(
+            String registrationId,
+            String guestId) {
+
+        if (registrationId == null
+                || registrationId.trim().isEmpty()
+                || guestId == null
+                || guestId.trim().isEmpty()) {
+
             return false;
         }
 
+        String targetRegistrationId = registrationId.trim();
         String targetGuestId = guestId.trim();
-        int queueSize = registrationQueue.getNumberOfEntries();
-        boolean isCancelled = false;
 
-        // Check every original queue entry once.
-        for (int i = 0; i < queueSize; i++) {
-            WalkInRegistration registration = registrationQueue.dequeue();
+        int originalQueueSize = registrationQueue.getNumberOfEntries();
 
-            if (!isCancelled && registration.getGuest().getGuestId().equalsIgnoreCase(targetGuestId)) {
+        boolean registrationCancelled = false;
 
-                // Remove from active queue but retain it in history
-                registration.setStatus("CANCELLED");
-                isCancelled = true;
+        // Examine every original queue entry exactly once.
+        for (int queuePosition = 0; queuePosition < originalQueueSize; queuePosition++) {
+
+            WalkInRegistration currentRegistration = registrationQueue.dequeue();
+
+            boolean registrationIdMatches = currentRegistration.getRegistrationId()
+                    .equalsIgnoreCase(targetRegistrationId);
+
+            boolean guestIdMatches = currentRegistration.getGuest() != null
+                    && currentRegistration.getGuest().getGuestId() != null
+                    && currentRegistration.getGuest()
+                            .getGuestId()
+                            .equalsIgnoreCase(targetGuestId);
+
+            boolean isWaiting = "WAITING".equalsIgnoreCase(
+                    currentRegistration.getStatus());
+
+            if (!registrationCancelled
+                    && registrationIdMatches
+                    && guestIdMatches
+                    && isWaiting) {
+
+                // Keep the record in history but remove it from the active queue.
+                currentRegistration.setStatus("CANCELLED");
+                registrationCancelled = true;
+
             } else {
-                // Put non-target registrations back in their original FIFO order
-                registrationQueue.enqueue(registration);
+                // Restore non-target registrations in their original FIFO order.
+                registrationQueue.enqueue(currentRegistration);
             }
         }
-        return isCancelled;
+
+        return registrationCancelled;
     }
 
     private Guest findOrCreateGuest(
@@ -354,30 +382,76 @@ public class WalkInRegistrationControl {
         }
     }
 
+    /**
+     * Compatibility method for existing code that does not provide a schedule.
+     */
     public Guest registerGuest(
-            String name, String contactNumber, String email,
-            String registrationTime, String requestedRoomType) {
-        /*
-         * Find/Create Guest
-         * → Search active queue once
-         * → Found WAITING record: reject
-         * → Not found: create registration
-         */
-        Guest guest = findOrCreateGuest(name, contactNumber, email);
-        // avoid O(n^2) indexede traversal, decrease duplicate code
-        // Prevent the same guest from having two active waiting registrations.
-        WalkInRegistration existingRegistration = searchByGuestId(guest.getGuestId());// using adt O(n) node traversal
+            String name,
+            String contactNumber,
+            String email,
+            String registrationTime,
+            String requestedRoomType) {
+
+        return registerGuest(
+                name,
+                contactNumber,
+                email,
+                registrationTime,
+                requestedRoomType,
+                LocalDate.now(),
+                1);
+    }
+
+    /**
+     * Creates a walk-in registration with the requested stay schedule.
+     */
+    public Guest registerGuest(
+            String name,
+            String contactNumber,
+            String email,
+            String registrationTime,
+            String requestedRoomType,
+            LocalDate requestedCheckInDate,
+            int stayDurationDays) {
+
+        if (requestedCheckInDate == null) {
+            throw new IllegalArgumentException(
+                    "Requested check-in date cannot be null.");
+        }
+
+        if (stayDurationDays <= 0) {
+            throw new IllegalArgumentException(
+                    "Stay duration must be greater than zero.");
+        }
+
+        Guest guest = findOrCreateGuest(
+                name,
+                contactNumber,
+                email);
+
+        // Prevent one guest from having multiple active waiting registrations.
+        WalkInRegistration existingRegistration = searchByGuestId(guest.getGuestId());
 
         if (existingRegistration != null
                 && "WAITING".equalsIgnoreCase(
                         existingRegistration.getStatus())) {
+
             return null;
         }
+
         String registrationId = generateRegistrationId();
+
         WalkInRegistration registration = new WalkInRegistration(
-                registrationId, guest, registrationTime, requestedRoomType);
+                registrationId,
+                guest,
+                registrationTime,
+                requestedRoomType,
+                requestedCheckInDate,
+                stayDurationDays);
+
         registrationQueue.enqueue(registration);
         registrationHistory.enqueue(registration);
+
         return guest;
     }
 
@@ -394,6 +468,117 @@ public class WalkInRegistrationControl {
                 || cleaningStatus.equalsIgnoreCase("READY")
                 || cleaningStatus.equalsIgnoreCase("UNKNOWN");
     }
+
+    /**
+     * Checks whether a room has no CONFIRMED or ACTIVE booking that
+     * overlaps the requested stay period.
+     */
+    private boolean isRoomAvailableForSchedule(
+            Room room,
+            LocalDate requestedCheckInDate,
+            LocalDate requestedCheckOutDate) {
+
+        if (room == null
+                || requestedCheckInDate == null
+                || requestedCheckOutDate == null
+                || !requestedCheckInDate.isBefore(requestedCheckOutDate)) {
+
+            return false;
+        }
+
+        Iterator<Booking> bookingIterator = bookingList.getIterator();
+
+        while (bookingIterator.hasNext()) {
+            Booking existingBooking = bookingIterator.next();
+
+            boolean sameRoom = existingBooking.getRoom() != null
+                    && existingBooking.getRoom()
+                            .getRoomNumber()
+                            .equalsIgnoreCase(
+                                    room.getRoomNumber());
+
+            boolean blocksSchedule = "CONFIRMED".equalsIgnoreCase(
+                    existingBooking.getStatus())
+                    || "ACTIVE".equalsIgnoreCase(
+                            existingBooking.getStatus());
+
+            LocalDate existingCheckInDate = existingBooking.getScheduledCheckInDate();
+
+            LocalDate existingCheckOutDate = existingBooking.getScheduledCheckOutDate();
+
+            if (sameRoom
+                    && blocksSchedule
+                    && existingCheckInDate != null
+                    && existingCheckOutDate != null) {
+
+                boolean datesOverlap = requestedCheckInDate.isBefore(
+                        existingCheckOutDate)
+                        && requestedCheckOutDate.isAfter(
+                                existingCheckInDate);
+
+                if (datesOverlap) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Checks whether at least one room of the requested type is available
+     * for the guest's complete stay period.
+     */
+    public boolean hasAvailableRoomForSchedule(
+            String roomType,
+            LocalDate requestedCheckInDate,
+            int stayDurationDays) {
+
+        if (roomType == null
+                || roomType.trim().isEmpty()
+                || requestedCheckInDate == null
+                || requestedCheckInDate.isBefore(LocalDate.now())
+                || stayDurationDays <= 0) {
+
+            return false;
+        }
+
+        LocalDate requestedCheckOutDate = requestedCheckInDate.plusDays(
+                stayDurationDays);
+
+        boolean immediateCheckIn = requestedCheckInDate.equals(
+                LocalDate.now());
+
+        Iterator<Room> roomIterator = roomList.getIterator();
+
+        while (roomIterator.hasNext()) {
+            Room candidateRoom = roomIterator.next();
+
+            boolean roomTypeMatches = candidateRoom.getRoomType()
+                    .equalsIgnoreCase(
+                            roomType.trim());
+
+            boolean operationallyReady = !immediateCheckIn
+                    || (candidateRoom.isAvailable()
+                            && isReadyForAllocation(
+                                    candidateRoom));
+
+            boolean scheduleAvailable = isRoomAvailableForSchedule(
+                    candidateRoom,
+                    requestedCheckInDate,
+                    requestedCheckOutDate);
+
+            if (roomTypeMatches
+                    && operationallyReady
+                    && scheduleAvailable) {
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /*
      * peek front guest
      * → iterate rooms
@@ -406,6 +591,11 @@ public class WalkInRegistrationControl {
         if (nextGuest == null) {
             return null;
         }
+        LocalDate requestedCheckInDate = nextGuest.getRequestedCheckInDate();
+
+        LocalDate requestedCheckOutDate = nextGuest.getRequestedCheckOutDate();
+
+        boolean immediateCheckIn = requestedCheckInDate.equals(LocalDate.now());
 
         Room assignedRoom = null;
 
@@ -418,9 +608,18 @@ public class WalkInRegistrationControl {
             boolean roomTypeMatches = candidateRoom.getRoomType().equalsIgnoreCase(
                     nextGuest.getRequestedRoomType());
 
+            boolean operationallyReady = !immediateCheckIn
+                    || (candidateRoom.isAvailable()
+                            && isReadyForAllocation(candidateRoom));
+
+            boolean scheduleAvailable = isRoomAvailableForSchedule(
+                    candidateRoom,
+                    requestedCheckInDate,
+                    requestedCheckOutDate);
+
             if (roomTypeMatches
-                    && candidateRoom.isAvailable()
-                    && isReadyForAllocation(candidateRoom)) {
+                    && operationallyReady
+                    && scheduleAvailable) {
 
                 assignedRoom = candidateRoom;
                 break;
@@ -442,14 +641,15 @@ public class WalkInRegistrationControl {
                 nextGuest.getGuest(),
                 assignedRoom,
                 bookingCreatedTime,
-                null);
+                null,
+                nextGuest.getRequestedCheckInDate(),
+                nextGuest.getStayDurationDays());
 
         boolean bookingSaved = bookingList.enqueue(booking);
         if (!bookingSaved) {
             return null;
         }
 
-        assignedRoom.setAvailable(false);
         nextGuest.setStatus("ASSIGNED");
         registrationQueue.dequeue();
         return booking;
