@@ -63,7 +63,42 @@ public class BookingDAO {
         bookings.enqueue(markCheckedOut(new Booking("20260013", findGuest("G017"), findRoom("304"), "2026-07-06 16:00", 1980.00, "PAID"), "2026-07-09 12:15"));
         bookings.enqueue(markCheckedOut(new Booking("20260014", findGuest("G020"), findRoom("305"), "2026-07-07 09:45", 2250.00, "UNPAID"), "2026-07-10 10:05"));
 
+        // CONFIRMED bookings (approved, guest NOT yet checked in). These let
+        // the Front-Desk demonstrate Check-in and Cancel on their own, without
+        // first running the Walk-In module. The 5-argument constructor is used
+        // with a null check-in time, so each one is CONFIRMED. Confirmation
+        // numbers continue after the records above (20260015-20260034); Walk-In's
+        // counter (bookingList size + 1) resumes after these, so runtime bookings
+        // never collide. Rooms are ones NOT occupied by the ACTIVE bookings above.
+        bookings.enqueue(withBilling(new Booking("20260015", findGuest("G001"), findRoom("101"), "2026-07-20 10:00", null),  450.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260016", findGuest("G002"), findRoom("102"), "2026-07-21 11:30", null),  480.00, "PARTIAL"));
+        bookings.enqueue(withBilling(new Booking("20260017", findGuest("G003"), findRoom("104"), "2026-07-21 14:05", null),  450.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260018", findGuest("G004"), findRoom("105"), "2026-07-22 09:15", null),  500.00, "PAID"));
+        bookings.enqueue(withBilling(new Booking("20260019", findGuest("G005"), findRoom("107"), "2026-07-22 16:40", null),  460.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260020", findGuest("G006"), findRoom("108"), "2026-07-23 10:00", null),  450.00, "PARTIAL"));
+        bookings.enqueue(withBilling(new Booking("20260021", findGuest("G007"), findRoom("201"), "2026-07-23 13:20", null),  950.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260022", findGuest("G008"), findRoom("203"), "2026-07-24 12:00", null),  980.00, "PAID"));
+        bookings.enqueue(withBilling(new Booking("20260023", findGuest("G009"), findRoom("204"), "2026-07-24 18:30", null),  950.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260024", findGuest("G010"), findRoom("206"), "2026-07-25 08:45", null), 1020.00, "PARTIAL"));
+        bookings.enqueue(withBilling(new Booking("20260025", findGuest("G011"), findRoom("207"), "2026-07-25 15:10", null),  950.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260026", findGuest("G012"), findRoom("301"), "2026-07-26 11:00", null), 1850.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260027", findGuest("G013"), findRoom("304"), "2026-07-26 17:25", null), 1900.00, "PARTIAL"));
+        bookings.enqueue(withBilling(new Booking("20260028", findGuest("G014"), findRoom("305"), "2026-07-27 10:30", null), 1850.00, "PAID"));
+        bookings.enqueue(withBilling(new Booking("20260029", findGuest("G015"), findRoom("102"), "2026-07-27 14:50", null),  470.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260030", findGuest("G016"), findRoom("104"), "2026-07-28 09:05", null),  450.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260031", findGuest("G017"), findRoom("105"), "2026-07-28 16:15", null),  490.00, "PARTIAL"));
+        bookings.enqueue(withBilling(new Booking("20260032", findGuest("G018"), findRoom("201"), "2026-07-29 12:40", null),  950.00, "UNPAID"));
+        bookings.enqueue(withBilling(new Booking("20260033", findGuest("G019"), findRoom("203"), "2026-07-29 19:00", null),  970.00, "PAID"));
+        bookings.enqueue(withBilling(new Booking("20260034", findGuest("G020"), findRoom("301"), "2026-07-30 10:20", null), 1880.00, "UNPAID"));
+
         return bookings;
+    }
+
+    /** Sets amount + payment on a freshly built CONFIRMED booking before storing. */
+    private Booking withBilling(Booking booking, double amount, String paymentStatus) {
+        booking.setAmount(amount);
+        booking.setPaymentStatus(paymentStatus);
+        return booking;
     }
 
     /** Linear lookup of a sample guest by id, so a Booking links a real Guest. */
