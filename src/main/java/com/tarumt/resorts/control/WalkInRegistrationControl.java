@@ -204,6 +204,53 @@ public class WalkInRegistrationControl {
         return guests;
     }
 
+    /**
+     * Returns each Guest who has Walk-In registration history.
+     * A Guest is included only once even when multiple history records exist.
+     */
+    public Guest[] getGuestsWithRegistrationHistory() {
+
+        WalkInRegistration[] registrationHistoryRecords = getAllRegistrationHistory();
+
+        Guest[] temporaryGuests = new Guest[registrationHistoryRecords.length];
+
+        int uniqueGuestCount = 0;
+
+        for (int historyIndex = 0; historyIndex < registrationHistoryRecords.length; historyIndex++) {
+
+            Guest currentGuest = registrationHistoryRecords[historyIndex].getGuest();
+
+            boolean guestAlreadyAdded = false;
+
+            for (int guestIndex = 0; guestIndex < uniqueGuestCount; guestIndex++) {
+
+                boolean guestIdMatches = temporaryGuests[guestIndex]
+                        .getGuestId()
+                        .equalsIgnoreCase(
+                                currentGuest.getGuestId());
+
+                if (guestIdMatches) {
+                    guestAlreadyAdded = true;
+                    break;
+                }
+            }
+
+            if (!guestAlreadyAdded) {
+                temporaryGuests[uniqueGuestCount] = currentGuest;
+                uniqueGuestCount++;
+            }
+        }
+
+        Guest[] guestsWithHistory = new Guest[uniqueGuestCount];
+
+        for (int guestIndex = 0; guestIndex < uniqueGuestCount; guestIndex++) {
+
+            guestsWithHistory[guestIndex] = temporaryGuests[guestIndex];
+        }
+
+        return guestsWithHistory;
+    }
+
     // Search the shared Guest Queue using a normalized contact number.
     /*
      * Input 0123456789
@@ -225,37 +272,97 @@ public class WalkInRegistrationControl {
                 guest -> normalizeContact(guest.getContactNumber()));
     }
 
+
+
     /**
-     * Updates the requested room type without changing the guest's FIFO position.
+     * Updates one WAITING registration identified by both
+     * Registration ID and Guest ID.
      */
-    public boolean updateRequestedRoomType(String guestId, String newRoomType) {
-        if (guestId == null || newRoomType == null) {
+    public boolean updateRequestedRoomType(
+            String registrationId,
+            String guestId,
+            String newRoomType) {
+
+        if (newRoomType == null) {
             return false;
         }
 
         String normalizedRoomType;
 
-        // Convert the input into the standard room-type spelling.
         if (newRoomType.equalsIgnoreCase("Standard")) {
             normalizedRoomType = "Standard";
+
         } else if (newRoomType.equalsIgnoreCase("Deluxe")) {
             normalizedRoomType = "Deluxe";
+
         } else if (newRoomType.equalsIgnoreCase("Suite")) {
             normalizedRoomType = "Suite";
+
         } else {
             return false;
         }
 
-        WalkInRegistration registration = searchByGuestId(guestId.trim());
+        WalkInRegistration selectedRegistration = findWaitingRegistration(
+                registrationId,
+                guestId);
 
-        // Only an active WaITING registration may be updated
-        if (registration == null || !"WAITING".equalsIgnoreCase(registration.getStatus())) {
+        if (selectedRegistration == null) {
             return false;
         }
 
-        registration.setRequestedRoomType(normalizedRoomType);
-        return true;
+        selectedRegistration.setRequestedRoomType(
+                normalizedRoomType);
 
+        return true;
+    }
+
+    /**
+     * Finds one active WAITING registration using both Registration ID
+     * and Guest ID.
+     */
+    public WalkInRegistration findWaitingRegistration(
+            String registrationId,
+            String guestId) {
+
+        if (registrationId == null
+                || registrationId.trim().isEmpty()
+                || guestId == null
+                || guestId.trim().isEmpty()) {
+
+            return null;
+        }
+
+        String targetRegistrationId = registrationId.trim();
+
+        String targetGuestId = guestId.trim();
+
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator();
+
+        while (registrationIterator.hasNext()) {
+
+            WalkInRegistration currentRegistration = registrationIterator.next();
+
+            boolean registrationIdMatches = currentRegistration.getRegistrationId()
+                    .equalsIgnoreCase(
+                            targetRegistrationId);
+
+            boolean guestIdMatches = currentRegistration.getGuest() != null
+                    && currentRegistration.getGuest()
+                            .getGuestId()
+                            .equalsIgnoreCase(targetGuestId);
+
+            boolean isWaiting = "WAITING".equalsIgnoreCase(
+                    currentRegistration.getStatus());
+
+            if (registrationIdMatches
+                    && guestIdMatches
+                    && isWaiting) {
+
+                return currentRegistration;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -429,16 +536,8 @@ public class WalkInRegistrationControl {
                 contactNumber,
                 email);
 
-        // Prevent one guest from having multiple active waiting registrations.
-        WalkInRegistration existingRegistration = searchByGuestId(guest.getGuestId());
-
-        if (existingRegistration != null
-                && "WAITING".equalsIgnoreCase(
-                        existingRegistration.getStatus())) {
-
-            return null;
-        }
-
+        // Every room request is stored as a separate FIFO registration.
+        // The same Guest may submit multiple room requests.
         String registrationId = generateRegistrationId();
 
         WalkInRegistration registration = new WalkInRegistration(
@@ -655,21 +754,44 @@ public class WalkInRegistrationControl {
         return booking;
     }
 
-    /*
-     * Guest ID input
-     * → Queue.searchByKey()
-     * → traverse linked nodes once
-     * → return matching registration
+    /**
+     * Returns the most recently added WAITING registration
+     * belonging to one Guest.
      */
-    public WalkInRegistration searchByGuestId(String guestId) {
-        if (guestId == null || guestId.trim().isEmpty()) {
+    public WalkInRegistration findLatestWaitingRegistrationByGuestId(
+            String guestId) {
+
+        if (guestId == null
+                || guestId.trim().isEmpty()) {
+
             return null;
         }
 
-        // Search linked nodes directly using each registration's Guest ID.
-        return registrationQueue.searchByKey(
-                guestId.trim(),
-                registration -> registration.getGuest().getGuestId());
+        String targetGuestId = guestId.trim();
+
+        WalkInRegistration latestRegistration = null;
+
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator();
+
+        while (registrationIterator.hasNext()) {
+
+            WalkInRegistration currentRegistration = registrationIterator.next();
+
+            boolean guestIdMatches = currentRegistration.getGuest() != null
+                    && currentRegistration.getGuest()
+                            .getGuestId()
+                            .equalsIgnoreCase(targetGuestId);
+
+            boolean isWaiting = "WAITING".equalsIgnoreCase(
+                    currentRegistration.getStatus());
+
+            if (guestIdMatches && isWaiting) {
+                // Continue traversing so the last matching entry is returned.
+                latestRegistration = currentRegistration;
+            }
+        }
+
+        return latestRegistration;
     }
 
     /**
@@ -830,36 +952,6 @@ public class WalkInRegistrationControl {
         return registrations;
     }
 
-    /*
-     * Waiting Queue:
-     * Standard → Deluxe → Standard
-     * 
-     * countWaitingByRoomType("Standard")
-     * → result = 2
-     */
-    // Count active waiting registrations requesting one room type.
-    public int countWaitingByRoomType(String roomType) {
-        if (roomType == null || roomType.trim().isEmpty()) {
-            return 0;
-        }
-
-        int demandCount = 0;
-
-        // Direct access to linked nodes
-        Iterator<WalkInRegistration> iterator = registrationQueue.getIterator();
-
-        while (iterator.hasNext()) {
-            WalkInRegistration registration = iterator.next();
-
-            if (registration.getRequestedRoomType()
-                    .equalsIgnoreCase(roomType.trim())) {
-                demandCount++;
-            }
-        }
-
-        return demandCount;
-    }
-
     // count all rooms belonging to one room type , not check availability
     public int countTotalRoomsByType(String roomType) {
         if (roomType == null || roomType.trim().isEmpty()) {
@@ -914,6 +1006,8 @@ public class WalkInRegistrationControl {
 
         return availableRoomCount;
     }
+
+
 
     // Returns how many guests are currently waiting in the queue.
     public int getWaitingCount() {

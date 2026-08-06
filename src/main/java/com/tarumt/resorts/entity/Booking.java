@@ -31,7 +31,7 @@ public class Booking {
     private String checkOutTime; // set by Front-Desk on check-out
     private String status; // "ACTIVE", "CHECKED_OUT"
     private double amount; // total bill for the stay (RM)
-    private String paymentStatus; // "PAID", "UNPAID", "PARTIAL"
+    private String paymentStatus; // "PAID", "UNPAID"
 
     public Booking() {
     }

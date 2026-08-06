@@ -380,34 +380,40 @@ public class WalkInRegistrationUI {
 
                         while (true) {
                                 System.out.print(
-                                                "Enter check-in date (YYYY-MM-DD)"
-                                                                + " or M to change month: ");
+                                                "Enter check-in day (1-"
+                                                                + selectedMonth.lengthOfMonth()
+                                                                + ") or M to change month: ");
 
-                                String dateInput = sc.nextLine().trim();
+                                String dayInput = sc.nextLine().trim();
 
-                                if (dateInput.equalsIgnoreCase("M")) {
+                                if (dayInput.equalsIgnoreCase("M")) {
                                         break;
                                 }
 
-                                LocalDate selectedDate;
+                                int selectedDay;
 
                                 try {
-                                        selectedDate = LocalDate.parse(dateInput);
-
-                                } catch (java.time.format.DateTimeParseException exception) {
-
+                                        selectedDay = Integer.parseInt(dayInput);
+                                } catch (NumberFormatException exception) {
                                         System.out.println(
-                                                        "Invalid date. Example: 2026-08-12");
+                                                        "Invalid day. Enter a number shown on the calendar.");
                                         continue;
                                 }
 
-                                if (!YearMonth.from(selectedDate)
-                                                .equals(selectedMonth)) {
+                                if (selectedDay < 1
+                                                || selectedDay > selectedMonth.lengthOfMonth()) {
 
                                         System.out.println(
-                                                        "Please select a date from the displayed month.");
+                                                        "Invalid day for "
+                                                                        + selectedMonth.getMonth()
+                                                                        + " "
+                                                                        + selectedMonth.getYear()
+                                                                        + ".");
                                         continue;
                                 }
+
+                                // Combine the selected month with the entered day.
+                                LocalDate selectedDate = selectedMonth.atDay(selectedDay);
 
                                 boolean dateAvailable = control.hasAvailableRoomForSchedule(
                                                 roomType,
@@ -415,8 +421,7 @@ public class WalkInRegistrationUI {
                                                 stayDurationDays);
 
                                 if (!dateAvailable) {
-                                        LocalDate requestedCheckOutDate = selectedDate.plusDays(
-                                                        stayDurationDays);
+                                        LocalDate requestedCheckOutDate = selectedDate.plusDays(stayDurationDays);
 
                                         System.out.println(
                                                         "No single "
@@ -428,14 +433,13 @@ public class WalkInRegistrationUI {
                                                                         + ".");
 
                                         System.out.println(
-                                                        "Please choose another check-in date "
+                                                        "Please choose another check-in day "
                                                                         + "or enter M to change month.");
 
                                         continue;
                                 }
 
                                 requestedCheckInDate = selectedDate;
-
                                 break;
                         }
                 }
@@ -452,14 +456,11 @@ public class WalkInRegistrationUI {
                                 requestedCheckInDate,
                                 stayDurationDays);
 
-                if (guest != null) {
-                        WalkInRegistration registration = control.searchByGuestId(guest.getGuestId());
+                // Display the request that was just added to the rear of the FIFO queue.
+                WalkInRegistration registration = control.findLatestWaitingRegistrationByGuestId(
+                                guest.getGuestId());
 
-                        displayRegistrationResult(registration);
-                } else {
-                        System.out.println(
-                                        "This guest is already in the waiting queue.");
-                }
+                displayRegistrationResult(registration);
         }
 
         private void displayRegistrationResult(
@@ -672,12 +673,12 @@ public class WalkInRegistrationUI {
         private void displayWaitingQueue() {
                 WalkInRegistration[] waiting = control.getAllWaitingRegistrations();
 
-                String border = "+-----+----------+----------+------------+"
-                                + "------------+------------+--------+------------------+";
+                String border = "+-----+----------+----------+----------------------+"
+                                + "------------+------------+------------+--------+------------------+";
 
-                String title = "ACTIVE WALK-IN WAITING QUEUE";
+                String title = "ACTIVE WALK-IN WAITING REQUEST QUEUE";
 
-                int contentWidth = 94;
+                int contentWidth = 117;
                 int leftPadding = (contentWidth - title.length()) / 2;
                 int rightPadding = contentWidth
                                 - title.length()
@@ -696,19 +697,20 @@ public class WalkInRegistrationUI {
 
                 if (waiting.length == 0) {
                         System.out.printf(
-                                        "| %-92s |%n",
-                                        "No guests are currently waiting.");
+                                        "| %-115s |%n",
+                                        "No booking requests are currently waiting.");
 
                         System.out.println(border);
                         return;
                 }
 
                 System.out.printf(
-                                "| %-3s | %-8s | %-8s | %-10s | "
+                                "| %-3s | %-8s | %-8s | %-20s | %-10s | "
                                                 + "%-10s | %-10s | %-6s | %-16s |%n",
                                 "Pos",
                                 "Reg ID",
                                 "Guest ID",
+                                "Guest Name",
                                 "Room Type",
                                 "Check-In",
                                 "Check-Out",
@@ -723,11 +725,12 @@ public class WalkInRegistrationUI {
                         WalkInRegistration registration = waiting[position];
 
                         System.out.printf(
-                                        "| %-3d | %-8.8s | %-8.8s | %-10.10s | "
+                                        "| %-3d | %-8.8s | %-8.8s | %-20.20s | %-10.10s | "
                                                         + "%-10s | %-10s | %-6d | %-16.16s |%n",
                                         position + 1,
                                         registration.getRegistrationId(),
                                         registration.getGuest().getGuestId(),
+                                        registration.getGuest().getName(),
                                         registration.getRequestedRoomType(),
                                         registration.getRequestedCheckInDate(),
                                         registration.getRequestedCheckOutDate(),
@@ -737,7 +740,7 @@ public class WalkInRegistrationUI {
 
                 System.out.println(border);
                 System.out.println(
-                                "Total waiting guests: "
+                                "Total waiting requests: "
                                                 + waiting.length);
         }
 
@@ -888,95 +891,319 @@ public class WalkInRegistrationUI {
         }
 
         private void displayRoomTypeDemandReport() {
+
                 String[] roomTypes = {
                                 "Standard", "Deluxe", "Suite"
                 };
 
-                String border = "+------------+----------------+-------------+"
-                                + "-----------------+---------+------------+";
+                int[] requestCounts = new int[roomTypes.length];
+                int[] allocatableCounts = new int[roomTypes.length];
 
-                String title = "ROOM-TYPE DEMAND AND AVAILABILITY REPORT";
+                int totalRegistrationRequests = control.getAllRegistrationHistory().length;
 
-                int contentWidth = 84;
+                int totalRooms = 0;
+
+                String border = "+------------+----------+----------+---------+-----------+"
+                                + "---------+-------------+----------+";
+
+                String title = "ROOM-TYPE DEMAND SUMMARY REPORT";
+                int contentWidth = 91;
+
                 int leftPadding = (contentWidth - title.length()) / 2;
+
                 int rightPadding = contentWidth - title.length() - leftPadding;
+
+                String generatedTime = java.time.LocalDateTime.now().format(
+                                java.time.format.DateTimeFormatter.ofPattern(
+                                                "yyyy-MM-dd HH:mm:ss"));
 
                 System.out.println();
                 System.out.println(border);
 
                 System.out.printf(
-                                "|%" + leftPadding + "s%s%"
-                                                + rightPadding + "s|%n",
-                                "", title, "");
+                                "|%s%s%s|%n",
+                                " ".repeat(leftPadding),
+                                title,
+                                " ".repeat(rightPadding));
 
                 System.out.println(border);
 
                 System.out.printf(
-                                "| %-10s | %-14s | %-11s | %-15s | %-7s | %-10s |%n",
-                                "Room Type",
-                                "Waiting Demand",
-                                "Total Rooms",
-                                "Allocatable",
-                                "Balance",
-                                "Assessment");
+                                "| %-89s |%n",
+                                "Generated At: " + generatedTime);
 
                 System.out.println(border);
 
-                for (int i = 0; i < roomTypes.length; i++) {
-                        String roomType = roomTypes[i];
+                System.out.printf(
+                                "| %-10s | %-8s | %-8s | %-7s | %-9s | "
+                                                + "%-7s | %-11s | %-8s |%n",
+                                "Room Type",
+                                "Requests",
+                                "Assigned",
+                                "Waiting",
+                                "Cancelled",
+                                "Rooms",
+                                "Allocatable",
+                                "Demand %");
 
-                        int waitingDemand = control.countWaitingByRoomType(roomType);
+                System.out.println(border);
 
-                        int totalRooms = control.countTotalRoomsByType(roomType);
+                for (int roomTypeIndex = 0; roomTypeIndex < roomTypes.length; roomTypeIndex++) {
 
-                        int availableRooms = control.countAvailableRoomsByType(roomType);
+                        String roomType = roomTypes[roomTypeIndex];
 
-                        int balance = availableRooms - waitingDemand;
+                        int requestCount = control.filterRegistrationHistory(
+                                        roomType,
+                                        "ALL").length;
 
-                        String assessment;
+                        int assignedCount = control.filterRegistrationHistory(
+                                        roomType,
+                                        "ASSIGNED").length;
 
-                        if (balance > 0) {
-                                assessment = "SURPLUS";
-                        } else if (balance == 0) {
-                                assessment = "EXACT";
-                        } else {
-                                assessment = "SHORTAGE";
-                        }
+                        int waitingCount = control.filterRegistrationHistory(
+                                        roomType,
+                                        "WAITING").length;
+
+                        int cancelledCount = control.filterRegistrationHistory(
+                                        roomType,
+                                        "CANCELLED").length;
+
+                        int roomCount = control.countTotalRoomsByType(roomType);
+
+                        int allocatableCount = control.countAvailableRoomsByType(roomType);
+
+                        double demandPercentage = totalRegistrationRequests == 0
+                                        ? 0.0
+                                        : requestCount * 100.0
+                                                        / totalRegistrationRequests;
+
+                        requestCounts[roomTypeIndex] = requestCount;
+                        allocatableCounts[roomTypeIndex] = allocatableCount;
+
+                        totalRooms += roomCount;
 
                         System.out.printf(
-                                        "| %-10s | %-14d | %-11d | %-15d | %-7d | %-10s |%n",
+                                        "| %-10s | %-8d | %-8d | %-7d | %-9d | "
+                                                        + "%-7d | %-11d | %7.2f%% |%n",
                                         roomType,
-                                        waitingDemand,
-                                        totalRooms,
-                                        availableRooms,
-                                        balance,
-                                        assessment);
+                                        requestCount,
+                                        assignedCount,
+                                        waitingCount,
+                                        cancelledCount,
+                                        roomCount,
+                                        allocatableCount,
+                                        demandPercentage);
                 }
 
                 System.out.println(border);
+
+                System.out.printf(
+                                "| %-89s |%n",
+                                "Total registration requests: "
+                                                + totalRegistrationRequests);
+
+                System.out.printf(
+                                "| %-89s |%n",
+                                "Total rooms: " + totalRooms);
+
+                System.out.println(border);
+
+                System.out.println();
+                displayVerticalBarChart(
+                                "ROOM-TYPE DEMAND",
+                                roomTypes,
+                                requestCounts);
+                System.out.println();
+
+                System.out.println();
+                displayVerticalBarChart(
+                                "CURRENT ALLOCATABLE ROOMS",
+                                roomTypes,
+                                allocatableCounts);
+                System.out.println();
+
+                int highestDemand = requestCounts[0];
+
+                for (int roomTypeIndex = 1; roomTypeIndex < requestCounts.length; roomTypeIndex++) {
+
+                        if (requestCounts[roomTypeIndex] > highestDemand) {
+                                highestDemand = requestCounts[roomTypeIndex];
+                        }
+                }
+
+                String mostRequestedRoomTypes = "";
+
+                for (int roomTypeIndex = 0; roomTypeIndex < roomTypes.length; roomTypeIndex++) {
+
+                        if (requestCounts[roomTypeIndex] == highestDemand) {
+
+                                if (!mostRequestedRoomTypes.isEmpty()) {
+                                        mostRequestedRoomTypes += " and ";
+                                }
+
+                                mostRequestedRoomTypes += roomTypes[roomTypeIndex];
+                        }
+                }
+
+                System.out.println();
+                System.out.println(
+                                "Most requested room type: "
+                                                + mostRequestedRoomTypes
+                                                + " ("
+                                                + highestDemand
+                                                + " requests)");
+
+                System.out.println(border);
+                System.out.printf(
+                                "|%43s%-47s|%n",
+                                "",
+                                "END OF REPORT");
+                System.out.println(border);
+        }
+
+        /**
+         * Displays a vertical console bar chart using fixed-width columns.
+         */
+        private void displayVerticalBarChart(
+                        String chartTitle,
+                        String[] categoryLabels,
+                        int[] values) {
+
+                System.out.println();
+                System.out.println(chartTitle);
+                System.out.println();
+
+                int highestValue = 0;
+
+                for (int index = 0; index < values.length; index++) {
+                        if (values[index] > highestValue) {
+                                highestValue = values[index];
+                        }
+                }
+
+                if (highestValue == 0) {
+                        System.out.println("No data available.");
+                        return;
+                }
+
+                for (int graphLevel = highestValue; graphLevel >= 1; graphLevel--) {
+
+                        System.out.printf("%3d |", graphLevel);
+
+                        for (int valueIndex = 0; valueIndex < values.length; valueIndex++) {
+
+                                String graphBar = values[valueIndex] >= graphLevel
+                                                ? "####"
+                                                : "";
+
+                                System.out.printf(
+                                                " %-10s",
+                                                graphBar);
+                        }
+
+                        System.out.println();
+                }
+
+                System.out.print("  0 +");
+
+                for (int index = 0; index < categoryLabels.length; index++) {
+
+                        System.out.print("-----------");
+                }
+
+                System.out.println();
+
+                System.out.print("     ");
+
+                for (int index = 0; index < categoryLabels.length; index++) {
+
+                        System.out.printf(
+                                        " %-10.10s",
+                                        categoryLabels[index]);
+                }
+
+                System.out.println();
+
+                System.out.print("     ");
+
+                for (int index = 0; index < values.length; index++) {
+
+                        System.out.printf(
+                                        " %-10d",
+                                        values[index]);
+                }
+
+                System.out.println();
         }
 
         private void updateRequestedRoomType() {
+
                 if (control.getWaitingCount() == 0) {
-                        System.out.println("The waiting queue is empty.");
+                        System.out.println(
+                                        "The waiting queue is empty.");
                         return;
                 }
 
                 displayWaitingQueue();
 
-                System.out.print("\nEnter Guest ID to update: ");
+                System.out.print(
+                                "\nEnter Registration ID to update: ");
+
+                String registrationId = sc.nextLine().trim();
+
+                System.out.print(
+                                "Enter Guest ID for verification: ");
+
                 String guestId = sc.nextLine().trim();
 
-                WalkInRegistration registration = control.searchByGuestId(guestId);
+                if (registrationId.isEmpty()
+                                || guestId.isEmpty()) {
 
-                if (registration == null) {
-                        System.out.println("No active waiting registration found for Guest ID: " + guestId);
+                        System.out.println(
+                                        "Registration ID and Guest ID cannot be blank.");
                         return;
                 }
 
+                WalkInRegistration selectedRegistration = control.findWaitingRegistration(
+                                registrationId,
+                                guestId);
+
+                if (selectedRegistration == null) {
+                        System.out.println(
+                                        "No active WAITING registration matches "
+                                                        + "the entered Registration ID and Guest ID.");
+                        return;
+                }
+
+                String border = "+----------------------+--------------------------------+";
+
+                System.out.println();
+                System.out.println(border);
                 System.out.println(
-                                "Current requested room type: "
-                                                + registration.getRequestedRoomType());
+                                "|             SELECTED BOOKING REQUEST                |");
+                System.out.println(border);
+
+                System.out.printf(
+                                "| %-20s | %-30s |%n",
+                                "Registration ID",
+                                selectedRegistration.getRegistrationId());
+
+                System.out.printf(
+                                "| %-20s | %-30s |%n",
+                                "Guest ID",
+                                selectedRegistration.getGuest().getGuestId());
+
+                System.out.printf(
+                                "| %-20s | %-30.30s |%n",
+                                "Guest Name",
+                                selectedRegistration.getGuest().getName());
+
+                System.out.printf(
+                                "| %-20s | %-30s |%n",
+                                "Current Room Type",
+                                selectedRegistration.getRequestedRoomType());
+
+                System.out.println(border);
 
                 String newRoomType;
 
@@ -985,7 +1212,8 @@ public class WalkInRegistrationUI {
                                         "Enter new room type "
                                                         + "(D = Deluxe, S = Standard, SU = Suite): ");
 
-                        newRoomType = control.parseRoomTypeCode(sc.nextLine());
+                        newRoomType = control.parseRoomTypeCode(
+                                        sc.nextLine());
 
                         if (newRoomType != null) {
                                 break;
@@ -995,14 +1223,21 @@ public class WalkInRegistrationUI {
                                         "Invalid room type code. Please try again.");
                 }
 
-                if (control.updateRequestedRoomType(guestId, newRoomType)) {
+                boolean roomTypeUpdated = control.updateRequestedRoomType(
+                                registrationId,
+                                guestId,
+                                newRoomType);
+
+                if (roomTypeUpdated) {
                         System.out.println(
                                         "Requested room type updated successfully to "
-                                                        + newRoomType + ".");
-                } else {
-                        System.out.println("Unable to update the registration.");
-                }
+                                                        + newRoomType
+                                                        + ".");
 
+                } else {
+                        System.out.println(
+                                        "Unable to update the booking request.");
+                }
         }
 
         private void cancelWaitingRegistration() {
@@ -1026,6 +1261,17 @@ public class WalkInRegistrationUI {
                         return;
                 }
 
+                WalkInRegistration selectedRegistration = control.findWaitingRegistration(
+                                registrationId,
+                                guestId);
+
+                if (selectedRegistration == null) {
+                        System.out.println(
+                                        "No active WAITING registration matches "
+                                                        + "the entered Registration ID and Guest ID.");
+                        return;
+                }
+
                 System.out.println();
                 System.out.println(
                                 "+--------------------------------------------------+");
@@ -1043,6 +1289,16 @@ public class WalkInRegistrationUI {
                                 "| %-18s | %-27s |%n",
                                 "Guest ID",
                                 guestId.toUpperCase());
+
+                System.out.printf(
+                                "| %-18s | %-27.27s |%n",
+                                "Guest Name",
+                                selectedRegistration.getGuest().getName());
+
+                System.out.printf(
+                                "| %-18s | %-27.27s |%n",
+                                "Room Type",
+                                selectedRegistration.getRequestedRoomType());
 
                 System.out.println(
                                 "+--------------------------------------------------+");
@@ -1070,12 +1326,13 @@ public class WalkInRegistrationUI {
         }
 
         private void displayGuestDirectory() {
-                Guest[] guests = control.getAllGuests();
+                // Only show Guests who have Walk-In registration history.
+                Guest[] guests = control.getGuestsWithRegistrationHistory();
 
                 String border = "+----------+----------------------+"
                                 + "---------------+------------+";
 
-                String title = "GUEST ID DIRECTORY";
+                String title = "WALK-IN HISTORY GUEST DIRECTORY";
                 int contentWidth = 60;
 
                 int leftPadding = (contentWidth - title.length()) / 2;
@@ -1116,7 +1373,8 @@ public class WalkInRegistrationUI {
 
                 System.out.println(border);
                 System.out.println(
-                                "Total guest profiles: " + guests.length);
+                                "Total guests with Walk-In history: "
+                                                + guests.length);
         }
 
         private void searchRegistrationHistory() {
