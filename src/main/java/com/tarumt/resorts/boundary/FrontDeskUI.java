@@ -53,11 +53,14 @@ public class FrontDeskUI {
             System.out.println(menuBorder);
 
             System.out.printf("| %-64s |%n", "1. Look up booking by confirmation number");
-            System.out.printf("| %-64s |%n", "2. Check room availability");
-            System.out.printf("| %-64s |%n", "3. Update payment status");
-            System.out.printf("| %-64s |%n", "4. Check out guest");
-            System.out.printf("| %-64s |%n", "5. Booking / Occupancy Report");
-            System.out.printf("| %-64s |%n", "6. Billing Summary Report");
+            System.out.printf("| %-64s |%n", "2. Search bookings (by any keyword)");
+            System.out.printf("| %-64s |%n", "3. Filter bookings (multi-field: name/ID/tier/type/date)");
+            System.out.printf("| %-64s |%n", "4. Check room availability");
+            System.out.printf("| %-64s |%n", "5. Check in guest");
+            System.out.printf("| %-64s |%n", "6. Check out guest");
+            System.out.printf("| %-64s |%n", "7. Cancel booking");
+            System.out.printf("| %-64s |%n", "8. Booking / Occupancy Report");
+            System.out.printf("| %-64s |%n", "9. Billing Summary Report");
             System.out.printf("| %-64s |%n", "0. Back to main menu");
 
             System.out.println(menuBorder);
@@ -73,11 +76,14 @@ public class FrontDeskUI {
 
             switch (choice) {
                 case 1 -> lookupBooking();
-                case 2 -> checkAvailability();
-                case 3 -> updatePayment();
-                case 4 -> checkOutGuest();
-                case 5 -> displayOccupancyReport();
-                case 6 -> displayBillingReport();
+                case 2 -> searchBookings();
+                case 3 -> filterBookings();
+                case 4 -> checkAvailability();
+                case 5 -> checkInGuest();
+                case 6 -> checkOutGuest();
+                case 7 -> cancelBooking();
+                case 8 -> displayOccupancyReport();
+                case 9 -> displayBillingReport();
                 case 0 -> System.out.println("Returning to main menu...");
                 default -> System.out.println("Invalid choice.");
             }
@@ -125,6 +131,63 @@ public class FrontDeskUI {
     }
 
     // =====================================================================
+    // Free-text search: one keyword, matched against any field of a booking.
+    // =====================================================================
+
+    private void searchBookings() {
+        System.out.println("\nSearch bookings - type one or more keywords separated by spaces.");
+        System.out.println("  Fields searched: name, guest ID, room no/type, tier, status, payment, date, amount.");
+        System.out.println("  Extra keywords narrow the results, e.g. \"siti deluxe\" = Siti's Deluxe booking.");
+        System.out.print("  Keywords: ");
+        String query = sc.nextLine().trim();
+
+        Booking[] results = control.search(query);
+        printReportHeader("SEARCH RESULTS",
+                "Keywords: " + (query.isEmpty() ? "(blank - all bookings)" : query),
+                "A booking matches only if it contains EVERY keyword (in any field)");
+        printBookingTable(results);
+    }
+
+    // =====================================================================
+    // Structured multi-field filter: narrow by specific fields (AND).
+    // =====================================================================
+
+    private void filterBookings() {
+        System.out.println("\nFilter bookings - leave a field blank to ignore it (all conditions AND).");
+        System.out.print("  Confirmation number contains : ");
+        String conf = sc.nextLine().trim();
+        System.out.print("  Guest name contains          : ");
+        String name = sc.nextLine().trim();
+        System.out.print("  Guest ID contains            : ");
+        String gid = sc.nextLine().trim();
+        System.out.print("  Membership tier (NONE/SILVER/GOLD/PLATINUM/DIAMOND/ELITE): ");
+        String tier = sc.nextLine().trim();
+        System.out.print("  Room type (Standard/Deluxe/Suite): ");
+        String type = sc.nextLine().trim();
+        System.out.print("  Check-in date (e.g. 2026-07-17): ");
+        String date = sc.nextLine().trim();
+
+        Booking[] results = control.filterBookings(conf, name, gid, tier, type, date);
+        printReportHeader("FILTER RESULTS", buildCriteriaLine(conf, name, gid, tier, type, date), null);
+        printBookingTable(results);
+    }
+
+    /** Builds a one-line summary of which filter criteria were actually supplied. */
+    private String buildCriteriaLine(String conf, String name, String gid,
+            String tier, String type, String date) {
+        StringBuilder sb = new StringBuilder("Filters: ");
+        int len = sb.length();
+        if (!conf.isEmpty()) sb.append("ConfNo~").append(conf).append("  ");
+        if (!name.isEmpty()) sb.append("Name~").append(name).append("  ");
+        if (!gid.isEmpty()) sb.append("GuestID~").append(gid).append("  ");
+        if (!tier.isEmpty()) sb.append("Tier=").append(tier).append("  ");
+        if (!type.isEmpty()) sb.append("RoomType=").append(type).append("  ");
+        if (!date.isEmpty()) sb.append("CheckIn~").append(date).append("  ");
+        if (sb.length() == len) sb.append("(none - showing all bookings)");
+        return sb.toString().trim();
+    }
+
+    // =====================================================================
     // Availability query over the shared room collection.
     // =====================================================================
 
@@ -162,37 +225,10 @@ public class FrontDeskUI {
     }
 
     // =====================================================================
-    // Front-Desk write operations: payment update and check-out.
+    // Front-Desk write operations: check-in, check-out, cancel.
+    // (Payment status is fixed hard-coded billing data — read-only, so
+    // there is no payment-update operation.)
     // =====================================================================
-
-    private void updatePayment() {
-        Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
-        if (booking == null) {
-            System.out.println("No booking found for that confirmation number.");
-            return;
-        }
-        System.out.printf("Current: %s | Amount RM %.2f | Payment: %s%n",
-                booking.getConfirmationNumber(), booking.getAmount(), booking.getPaymentStatus());
-
-        String newStatus;
-        while (true) {
-            System.out.println("New payment status: 1. PAID  2. PARTIAL  3. UNPAID");
-            System.out.print("Enter choice: ");
-            switch (sc.nextLine().trim()) {
-                case "1" -> { newStatus = "PAID"; }
-                case "2" -> { newStatus = "PARTIAL"; }
-                case "3" -> { newStatus = "UNPAID"; }
-                default -> { System.out.println("Invalid choice. Please try again."); continue; }
-            }
-            break;
-        }
-
-        if (control.updatePaymentStatus(booking.getConfirmationNumber(), newStatus)) {
-            System.out.println("Payment status updated to " + newStatus + ".");
-        } else {
-            System.out.println("Update failed.");
-        }
-    }
 
     private void checkOutGuest() {
         Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
@@ -200,8 +236,17 @@ public class FrontDeskUI {
             System.out.println("No booking found for that confirmation number.");
             return;
         }
-        if ("CHECKED_OUT".equalsIgnoreCase(booking.getStatus())) {
-            System.out.println("This booking is already checked out.");
+        String status = booking.getStatus();
+        if (!"ACTIVE".equalsIgnoreCase(status)) {
+            if ("CONFIRMED".equalsIgnoreCase(status)) {
+                System.out.println("Guest has not checked in yet - please Check in first (or Cancel the booking).");
+            } else if ("CHECKED_OUT".equalsIgnoreCase(status)) {
+                System.out.println("This booking is already checked out.");
+            } else if ("CANCELLED".equalsIgnoreCase(status)) {
+                System.out.println("This booking has been cancelled.");
+            } else {
+                System.out.println("Only an active (checked-in) booking can be checked out. Current status: " + status);
+            }
             return;
         }
 
@@ -213,6 +258,66 @@ public class FrontDeskUI {
                     + " is now available. Check-out time: " + checkOutTime);
         } else {
             System.out.println("Check-out failed.");
+        }
+    }
+
+    private void checkInGuest() {
+        Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
+        if (booking == null) {
+            System.out.println("No booking found for that confirmation number.");
+            return;
+        }
+        if (!"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
+            System.out.println("Only a CONFIRMED booking (booked, not yet arrived) can be checked in. "
+                    + "Current status: " + booking.getStatus());
+            return;
+        }
+
+        String checkInTime = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+
+        if (control.checkInBooking(booking.getConfirmationNumber(), checkInTime)) {
+            System.out.println("Guest checked in. Booking is now ACTIVE. Room "
+                    + booking.getRoom().getRoomNumber() + " | Check-in time: " + checkInTime);
+        } else {
+            System.out.println("Check-in failed.");
+        }
+    }
+
+    private void cancelBooking() {
+        Booking booking = control.findByConfirmationNumber(promptConfirmationNumber());
+        if (booking == null) {
+            System.out.println("No booking found for that confirmation number.");
+            return;
+        }
+        String status = booking.getStatus();
+        if (!"CONFIRMED".equalsIgnoreCase(status)) {
+            if ("ACTIVE".equalsIgnoreCase(status)) {
+                System.out.println("Guest has already checked in - use Check out (early check-out) instead of cancel.");
+            } else if ("CHECKED_OUT".equalsIgnoreCase(status)) {
+                System.out.println("A completed (checked-out) stay cannot be cancelled.");
+            } else if ("CANCELLED".equalsIgnoreCase(status)) {
+                System.out.println("This booking is already cancelled.");
+            } else {
+                System.out.println("Only a CONFIRMED booking (booked, not yet checked in) can be cancelled. "
+                        + "Current status: " + status);
+            }
+            return;
+        }
+
+        printBookingDetails(booking);
+        System.out.print("\nCancel this booking? (Y/N): ");
+        if (!sc.nextLine().trim().equalsIgnoreCase("Y")) {
+            System.out.println("Cancellation aborted.");
+            return;
+        }
+
+        String room = booking.getRoom().getRoomNumber();
+        if (control.cancelBooking(booking.getConfirmationNumber())) {
+            System.out.println("Booking " + booking.getConfirmationNumber()
+                    + " cancelled (kept on record as CANCELLED). Room " + room + " has been released.");
+        } else {
+            System.out.println("Cancellation failed.");
         }
     }
 
@@ -272,11 +377,15 @@ public class FrontDeskUI {
             System.out.println("1. All Statuses");
             System.out.println("2. Active (currently in-house)");
             System.out.println("3. Checked-Out");
+            System.out.println("4. Confirmed (booked, not yet checked in)");
+            System.out.println("5. Cancelled");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
                 case "1": return "ALL";
                 case "2": return "ACTIVE";
                 case "3": return "CHECKED_OUT";
+                case "4": return "CONFIRMED";
+                case "5": return "CANCELLED";
                 default: System.out.println("Invalid status filter. Please try again.");
             }
         }

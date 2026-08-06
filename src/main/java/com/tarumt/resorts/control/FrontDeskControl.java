@@ -107,19 +107,6 @@ public class FrontDeskControl {
     // =====================================================================
 
     /**
-     * Updates the payment status of an existing booking (Front-Desk billing
-     * responsibility). Returns false if the booking does not exist.
-     */
-    public boolean updatePaymentStatus(String confirmationNumber, String newStatus) {
-        Booking booking = findByConfirmationNumber(confirmationNumber);
-        if (booking == null || newStatus == null) {
-            return false;
-        }
-        booking.setPaymentStatus(newStatus.trim().toUpperCase());
-        return true;
-    }
-
-    /**
      * Checks a guest out: marks the booking CHECKED_OUT, records the check-out
      * time, and hands the room over to Housekeeping on the shared Room object.
      *
@@ -133,7 +120,9 @@ public class FrontDeskControl {
      */
     public boolean checkOutBooking(String confirmationNumber, String checkOutTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
-        if (booking == null || "CHECKED_OUT".equalsIgnoreCase(booking.getStatus())) {
+        // Only an ACTIVE (checked-in) booking can be checked out. A CONFIRMED
+        // booking must be checked in first; CANCELLED/CHECKED_OUT are terminal.
+        if (booking == null || !"ACTIVE".equalsIgnoreCase(booking.getStatus())) {
             return false;
         }
         booking.setStatus("CHECKED_OUT");
@@ -338,6 +327,200 @@ public class FrontDeskControl {
             total += b.getAmount();
         }
         return total;
+    }
+
+    // =====================================================================
+    // Check-in (CONFIRMED -> ACTIVE). Walk-In/VIP create a booking as
+    // CONFIRMED (room allocated, guest not yet arrived); the front desk
+    // performs the actual check-in when the guest turns up.
+    // =====================================================================
+
+    /**
+     * Checks a guest in: a CONFIRMED booking (booked but not yet arrived)
+     * becomes ACTIVE and gets its check-in time recorded. Only CONFIRMED
+     * bookings can be checked in.
+     *
+     * @return false if the booking is missing or not in CONFIRMED state
+     */
+    public boolean checkInBooking(String confirmationNumber, String checkInTime) {
+        Booking booking = findByConfirmationNumber(confirmationNumber);
+        if (booking == null || !"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
+            return false;
+        }
+        booking.setCheckInTime(checkInTime);
+        booking.setStatus("ACTIVE");
+        return true;
+    }
+
+    // =====================================================================
+    // Cancel booking (Type A - confirmed bookings). Team rules:
+    //  - Only a CONFIRMED booking (room reserved, guest not yet checked in)
+    //    may be cancelled here. An ACTIVE (in-house) booking must be checked
+    //    out / early-checked-out instead, not cancelled.
+    //  - The record is RETAINED in the shared collection with status
+    //    CANCELLED (soft-cancel), never deleted, so it stays auditable.
+    //  - Cancelling a pending (pre-approval) registration by Reg ID + Guest ID
+    //    is a separate operation that belongs to the Walk-In module.
+    // =====================================================================
+
+    /**
+     * Cancels a CONFIRMED booking: marks it CANCELLED (kept in the collection)
+     * and releases its reserved room.
+     *
+     * @return false if the booking is missing or not in CONFIRMED state
+     */
+    public boolean cancelBooking(String confirmationNumber) {
+        Booking booking = findByConfirmationNumber(confirmationNumber);
+        if (booking == null || !"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
+            return false;
+        }
+        booking.setStatus("CANCELLED");          // soft-cancel: retained, not deleted
+        Room room = booking.getRoom();
+        if (room != null) {
+            room.setAvailable(true);             // reserved room released, bookable again
+        }
+        return true;
+    }
+
+    // =====================================================================
+    // Free-text search over bookings. The user types one or more keywords
+    // (space-separated); a booking is returned only if EVERY keyword appears
+    // in SOME field (confirmation number, guest name/ID, membership tier,
+    // room number/type, booking status, payment status, check-in/out time,
+    // or amount). Each keyword is OR-matched across all fields; the keywords
+    // are AND-combined so extra words narrow the results. Case-insensitive
+    // substring. Self-implemented O(n * keywords).
+    //
+    // Example: "siti deluxe" returns bookings that contain BOTH "siti" and
+    // "deluxe" somewhere — i.e. Siti's Deluxe booking — without having to
+    // scan every "siti" record by hand.
+    //
+    // This is a SEARCH (free-text keywords, match anywhere), distinct from the
+    // report FILTERS which narrow by structured per-field criteria.
+    // =====================================================================
+
+    /**
+     * @param query one or more space-separated keywords; a booking is returned
+     *              only if every keyword appears in some field. Blank returns
+     *              all bookings.
+     * @return every booking matching all of the keywords
+     */
+    public Booking[] search(String query) {
+        String q = (query == null) ? "" : query.trim().toLowerCase();
+        String[] keywords = q.isEmpty() ? new String[0] : q.split("\\s+");
+
+        int total = bookingList.getNumberOfEntries();
+        Booking[] temp = new Booking[total];
+        int count = 0;
+        for (int i = 0; i < total; i++) {
+            Booking b = bookingList.getEntry(i);
+            boolean allKeywordsMatch = true;
+            for (String keyword : keywords) {
+                if (!matchesAnyField(b, keyword)) { // this keyword found in no field
+                    allKeywordsMatch = false;
+                    break;
+                }
+            }
+            if (allKeywordsMatch) { // also true when there are no keywords (blank query)
+                temp[count++] = b;
+            }
+        }
+        return trim(temp, count);
+    }
+
+    /** True if the (already lower-cased) query appears in any searchable field of the booking. */
+    private boolean matchesAnyField(Booking b, String query) {
+        Guest g = b.getGuest();
+        Room r = b.getRoom();
+        return fieldContains(b.getConfirmationNumber(), query)
+                || (g != null && (fieldContains(g.getName(), query)
+                        || fieldContains(g.getGuestId(), query)
+                        || fieldContains(String.valueOf(g.getMembershipTier()), query)))
+                || (r != null && (fieldContains(r.getRoomNumber(), query)
+                        || fieldContains(r.getRoomType(), query)))
+                || fieldContains(b.getStatus(), query)
+                || fieldContains(b.getPaymentStatus(), query)
+                || fieldContains(b.getCheckInTime(), query)
+                || fieldContains(b.getCheckOutTime(), query)
+                || fieldContains(String.format("%.2f", b.getAmount()), query);
+    }
+
+    /** Null-safe, case-insensitive substring test for one field against the query. */
+    private boolean fieldContains(String field, String query) {
+        return field != null && field.toLowerCase().contains(query);
+    }
+
+    // =====================================================================
+    // Structured multi-field FILTER over bookings. Every criterion is
+    // optional: a blank text field (or "ALL" for the enumerated ones) is
+    // ignored, and all supplied criteria must match (AND). This narrows by
+    // specific fields, so the user does not have to eyeball a long keyword
+    // result. Distinct from the free-text SEARCH above. Self-implemented O(n).
+    //
+    // Fields: confirmation number, guest name, guest ID, membership tier,
+    // room type, and check-in date. To add another field, add one optional
+    // parameter and one more AND condition below.
+    // =====================================================================
+
+    /**
+     * @param confirmationNumber partial match on the confirmation number (blank = any)
+     * @param guestName          partial, case-insensitive match on the guest name (blank = any)
+     * @param guestId            partial match on the guest ID (blank = any)
+     * @param membershipTier     exact match on the guest tier, e.g. GOLD (blank/"ALL" = any)
+     * @param roomType           exact match on the room type, e.g. Deluxe (blank/"ALL" = any)
+     * @param checkInDate        substring match on the check-in time, e.g. "2026-07-17" (blank = any)
+     * @return every booking matching ALL supplied criteria
+     */
+    public Booking[] filterBookings(String confirmationNumber, String guestName, String guestId,
+            String membershipTier, String roomType, String checkInDate) {
+        String conf = norm(confirmationNumber);
+        String name = norm(guestName);
+        String gid = norm(guestId);
+        String tier = normFilter(membershipTier);
+        String type = normFilter(roomType);
+        String date = norm(checkInDate);
+
+        int total = bookingList.getNumberOfEntries();
+        Booking[] temp = new Booking[total];
+        int count = 0;
+        for (int i = 0; i < total; i++) {
+            Booking b = bookingList.getEntry(i);
+            Guest g = b.getGuest();
+            Room r = b.getRoom();
+
+            boolean confOk = conf.isEmpty()
+                    || (b.getConfirmationNumber() != null
+                        && b.getConfirmationNumber().toLowerCase().contains(conf));
+            boolean nameOk = name.isEmpty()
+                    || (g != null && g.getName() != null
+                        && g.getName().toLowerCase().contains(name));
+            boolean idOk = gid.isEmpty()
+                    || (g != null && g.getGuestId() != null
+                        && g.getGuestId().toLowerCase().contains(gid));
+            boolean tierOk = tier.equalsIgnoreCase("ALL")
+                    || (g != null && g.getMembershipTier() != null
+                        && String.valueOf(g.getMembershipTier()).equalsIgnoreCase(tier));
+            boolean typeOk = type.equalsIgnoreCase("ALL")
+                    || (r != null && r.getRoomType() != null
+                        && r.getRoomType().equalsIgnoreCase(type));
+            boolean dateOk = date.isEmpty()
+                    || (b.getCheckInTime() != null && b.getCheckInTime().toLowerCase().contains(date));
+
+            if (confOk && nameOk && idOk && tierOk && typeOk && dateOk) {
+                temp[count++] = b;
+            }
+        }
+        return trim(temp, count);
+    }
+
+    /** Trims to lower-case for a "contains" text criterion; null becomes "" (ignored). */
+    private String norm(String value) {
+        return value == null ? "" : value.trim().toLowerCase();
+    }
+
+    /** Normalizes an enumerated filter; null/blank becomes "ALL" (ignored). */
+    private String normFilter(String value) {
+        return (value == null || value.trim().isEmpty()) ? "ALL" : value.trim();
     }
 
     // =====================================================================
