@@ -75,15 +75,15 @@ public class WalkInRegistrationUI {
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "1. Register new walk-in guest");
+                                        "1. Submit standard room booking request");
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "2. Process next guest");
+                                        "2. Process next standard booking request");
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "3. View active waiting queue");
+                                        "3. View standard booking request queue");
 
                         System.out.printf(
                                         "| %-64s |%n",
@@ -95,15 +95,15 @@ public class WalkInRegistrationUI {
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "6. Search registration history by Guest ID");
+                                        "6. Search standard booking history by Guest ID");
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "7. Update requested room type");
+                                        "7. Update waiting booking request");
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "8. Cancel waiting registration");
+                                        "8. Cancel waiting booking request");
 
                         System.out.printf(
                                         "| %-64s |%n",
@@ -195,14 +195,22 @@ public class WalkInRegistrationUI {
 
                         LocalDate calendarDate = selectedMonth.atDay(day);
 
-                        boolean dateAvailable = control.hasAvailableRoomForSchedule(
-                                        roomType,
-                                        calendarDate,
-                                        1);
+                        String displayedValue;
 
-                        String displayedValue = dateAvailable
-                                        ? String.valueOf(day)
-                                        : "X";
+                        if (calendarDate.isBefore(LocalDate.now())) {
+                                // Past dates cannot be selected, but they are not necessarily fully booked.
+                                displayedValue = "-";
+
+                        } else {
+                                boolean dateAvailable = control.hasAvailableRoomForSchedule(
+                                                roomType,
+                                                calendarDate,
+                                                1);
+
+                                displayedValue = dateAvailable
+                                                ? String.valueOf(day)
+                                                : "X";
+                        }
 
                         System.out.printf(
                                         "| %4s ",
@@ -228,7 +236,7 @@ public class WalkInRegistrationUI {
 
                 System.out.println(border);
                 System.out.println(
-                                "X = All rooms of this type are booked for that night.");
+                                "- = Past date; X = All rooms of this type are booked for that night.");
         }
 
         private void registerGuest() {
@@ -280,7 +288,7 @@ public class WalkInRegistrationUI {
 
                         System.out.println(
                                         "Using existing guest details. "
-                                                        + "A new walk-in registration will be created.");
+                                                        + "A new standard booking request will be created.");
                 } else {
                         // Only request personal details when this is a new Guest.
                         while (true) {
@@ -415,6 +423,12 @@ public class WalkInRegistrationUI {
                                 // Combine the selected month with the entered day.
                                 LocalDate selectedDate = selectedMonth.atDay(selectedDay);
 
+                                if (selectedDate.isBefore(LocalDate.now())) {
+                                        System.out.println(
+                                                        "Check-in date cannot be in the past.");
+                                        continue;
+                                }
+
                                 boolean dateAvailable = control.hasAvailableRoomForSchedule(
                                                 roomType,
                                                 selectedDate,
@@ -447,14 +461,25 @@ public class WalkInRegistrationUI {
                 String registrationTime = java.time.LocalDateTime.now()
                                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
-                Guest guest = control.registerGuest(
-                                name,
-                                contact,
-                                email,
-                                registrationTime,
-                                roomType,
-                                requestedCheckInDate,
-                                stayDurationDays);
+                Guest guest;
+
+                try {
+                        guest = control.registerGuest(
+                                        name,
+                                        contact,
+                                        email,
+                                        registrationTime,
+                                        roomType,
+                                        requestedCheckInDate,
+                                        stayDurationDays);
+
+                } catch (IllegalArgumentException exception) {
+                        System.out.println(
+                                        "Unable to submit booking request: "
+                                                        + exception.getMessage());
+
+                        return;
+                }
 
                 // Display the request that was just added to the rear of the FIFO queue.
                 WalkInRegistration registration = control.findLatestWaitingRegistrationByGuestId(
@@ -468,7 +493,7 @@ public class WalkInRegistrationUI {
 
                 String border = "+----------------------+--------------------------------+";
 
-                String title = "WALK-IN REGISTRATION RESULT";
+                String title = "STANDARD BOOKING REQUEST RESULT";
 
                 int contentWidth = 55;
                 int leftPadding = (contentWidth - title.length()) / 2;
@@ -544,13 +569,26 @@ public class WalkInRegistrationUI {
 
                 System.out.println(border);
                 System.out.println(
-                                "Walk-in registration created successfully.");
+                                "Standard booking request submitted successfully.");
         }
 
         private void processNextGuest() {
                 // compares the number of waiting registrations with 0
                 if (control.getWaitingCount() == 0) {
-                        System.out.println("The waiting queue is empty.");
+                        System.out.println("No standard booking requests are waiting.");
+                        return;
+                }
+                if (control.isFrontWaitingRequestExpired()) {
+                        System.out.println(
+                                        "The front booking request has an expired check-in date.");
+
+                        System.out.println(
+                                        "The request remains at the front of the FIFO queue.");
+
+                        System.out.println(
+                                        "Cancel the expired request before processing "
+                                                        + "the next waiting request.");
+
                         return;
                 }
                 // Peeks at the front registration and searches for a room.
@@ -558,8 +596,8 @@ public class WalkInRegistrationUI {
                 Booking booking = control.processNextGuest();
                 if (booking == null) { // no matching available room was found
                         System.out.println(
-                                        "No matching available room for the front guest. "
-                                                        + "The guest remains at the front of the queue.");
+                                        "No matching available room for the front booking request. "
+                                                        + "The request remains at the front of the FIFO queue.");
                 } else {
                         displayBookingResult(booking);
                 }
@@ -676,7 +714,7 @@ public class WalkInRegistrationUI {
                 String border = "+-----+----------+----------+----------------------+"
                                 + "------------+------------+------------+--------+------------------+";
 
-                String title = "ACTIVE WALK-IN WAITING REQUEST QUEUE";
+                String title = "ACTIVE STANDARD BOOKING REQUEST QUEUE";
 
                 int contentWidth = 117;
                 int leftPadding = (contentWidth - title.length()) / 2;
@@ -1140,7 +1178,8 @@ public class WalkInRegistrationUI {
 
                 if (control.getWaitingCount() == 0) {
                         System.out.println(
-                                        "The waiting queue is empty.");
+                                        "No standard booking requests are waiting.");
+
                         return;
                 }
 
@@ -1170,7 +1209,7 @@ public class WalkInRegistrationUI {
 
                 if (selectedRegistration == null) {
                         System.out.println(
-                                        "No active WAITING registration matches "
+                                        "No active WAITING booking request matches "
                                                         + "the entered Registration ID and Guest ID.");
                         return;
                 }
@@ -1242,7 +1281,7 @@ public class WalkInRegistrationUI {
 
         private void cancelWaitingRegistration() {
                 if (control.getWaitingCount() == 0) {
-                        System.out.println("The waiting queue is empty.");
+                        System.out.println("No standard booking requests are waiting.");
                         return;
                 }
 
@@ -1267,7 +1306,7 @@ public class WalkInRegistrationUI {
 
                 if (selectedRegistration == null) {
                         System.out.println(
-                                        "No active WAITING registration matches "
+                                        "No active WAITING booking request matches "
                                                         + "the entered Registration ID and Guest ID.");
                         return;
                 }
@@ -1317,11 +1356,11 @@ public class WalkInRegistrationUI {
 
                 if (registrationCancelled) {
                         System.out.println(
-                                        "Waiting registration cancelled successfully.");
+                                        "Waiting booking request cancelled successfully.");
                 } else {
                         System.out.println(
                                         "Cancellation failed. The Registration ID and Guest ID "
-                                                        + "do not match an active WAITING registration.");
+                                                        + "do not match an active WAITING booking request.");
                 }
         }
 

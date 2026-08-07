@@ -272,8 +272,6 @@ public class WalkInRegistrationControl {
                 guest -> normalizeContact(guest.getContactNumber()));
     }
 
-
-
     /**
      * Updates one WAITING registration identified by both
      * Registration ID and Guest ID.
@@ -521,20 +519,64 @@ public class WalkInRegistrationControl {
             LocalDate requestedCheckInDate,
             int stayDurationDays) {
 
-        if (requestedCheckInDate == null) {
+        // Every registration record must have a creation timestamp.
+        if (registrationTime == null
+                || registrationTime.trim().isEmpty()) {
+
             throw new IllegalArgumentException(
-                    "Requested check-in date cannot be null.");
+                    "Registration time cannot be blank.");
         }
 
-        if (stayDurationDays <= 0) {
+        // Protect registration data even when this method is called without the UI.
+        if (!isValidName(name)) {
             throw new IllegalArgumentException(
-                    "Stay duration must be greater than zero.");
+                    "Guest name cannot be blank.");
+        }
+
+        if (!isValidContact(contactNumber)) {
+            throw new IllegalArgumentException(
+                    "Invalid Malaysian mobile number.");
+        }
+
+        if (!isValidEmail(email)) {
+            throw new IllegalArgumentException(
+                    "Invalid email address.");
+        }
+
+        boolean validRoomType = requestedRoomType != null
+                && (requestedRoomType.equalsIgnoreCase("Standard")
+                        || requestedRoomType.equalsIgnoreCase("Deluxe")
+                        || requestedRoomType.equalsIgnoreCase("Suite"));
+
+        if (!validRoomType) {
+            throw new IllegalArgumentException(
+                    "Invalid requested room type.");
+        }
+
+        // A booking request cannot use a past or missing check-in date.
+        if (requestedCheckInDate == null
+                || requestedCheckInDate.isBefore(LocalDate.now())) {
+
+            throw new IllegalArgumentException(
+                    "Requested check-in date cannot be in the past.");
+        }
+
+        // Keep the accepted stay duration consistent with the UI.
+        if (stayDurationDays < 1 || stayDurationDays > 30) {
+            throw new IllegalArgumentException(
+                    "Stay duration must be between 1 and 30 nights.");
         }
 
         Guest guest = findOrCreateGuest(
                 name,
                 contactNumber,
                 email);
+
+        // Priority-tier guests must use the VIP allocation queue.
+        if (guest.getMembershipTier().isPriorityTier()) {
+            throw new IllegalArgumentException(
+                    "Priority-tier guests must use VIP Priority Allocation.");
+        }
 
         // Every room request is stored as a separate FIFO registration.
         // The same Guest may submit multiple room requests.
@@ -1007,7 +1049,24 @@ public class WalkInRegistrationControl {
         return availableRoomCount;
     }
 
+    /**
+     * Checks whether the request at the front of the FIFO queue
+     * has a requested check-in date earlier than today.
+     */
+    public boolean isFrontWaitingRequestExpired() {
 
+        WalkInRegistration frontRegistration = registrationQueue.peek();
+
+        if (frontRegistration == null
+                || frontRegistration.getRequestedCheckInDate() == null) {
+
+            return false;
+        }
+
+        return frontRegistration
+                .getRequestedCheckInDate()
+                .isBefore(LocalDate.now());
+    }
 
     // Returns how many guests are currently waiting in the queue.
     public int getWaitingCount() {
