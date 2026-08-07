@@ -585,4 +585,36 @@ public class HousekeepingControl {
         }
         return copy;
     }
+
+    /**
+     * Added for the Summary Report: exposes every Room (COPY, not the
+     * live reference), so the boundary layer can join Room data (room
+     * type) with RoomStatusLog data (current status, history count) —
+     * the two entity classes the summary report combines.
+     */
+    public ListQueueInterface<Room> getAllRooms() {
+        DoublyLinkedListQueue<Room> copy = new DoublyLinkedListQueue<>();
+        int total = roomList.getNumberOfEntries();
+        for (int i = 0; i < total; i++) {
+            copy.enqueue(roomList.getEntry(i));
+        }
+        return copy;
+    }
+
+    /**
+     * Added for the Summary Report: counts how many RoomStatusLog
+     * entries exist for a given room (self-implemented linear count),
+     * used as the "Total Status Changes" column and for the
+     * fewest/most-changed insight lines.
+     */
+    public int getTotalLogCountForRoom(String roomNumber) {
+        int count = 0;
+        int total = statusLog.getNumberOfEntries();
+        for (int i = 0; i < total; i++) {
+            if (statusLog.getEntry(i).getRoomNumber().equalsIgnoreCase(roomNumber)) {
+                count++;
+            }
+        }
+        return count;
+    }
 }
