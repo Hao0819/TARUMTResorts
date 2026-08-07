@@ -509,7 +509,15 @@ public class HouseKeepingUI {
      * sample report's y-axis), one column per label, an x-axis line,
      * and the labels beneath. Handles an all-zero dataset without
      * dividing by zero.
+     *
+     * Fix: each column is now a fixed COLUMN_WIDTH (12 chars) with the
+     * bar/label CENTERED inside it, instead of a plain 7-char printf
+     * field. The old version truncated and ran together longer labels
+     * like "CLEANING" (8 chars) and "INSPECTED" (9 chars) since they
+     * didn't fit in 7 characters with no gap between columns.
      */
+    private static final int CHART_COLUMN_WIDTH = 12;
+
     private void printBarChart(String title, String[] labels, int[] values) {
         System.out.println();
         printCenteredPlain(title, 90);
@@ -534,21 +542,31 @@ public class HouseKeepingUI {
             StringBuilder line = new StringBuilder(String.format("%2d |", row));
             for (int v : values) {
                 int barLevel = (int) Math.ceil((double) v / maxValue * chartHeight);
-                line.append(barLevel >= row ? "  ***  " : "       ");
+                line.append(centerInField(barLevel >= row ? "***" : "", CHART_COLUMN_WIDTH));
             }
             System.out.println(line);
         }
 
         StringBuilder axis = new StringBuilder("   +");
         for (int i = 0; i < values.length; i++) {
-            axis.append("-------");
+            axis.append("-".repeat(CHART_COLUMN_WIDTH));
         }
         System.out.println(axis);
 
         StringBuilder labelLine = new StringBuilder("    ");
         for (String label : labels) {
-            labelLine.append(String.format("%-7.7s", label));
+            labelLine.append(centerInField(label, CHART_COLUMN_WIDTH));
         }
         System.out.println(labelLine);
+    }
+
+    /** Centers text within a fixed-width field, padding with spaces on both sides. */
+    private String centerInField(String text, int width) {
+        if (text.length() >= width) {
+            return text.substring(0, width);
+        }
+        int leftPadding = (width - text.length()) / 2;
+        int rightPadding = width - text.length() - leftPadding;
+        return " ".repeat(leftPadding) + text + " ".repeat(rightPadding);
     }
 }
