@@ -3,6 +3,7 @@ package com.tarumt.resorts.boundary;
 import com.tarumt.resorts.control.HousekeepingControl;
 import com.tarumt.resorts.entity.RoomStatusLog;
 import com.tarumt.resorts.entity.StageDuration;
+import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import java.util.Scanner;
 
@@ -60,6 +61,7 @@ public class HouseKeepingUI {
             System.out.printf("| %-64s |%n", "4. View full history of a room");
             System.out.printf("| %-64s |%n", "5. Report 1: Rooms by current status");
             System.out.printf("| %-64s |%n", "6. Report 2: Avg time per stage");
+            System.out.printf("| %-64s |%n", "7. Summary Report (Room + Status Log)");
             System.out.printf("| %-64s |%n", "0. Back to main menu");
             System.out.println(menuBorder);
             System.out.print("Enter choice: ");
@@ -77,6 +79,7 @@ public class HouseKeepingUI {
                 case 4 -> viewFullHistory();
                 case 5 -> reportByStatus();
                 case 6 -> reportAverageDuration();
+                case 7 -> generateSummaryReport();
                 case 0 -> System.out.println("Returning to main menu...");
                 default -> System.out.println("Invalid choice.");
             }
@@ -374,5 +377,178 @@ public class HouseKeepingUI {
         }
         System.out.println(border);
         System.out.println("Total stages measured: " + total);
+    }
+
+    /**
+     * Summary Report: combines the Room entity (room type) with the
+     * RoomStatusLog entity (current status, total logged changes, last
+     * updated) into one report — two entity classes joined into a
+     * single summary, per the tutor's required format. Styled after
+     * the university report template: plain-text letterhead, a main
+     * table, totals, an ASCII bar-chart section, and closing insight
+     * lines.
+     */
+    private void generateSummaryReport() {
+        String thickBorder = "=".repeat(90);
+        String thinBorder = "-".repeat(90);
+
+        System.out.println();
+        System.out.println(thickBorder);
+        printCenteredPlain("TUNKU ABDUL RAHMAN UNIVERSITY OF MANAGEMENT AND TECHNOLOGY", 90);
+        printCenteredPlain("HOUSEKEEPING & TASK LOG MODULE SUBSYSTEM", 90);
+        System.out.println();
+        printCenteredPlain("SUMMARY OF HOUSEKEEPING REPORT", 90);
+        System.out.println(thinBorder);
+        System.out.println("Generated at: " + java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        System.out.println(thickBorder);
+        System.out.println();
+        System.out.println("TUNKU ABDUL RAHMAN UNIVERSITY OF MANAGEMENT AND TECHNOLOGY HIGHLY CONFIDENTIAL DOCUMENT");
+        System.out.println();
+
+        // --- Main table: Room (type) joined with RoomStatusLog (status,
+        // history count, last updated) — the two classes combined. ---
+        ListQueueInterface<Room> allRooms = control.getAllRooms();
+        int totalRooms = allRooms.getNumberOfEntries();
+
+        String[] statusNames = {"DIRTY", "CLEANING", "INSPECTED", "READY"};
+        int[] statusCounts = new int[statusNames.length];
+        int totalLogEntries = 0;
+
+        System.out.printf("%-10s | %-10s | %-16s | %-21s | %-16s%n",
+                "Room No.", "Type", "Current Status", "Total Status Changes", "Last Updated");
+        System.out.println(thinBorder);
+
+        for (int i = 0; i < totalRooms; i++) {
+            Room room = allRooms.getEntry(i);
+            RoomStatusLog current = control.getCurrentStatus(room.getRoomNumber());
+            int logCount = control.getTotalLogCountForRoom(room.getRoomNumber());
+            totalLogEntries += logCount;
+
+            String status = (current != null) ? current.getStatus() : "UNKNOWN";
+            String lastUpdated = (current != null) ? current.getTimestamp() : "-";
+
+            System.out.printf("%-10.10s | %-10.10s | %-16.16s | %-21d | %-16.16s%n",
+                    room.getRoomNumber(), room.getRoomType(), status, logCount, lastUpdated);
+
+            for (int s = 0; s < statusNames.length; s++) {
+                if (statusNames[s].equalsIgnoreCase(status)) {
+                    statusCounts[s]++;
+                }
+            }
+        }
+
+        System.out.println(thinBorder);
+        System.out.println("Total Number of Rooms: " + totalRooms);
+        System.out.println("Total Number of Status Log Entries: " + totalLogEntries);
+        System.out.println();
+
+        printCenteredPlain("GRAPHICAL REPRESENTATION OF HOUSEKEEPING MODULE", 90);
+
+        // Chart 1: how many rooms currently sit in each status.
+        printBarChart("Rooms by Current Status", statusNames, statusCounts);
+
+        // Chart 2: average minutes per stage (from Report 2's own logic,
+        // so both reports always agree with each other).
+        ListQueueInterface<StageDuration> stageReport = control.getAverageDurationPerStage("ALL");
+        int stageTotal = stageReport.getNumberOfEntries();
+        String[] stageLabels = new String[stageTotal];
+        int[] stageValues = new int[stageTotal];
+        for (int i = 0; i < stageTotal; i++) {
+            StageDuration sd = stageReport.getEntry(i);
+            stageLabels[i] = sd.getStageName();
+            stageValues[i] = (int) sd.getAverageMinutes();
+        }
+        printBarChart("Avg Time per Cleaning Stage (min)", stageLabels, stageValues);
+
+        // --- Insight lines: room with fewest / most logged status
+        // changes, mirroring the sample report's closing "fewest / most"
+        // style, using RoomStatusLog data joined back onto each Room. ---
+        String fewestRoom = null;
+        String mostRoom = null;
+        int fewestCount = Integer.MAX_VALUE;
+        int mostCount = -1;
+        for (int i = 0; i < totalRooms; i++) {
+            Room room = allRooms.getEntry(i);
+            int logCount = control.getTotalLogCountForRoom(room.getRoomNumber());
+            if (logCount < fewestCount) {
+                fewestCount = logCount;
+                fewestRoom = room.getRoomNumber();
+            }
+            if (logCount > mostCount) {
+                mostCount = logCount;
+                mostRoom = room.getRoomNumber();
+            }
+        }
+
+        System.out.println();
+        if (totalRooms == 0) {
+            System.out.println("No rooms available to report on.");
+        } else {
+            System.out.println("Room with fewest status changes (" + fewestCount + "): < Room " + fewestRoom + " >");
+            System.out.println("Room with most status changes (" + mostCount + "): < Room " + mostRoom + " >");
+        }
+        System.out.println(thickBorder);
+        printCenteredPlain("END OF THE REPORT", 90);
+        System.out.println(thickBorder);
+    }
+
+    /** Centers plain text (no pipe borders) within the given width — used by generateSummaryReport(). */
+    private void printCenteredPlain(String text, int width) {
+        if (text.length() >= width) {
+            System.out.println(text.substring(0, width));
+            return;
+        }
+        int leftPadding = (width - text.length()) / 2;
+        System.out.println(" ".repeat(leftPadding) + text);
+    }
+
+    /**
+     * Renders a simple ASCII vertical bar chart: a numbered y-axis
+     * scaled to the largest value (max height 10 rows, matching the
+     * sample report's y-axis), one column per label, an x-axis line,
+     * and the labels beneath. Handles an all-zero dataset without
+     * dividing by zero.
+     */
+    private void printBarChart(String title, String[] labels, int[] values) {
+        System.out.println();
+        printCenteredPlain(title, 90);
+        System.out.println();
+
+        if (labels.length == 0) {
+            System.out.println("(No data to chart.)");
+            return;
+        }
+
+        int maxValue = 0;
+        for (int v : values) {
+            maxValue = Math.max(maxValue, v);
+        }
+        if (maxValue == 0) {
+            System.out.println("(No data to chart.)");
+            return;
+        }
+        int chartHeight = Math.min(10, maxValue);
+
+        for (int row = chartHeight; row >= 1; row--) {
+            StringBuilder line = new StringBuilder(String.format("%2d |", row));
+            for (int v : values) {
+                int barLevel = (int) Math.ceil((double) v / maxValue * chartHeight);
+                line.append(barLevel >= row ? "  ***  " : "       ");
+            }
+            System.out.println(line);
+        }
+
+        StringBuilder axis = new StringBuilder("   +");
+        for (int i = 0; i < values.length; i++) {
+            axis.append("-------");
+        }
+        System.out.println(axis);
+
+        StringBuilder labelLine = new StringBuilder("    ");
+        for (String label : labels) {
+            labelLine.append(String.format("%-7.7s", label));
+        }
+        System.out.println(labelLine);
     }
 }
