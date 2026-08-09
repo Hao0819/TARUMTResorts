@@ -62,7 +62,9 @@ public class TARUMTResorts {
                 ListQueueInterface<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
                 // Initialize Loyalty data using the same shared Guest collection.
-                LoyaltyInitializerData loyaltyInitializer = new LoyaltyInitializerData(sharedGuests);
+               LoyaltyInitializerData loyaltyInitializer = new LoyaltyInitializerData(
+                                sharedGuests,
+                                sharedBookings);
 
                 // Retrieve the initialized loyalty accounts.
                 ListQueueInterface<LoyaltyAccount> sharedLoyaltyAccounts = loyaltyInitializer.getLoyaltyAccounts();
@@ -94,10 +96,12 @@ public class TARUMTResorts {
                 frontDeskControl.setHousekeepingControl(housekeepingControl);
 
                 // Create the Loyalty control using the shared system data.
-                LoyaltyRewardsControl loyaltyControl = new LoyaltyRewardsControl(
+                LoyaltyRewardsControl loyaltyControl =
+                                new LoyaltyRewardsControl(
                                 sharedLoyaltyAccounts,
                                 sharedLoyaltyTransactions,
-                                sharedGuests);
+                                sharedGuests,
+                                sharedBookings);
 
                 // Load the hard-coded VIP allocation request history.
                 ListQueueInterface<VIPAllocationRequest> sharedVipRequestHistory = new VIPAllocationDAO()
