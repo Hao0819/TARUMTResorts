@@ -4,139 +4,155 @@
  */
 package com.tarumt.resorts.boundary;
 
-import com.tarumt.resorts.control.LoyaltyRewardsControl;
-import java.util.Scanner;
-import com.tarumt.resorts.entity.LoyaltyAccount;
-import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.adt.ListQueueInterface;
-import com.tarumt.resorts.entity.MembershipTier;
-import java.time.format.DateTimeParseException;
-import java.time.LocalDate;
+import com.tarumt.resorts.control.LoyaltyRewardsControl;
+import com.tarumt.resorts.entity.Booking;
+import com.tarumt.resorts.entity.Guest;
+import com.tarumt.resorts.entity.LoyaltyAccount;
 import com.tarumt.resorts.entity.LoyaltyTransaction;
+import com.tarumt.resorts.entity.MembershipTier;
+import com.tarumt.resorts.entity.RedemptionRequest;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
+import java.util.Iterator;
+import java.util.Scanner;
 
-
+/**
+ * Boundary class for the Loyalty and Rewards Service.
+ * Handles user input/output only and delegates business logic to
+ * {@link LoyaltyRewardsControl}.
+ */
 public class LoyaltyRewardsUI {
 
     private LoyaltyRewardsControl loyaltyControl;
     private Scanner scanner;
 
     /**
-     * Creates the Loyalty and Rewards user interface.
-     *
-     * @param loyaltyControl control class containing loyalty operations
-     * @param scanner shared Scanner from TARUMTResorts
-     */
+    * Creates the Loyalty and Rewards user interface.
+    *
+    * @param loyaltyControl control class containing loyalty operations
+    * @param scanner shared Scanner from TARUMTResorts
+    */
     public LoyaltyRewardsUI(
-            LoyaltyRewardsControl loyaltyControl,
-            Scanner scanner) {
+        LoyaltyRewardsControl loyaltyControl,
+        Scanner scanner) {
 
         this.loyaltyControl = loyaltyControl;
         this.scanner = scanner;
     }
 
+    // -------------------------------------------------------------------------
+    // MAIN MENU NAVIGATION
+    // -------------------------------------------------------------------------
+
     /**
-     * Displays the Loyalty and Rewards menu.
-     */
+ * Displays the Loyalty and Rewards menu.
+ */
     public void showMenu() {
 
-        int choice;
+    int choice;
 
-        do {
-            displayMenu();
-            choice = readChoice();
+    do {
+        displayMenu();
+        choice = readChoice();
 
-            switch (choice) {
+        switch (choice) {
 
-                case 1 -> findLoyaltyMember();
+            case 1 -> findLoyaltyMember();
 
-                case 2 -> createLoyaltyAccount();
+            case 2 -> createLoyaltyAccount();
 
-                case 3 -> addPointsFromCompletedStay();
+            case 3 -> addPointsFromCompletedStay();
 
-                case 4 -> redeemPoints();
+            case 4 -> submitRedemptionRequest();
 
-                case 5 -> updatePointsBalance();
+            case 5 -> displayPendingRedemptionQueue();
 
-                case 6 -> filterLoyaltyMembers();
+            case 6 -> processNextRedemptionRequest();
 
-                case 7 -> deleteLoyaltyMember();
+            case 7 -> cancelPendingRedemptionRequest();
 
-                case 8 -> displayAllLoyaltyAccounts();
-                
-                case 9 -> displayExpiringPointsReport();
-                
-                case 10 -> displayExpiringPointsAlerts();
-                
-                case 11 -> processExpiredPoints();
+            case 8 -> filterLoyaltyMembers();
 
-                case 0 -> System.out.println(
-                        "Returning to the main menu.");
+            case 9 -> updateLoyaltyAccountStatus();
 
-                default -> System.out.println(
-                        "Invalid choice. Please try again.");
-            }
+            case 10 -> displayAllLoyaltyAccounts();
 
-        } while (choice != 0);
-    }
-    
+            case 11 -> displayExpiringPointsReport();
+
+            case 12 -> displayExpiringPointsAlerts();
+
+            case 13 -> processExpiredPoints();
+
+            case 0 -> System.out.println(
+                    "Returning to the main menu.");
+
+            default -> System.out.println(
+                    "Invalid choice. Please try again.");
+        }
+
+    } while (choice != 0);
+}
+
     /**
- * Allows the user to find a loyalty member using either
- * the loyalty ID or guest ID.
- */
+    * Allows the user to find a loyalty member using either
+    * the loyalty ID or guest ID.
+    */
     private void findLoyaltyMember() {
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "|              FIND LOYALTY MEMBER               |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "| 1. Search by Loyalty ID                        |");
-    System.out.println(
+        System.out.println(
             "| 2. Search by Guest ID                          |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.print("Enter search option: ");
+        System.out.print("Enter search option: ");
 
-    int searchOption = readChoice();
+        int searchOption = readChoice();
 
-    LoyaltyAccount account;
+        LoyaltyAccount account;
 
-    switch (searchOption) {
+        switch (searchOption) {
 
             case 1 -> {
                 System.out.print("Enter Loyalty ID: ");
                 String loyaltyId =
-                        scanner.nextLine().trim();
+                scanner.nextLine().trim();
 
                 account =
-                        loyaltyControl.findMemberByLoyaltyId(
-                                loyaltyId);
+                loyaltyControl.findMemberByLoyaltyId(
+                    loyaltyId);
             }
 
             case 2 -> {
                 System.out.print("Enter Guest ID: ");
                 String guestId =
-                        scanner.nextLine().trim();
+                scanner.nextLine().trim();
 
                 account =
-                        loyaltyControl.findMemberByGuestId(
-                                guestId);
+                loyaltyControl.findMemberByGuestId(
+                    guestId);
             }
-        
+
             default -> {
                 System.out.println(
-                        "Invalid search option.");
+                    "Invalid search option.");
                 return;
             }
         }
 
         if (account == null) {
             System.out.println(
-                    "Loyalty member not found.");
+                "Loyalty member not found.");
             return;
         }
 
@@ -144,44 +160,44 @@ public class LoyaltyRewardsUI {
     }
 
     /**
- * Creates a loyalty account for an existing guest.
- */
+    * Creates a loyalty account for an existing guest.
+    */
     private void createLoyaltyAccount() {
 
         System.out.println();
         System.out.println(
-                "+------------------------------------------------+");
+            "+------------------------------------------------+");
         System.out.println(
-                "|             CREATE LOYALTY ACCOUNT             |");
+            "|             CREATE LOYALTY ACCOUNT             |");
         System.out.println(
-                "+------------------------------------------------+");
+            "+------------------------------------------------+");
 
         System.out.print("Enter existing Guest ID: ");
 
         String guestId =
-                scanner.nextLine().trim();
+        scanner.nextLine().trim();
 
         if (guestId.isEmpty()) {
             System.out.println(
-                    "Guest ID cannot be empty.");
+                "Guest ID cannot be empty.");
             return;
         }
 
         Guest guest =
-                loyaltyControl.findGuestById(guestId);
+        loyaltyControl.findGuestById(guestId);
 
         if (guest == null) {
             System.out.println(
-                    "Guest not found. Register the guest first.");
+                "Guest not found. Register the guest first.");
             return;
         }
 
         LoyaltyAccount existingAccount =
-                loyaltyControl.findMemberByGuestId(guestId);
+        loyaltyControl.findMemberByGuestId(guestId);
 
         if (existingAccount != null) {
             System.out.println(
-                    "This guest already has a loyalty account.");
+                "This guest already has a loyalty account.");
 
             displayAccountDetails(existingAccount);
             return;
@@ -194,20 +210,20 @@ public class LoyaltyRewardsUI {
         System.out.println("Email    : " + guest.getEmail());
 
         System.out.print(
-                "Confirm account creation? (Y/N): ");
+            "Confirm account creation? (Y/N): ");
 
         String confirmation =
-                scanner.nextLine().trim();
+        scanner.nextLine().trim();
 
         if (!confirmation.equalsIgnoreCase("Y")) {
             System.out.println(
-                    "Account creation cancelled.");
+                "Account creation cancelled.");
             return;
         }
 
         LoyaltyAccount newAccount =
-                loyaltyControl.createAccountForGuest(
-                        guestId);
+        loyaltyControl.createAccountForGuest(
+            guestId);
 
         if (newAccount == null) {
             System.out.println(
@@ -217,7 +233,7 @@ public class LoyaltyRewardsUI {
 
         System.out.println();
         System.out.println(
-                "Loyalty account created successfully.");
+            "Loyalty account created successfully.");
 
         displayAccountDetails(newAccount);
     }
@@ -227,152 +243,304 @@ public class LoyaltyRewardsUI {
     */
     private void addPointsFromCompletedStay() {
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "|        ADD POINTS FROM COMPLETED STAY          |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
 
-    System.out.print("Enter Loyalty ID: ");
-    String loyaltyId =
-            scanner.nextLine().trim();
+        System.out.print("Enter Loyalty ID: ");
+        String loyaltyId =
+        scanner.nextLine().trim();
 
-    if (loyaltyId.isEmpty()) {
-        System.out.println(
+        if (loyaltyId.isEmpty()) {
+            System.out.println(
                 "Loyalty ID cannot be empty.");
-        return;
-    }
+            return;
+        }
 
-    LoyaltyAccount account =
-            loyaltyControl.findMemberByLoyaltyId(
-                    loyaltyId);
+        LoyaltyAccount account =
+        loyaltyControl.findMemberByLoyaltyId(
+            loyaltyId);
 
-    if (account == null) {
-        System.out.println(
+        if (account == null) {
+            System.out.println(
                 "Loyalty member not found.");
-        return;
-    }
+            return;
+        }
 
-    if (!account.isActive()) {
-        System.out.println(
+        if (!account.isActive()) {
+            System.out.println(
                 "This loyalty account is inactive.");
-        return;
-    }
+            return;
+        }
 
-    System.out.println();
-    System.out.println("Member found:");
-    System.out.println(
+        System.out.println();
+        System.out.println("Member found:");
+        System.out.println(
             "Name            : "
             + account.getMemberName());
-    System.out.println(
+        System.out.println(
             "Current Points  : "
             + account.getPointsBalance());
-    System.out.println(
+        System.out.println(
             "Current Tier    : "
             + account.getMembershipTier());
 
-    System.out.print(
+        System.out.print(
             "\nEnter completed Booking ID: ");
 
-    String bookingId =
-            scanner.nextLine().trim();
+        String bookingId =
+        scanner.nextLine().trim();
 
-    if (bookingId.isEmpty()) {
-        System.out.println(
+        if (bookingId.isEmpty()) {
+            System.out.println(
                 "Booking ID cannot be empty.");
-        return;
-    }
+            return;
+        }
 
-    if (loyaltyControl.hasBookingReceivedPoints(
+        Booking booking =
+        loyaltyControl.findBookingByConfirmationNumber(
+            bookingId);
+
+        if (booking == null) {
+            System.out.println(
+                "Booking not found.");
+            return;
+        }
+
+        int points =
+        loyaltyControl.calculateRewardPoints(
+            booking);
+
+        System.out.println();
+        System.out.println("Booking found:");
+        System.out.println(
+            "Confirmation No : "
+            + booking.getConfirmationNumber());
+
+        System.out.println(
+            "Guest ID        : "
+            + booking.getGuest().getGuestId());
+
+        System.out.println(
+            "Status          : "
+            + booking.getStatus());
+
+        System.out.printf(
+            "Booking Amount  : RM %.2f%n",
+            booking.getAmount());
+
+        System.out.println(
+            "Points Earned   : "
+            + points);
+
+        if (loyaltyControl.hasBookingReceivedPoints(
             bookingId)) {
 
-        System.out.println(
+            System.out.println(
                 "This booking has already received loyalty points.");
-        return;
-    }
+            return;
+        }
 
-    System.out.print("Enter points earned: ");
+        int previousPoints =
+        account.getPointsBalance();
 
-    int points;
+        String previousTier =
+        account.getMembershipTier().toString();
 
-    try {
-        points = Integer.parseInt(
-                scanner.nextLine().trim());
-
-    } catch (NumberFormatException e) {
-        System.out.println(
-                "Invalid points. Please enter a number.");
-        return;
-    }
-
-    if (points <= 0) {
-        System.out.println(
-                "Points must be greater than zero.");
-        return;
-    }
-
-    int previousPoints =
-            account.getPointsBalance();
-
-    String previousTier =
-            account.getMembershipTier().toString();
-
-    System.out.print(
+        System.out.print(
             "Confirm adding "
             + points
             + " points? (Y/N): ");
 
-    String confirmation =
-            scanner.nextLine().trim();
+        String confirmation =
+        scanner.nextLine().trim();
 
-    if (!confirmation.equalsIgnoreCase("Y")) {
-        System.out.println(
+        if (!confirmation.equalsIgnoreCase("Y")) {
+            System.out.println(
                 "Add-points operation cancelled.");
-        return;
-    }
+            return;
+        }
 
-    boolean added =
-            loyaltyControl.addPointsFromCompletedStay(
-                    loyaltyId,
-                    bookingId,
-                    points
-            );
+        boolean added =
+        loyaltyControl.addPointsFromCompletedStay(
+            loyaltyId,
+            bookingId);
 
-    if (!added) {
-        System.out.println(
+        if (!added) {
+            System.out.println(
                 "Unable to add loyalty points.");
-        return;
-    }
+            return;
+        }
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "Points added successfully.");
-    System.out.println(
+        System.out.println(
             "Previous Points : " + previousPoints);
-    System.out.println(
+        System.out.println(
             "Points Added    : " + points);
-    System.out.println(
+        System.out.println(
             "New Balance     : "
             + account.getPointsBalance());
-    System.out.println(
+        System.out.println(
             "Previous Tier   : " + previousTier);
-    System.out.println(
+        System.out.println(
             "Current Tier    : "
             + account.getMembershipTier());
-}
+    }
 
     /**
- * Allows a loyalty member to redeem available points.
- */
+    * Allows a loyalty member to redeem available points.
+    */
     private void redeemPoints() {
+
+        System.out.println();
+        System.out.println(
+            "+------------------------------------------------+");
+        System.out.println(
+            "|                 REDEEM POINTS                  |");
+        System.out.println(
+            "+------------------------------------------------+");
+
+        System.out.print("Enter Loyalty ID: ");
+
+        String loyaltyId =
+        scanner.nextLine().trim();
+
+        if (loyaltyId.isEmpty()) {
+            System.out.println(
+                "Loyalty ID cannot be empty.");
+            return;
+        }
+
+        LoyaltyAccount account =
+        loyaltyControl.findMemberByLoyaltyId(
+            loyaltyId);
+
+        if (account == null) {
+            System.out.println(
+                "Loyalty member not found.");
+            return;
+        }
+
+        if (!account.isActive()) {
+            System.out.println(
+                "This loyalty account is inactive.");
+            return;
+        }
+
+        System.out.println();
+        System.out.println("Member found:");
+        System.out.println(
+            "Name            : "
+            + account.getMemberName());
+
+        System.out.println(
+            "Current Points  : "
+            + account.getPointsBalance());
+
+        System.out.println(
+            "Current Tier    : "
+            + account.getMembershipTier());
+
+        System.out.print(
+            "\nEnter points to redeem: ");
+
+        int points;
+
+        try {
+            points = Integer.parseInt(
+                scanner.nextLine().trim());
+
+        } catch (NumberFormatException e) {
+            System.out.println(
+                "Invalid points. Please enter a number.");
+            return;
+        }
+
+        if (points <= 0) {
+            System.out.println(
+                "Points must be greater than zero.");
+            return;
+        }
+
+        if (points > account.getPointsBalance()) {
+            System.out.println(
+                "Insufficient loyalty points.");
+            return;
+        }
+
+        int previousPoints =
+        account.getPointsBalance();
+
+        String previousTier =
+        account.getMembershipTier().toString();
+
+        System.out.print(
+            "Confirm redemption of "
+            + points
+            + " points? (Y/N): ");
+
+        String confirmation =
+        scanner.nextLine().trim();
+
+        if (!confirmation.equalsIgnoreCase("Y")) {
+            System.out.println(
+                "Redemption cancelled.");
+            return;
+        }
+
+        boolean redeemed =
+        loyaltyControl.redeemPoints(
+            loyaltyId,
+            points);
+
+        if (!redeemed) {
+            System.out.println(
+                "Unable to redeem points. The points may be expired or unavailable.");
+            return;
+        }
+
+        System.out.println();
+        System.out.println(
+            "Points redeemed successfully.");
+
+        System.out.println(
+            "Previous Points : "
+            + previousPoints);
+
+        System.out.println(
+            "Points Redeemed : "
+            + points);
+
+        System.out.println(
+            "New Balance     : "
+            + account.getPointsBalance());
+
+        System.out.println(
+            "Previous Tier   : "
+            + previousTier);
+
+        System.out.println(
+            "Current Tier    : "
+            + account.getMembershipTier());
+    }
+    
+    /**
+    * Submits a loyalty-points redemption request
+    * to the FIFO redemption queue.
+    */
+    private void submitRedemptionRequest() {
 
     System.out.println();
     System.out.println(
             "+------------------------------------------------+");
     System.out.println(
-            "|                 REDEEM POINTS                  |");
+            "|          SUBMIT REDEMPTION REQUEST             |");
     System.out.println(
             "+------------------------------------------------+");
 
@@ -406,15 +574,13 @@ public class LoyaltyRewardsUI {
     System.out.println();
     System.out.println("Member found:");
     System.out.println(
-            "Name            : "
+            "Name           : "
             + account.getMemberName());
-
     System.out.println(
-            "Current Points  : "
+            "Current Points : "
             + account.getPointsBalance());
-
     System.out.println(
-            "Current Tier    : "
+            "Current Tier   : "
             + account.getMembershipTier());
 
     System.out.print(
@@ -444,14 +610,8 @@ public class LoyaltyRewardsUI {
         return;
     }
 
-    int previousPoints =
-            account.getPointsBalance();
-
-    String previousTier =
-            account.getMembershipTier().toString();
-
     System.out.print(
-            "Confirm redemption of "
+            "Confirm redemption request for "
             + points
             + " points? (Y/N): ");
 
@@ -460,127 +620,215 @@ public class LoyaltyRewardsUI {
 
     if (!confirmation.equalsIgnoreCase("Y")) {
         System.out.println(
-                "Redemption cancelled.");
+                "Redemption request cancelled.");
         return;
     }
 
-    boolean redeemed =
-            loyaltyControl.redeemPoints(
+    RedemptionRequest request =
+            loyaltyControl.submitRedemptionRequest(
                     loyaltyId,
                     points);
 
-    if (!redeemed) {
+    if (request == null) {
         System.out.println(
-                "Unable to redeem points. The points may be expired or unavailable.");
+                "Unable to submit redemption request.");
         return;
     }
 
     System.out.println();
     System.out.println(
-            "Points redeemed successfully.");
+            "Redemption request submitted successfully.");
 
     System.out.println(
-            "Previous Points : "
-            + previousPoints);
+            "Request ID : "
+            + request.getRequestId());
 
     System.out.println(
-            "Points Redeemed : "
-            + points);
+            "Loyalty ID : "
+            + request.getLoyaltyId());
 
     System.out.println(
-            "New Balance     : "
-            + account.getPointsBalance());
+            "Points     : "
+            + request.getPoints());
 
     System.out.println(
-            "Previous Tier   : "
-            + previousTier);
+            "Date       : "
+            + request.getRequestDate());
+    }
+    
+    /**
+    * Displays all pending redemption requests
+    * in FIFO order.
+    */
+    private void displayPendingRedemptionQueue() {
+
+    System.out.println();
+    System.out.println(
+            "+------------------------------------------------------------+");
+    System.out.println(
+            "|              PENDING REDEMPTION QUEUE                      |");
+    System.out.println(
+            "+------------------------------------------------------------+");
+
+    ListQueueInterface<RedemptionRequest> requests =
+            loyaltyControl.getPendingRedemptionRequests();
+
+    if (requests == null || requests.isEmpty()) {
+        System.out.println(
+                "No pending redemption requests.");
+        return;
+    }
+
+    System.out.printf(
+            "| %-8s | %-10s | %10s | %-12s |%n",
+            "Request",
+            "Loyalty ID",
+            "Points",
+            "Request Date");
 
     System.out.println(
-            "Current Tier    : "
-            + account.getMembershipTier());
+            "+------------------------------------------------------------+");
+
+    Iterator<RedemptionRequest> requestIterator =
+            requests.getIterator();
+
+    while (requestIterator.hasNext()) {
+
+        RedemptionRequest request =
+                requestIterator.next();
+
+        System.out.printf(
+                "| %-8s | %-10s | %10d | %-12s |%n",
+                request.getRequestId(),
+                request.getLoyaltyId(),
+                request.getPoints(),
+                request.getRequestDate());
+    }
+
+    System.out.println(
+            "+------------------------------------------------------------+");
+
+    System.out.println(
+            "Total pending requests: "
+            + requests.getNumberOfEntries());
+
+    System.out.println(
+            "Requests are processed in FIFO order.");
 }
     
     /**
- * Allows an administrator to correct a member's
- * loyalty points balance.
+ * Processes the next redemption request
+ * according to FIFO order.
  */
-    private void updatePointsBalance() {
+    private void processNextRedemptionRequest() {
 
     System.out.println();
     System.out.println(
             "+------------------------------------------------+");
     System.out.println(
-            "|             UPDATE POINTS BALANCE              |");
+            "|        PROCESS NEXT REDEMPTION REQUEST         |");
     System.out.println(
             "+------------------------------------------------+");
 
-    System.out.print("Enter Loyalty ID: ");
+    ListQueueInterface<RedemptionRequest> requests =
+            loyaltyControl.getPendingRedemptionRequests();
 
-    String loyaltyId =
+    if (requests == null || requests.isEmpty()) {
+        System.out.println(
+                "No pending redemption requests.");
+        return;
+    }
+
+    RedemptionRequest nextRequest =
+            requests.peek();
+
+    System.out.println("Next request:");
+    System.out.println(
+            "Request ID : "
+            + nextRequest.getRequestId());
+    System.out.println(
+            "Loyalty ID : "
+            + nextRequest.getLoyaltyId());
+    System.out.println(
+            "Points     : "
+            + nextRequest.getPoints());
+    System.out.println(
+            "Date       : "
+            + nextRequest.getRequestDate());
+
+    System.out.print(
+            "Process this request? (Y/N): ");
+
+    String confirmation =
             scanner.nextLine().trim();
 
-    if (loyaltyId.isEmpty()) {
+    if (!confirmation.equalsIgnoreCase("Y")) {
         System.out.println(
-                "Loyalty ID cannot be empty.");
+                "Processing cancelled.");
         return;
     }
 
-    LoyaltyAccount account =
-            loyaltyControl.findMemberByLoyaltyId(
-                    loyaltyId);
+    boolean processed =
+            loyaltyControl.processNextRedemptionRequest();
 
-    if (account == null) {
+    if (!processed) {
         System.out.println(
-                "Loyalty member not found.");
+                "Unable to process the redemption request.");
+        System.out.println(
+                "The request remains in the pending queue.");
         return;
     }
-
-    int previousPoints =
-            account.getPointsBalance();
-
-    String previousTier =
-            account.getMembershipTier().toString();
 
     System.out.println();
-    System.out.println("Member found:");
     System.out.println(
-            "Name            : "
-            + account.getMemberName());
+            "Redemption request processed successfully.");
 
     System.out.println(
-            "Current Points  : "
-            + previousPoints);
+            "Request "
+            + nextRequest.getRequestId()
+            + " has been removed from the queue.");
+}    
+    
+    /**
+    * Cancels a selected pending redemption request.
+    */
+    private void cancelPendingRedemptionRequest() {
 
+    System.out.println();
     System.out.println(
-            "Current Tier    : "
-            + previousTier);
+            "+------------------------------------------------+");
+    System.out.println(
+            "|        CANCEL REDEMPTION REQUEST               |");
+    System.out.println(
+            "+------------------------------------------------+");
 
-    System.out.print(
-            "\nEnter new points balance: ");
+    ListQueueInterface<RedemptionRequest> requests =
+            loyaltyControl.getPendingRedemptionRequests();
 
-    int newPointsBalance;
-
-    try {
-        newPointsBalance = Integer.parseInt(
-                scanner.nextLine().trim());
-
-    } catch (NumberFormatException e) {
+    if (requests == null || requests.isEmpty()) {
         System.out.println(
-                "Invalid points. Please enter a number.");
+                "No pending redemption requests.");
         return;
     }
 
-    if (newPointsBalance < 0) {
+    // Show the queue before asking which request to cancel.
+    displayPendingRedemptionQueue();
+
+    System.out.print(
+            "\nEnter Request ID to cancel: ");
+
+    String requestId =
+            scanner.nextLine().trim();
+
+    if (requestId.isEmpty()) {
         System.out.println(
-                "Points balance cannot be negative.");
+                "Request ID cannot be empty.");
         return;
     }
 
     System.out.print(
-            "Confirm changing the balance from "
-            + previousPoints
-            + " to "
-            + newPointsBalance
+            "Confirm cancellation of "
+            + requestId
             + "? (Y/N): ");
 
     String confirmation =
@@ -588,469 +836,502 @@ public class LoyaltyRewardsUI {
 
     if (!confirmation.equalsIgnoreCase("Y")) {
         System.out.println(
-                "Points update cancelled.");
+                "Cancellation cancelled.");
         return;
     }
 
-    boolean updated =
-            loyaltyControl.updatePointsBalance(
-                    loyaltyId,
-                    newPointsBalance);
+    boolean cancelled =
+            loyaltyControl.cancelRedemptionRequest(
+                    requestId);
 
-    if (!updated) {
+    if (!cancelled) {
         System.out.println(
-                "Unable to update points balance.");
+                "Redemption request not found.");
         return;
     }
 
     System.out.println();
     System.out.println(
-            "Points balance updated successfully.");
+            "Redemption request cancelled successfully.");
 
     System.out.println(
-            "Previous Points : "
-            + previousPoints);
-
-    System.out.println(
-            "New Balance     : "
-            + account.getPointsBalance());
-
-    System.out.println(
-            "Previous Tier   : "
-            + previousTier);
-
-    System.out.println(
-            "Current Tier    : "
-            + account.getMembershipTier());
+            "Request ID: " + requestId);
 }
-    
+
     /**
- * Allows the user to filter loyalty accounts by tier,
- * account status, and minimum points.
- */
+    * Allows the user to filter loyalty accounts by tier,
+    * account status, and minimum points.
+    */
     private void filterLoyaltyMembers() {
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "|            FILTER LOYALTY MEMBERS              |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
 
-    System.out.println("Membership Tier:");
-    System.out.println("0. All Tiers");
-    System.out.println("1. NONE");
-    System.out.println("2. SILVER");
-    System.out.println("3. GOLD");
-    System.out.println("4. PLATINUM");
-    System.out.println("5. DIAMOND");
-    System.out.println("6. ELITE");
-    System.out.print("Enter tier option: ");
+        System.out.println("Membership Tier:");
+        System.out.println("0. All Tiers");
+        System.out.println("1. NONE");
+        System.out.println("2. SILVER");
+        System.out.println("3. GOLD");
+        System.out.println("4. PLATINUM");
+        System.out.println("5. DIAMOND");
+        System.out.println("6. ELITE");
+        System.out.print("Enter tier option: ");
 
-    int tierOption = readChoice();
+        int tierOption = readChoice();
 
-    MembershipTier selectedTier;
+        MembershipTier selectedTier;
 
-    switch (tierOption) {
-        case 0 ->
+        switch (tierOption) {
+            case 0 ->
             selectedTier = null;
 
-        case 1 ->
+            case 1 ->
             selectedTier = MembershipTier.NONE;
 
-        case 2 ->
+            case 2 ->
             selectedTier = MembershipTier.SILVER;
 
-        case 3 ->
+            case 3 ->
             selectedTier = MembershipTier.GOLD;
 
-        case 4 ->
+            case 4 ->
             selectedTier = MembershipTier.PLATINUM;
 
-        case 5 ->
+            case 5 ->
             selectedTier = MembershipTier.DIAMOND;
 
-        case 6 ->
+            case 6 ->
             selectedTier = MembershipTier.ELITE;
 
-        default -> {
-            System.out.println(
+            default -> {
+                System.out.println(
                     "Invalid membership tier option.");
+                return;
+            }
+        }
+
+        System.out.println();
+        System.out.println("Account Status:");
+        System.out.println("0. All Accounts");
+        System.out.println("1. Active Accounts");
+        System.out.println("2. Inactive Accounts");
+        System.out.print("Enter status option: ");
+
+        int statusOption = readChoice();
+
+        if (statusOption < 0 || statusOption > 2) {
+            System.out.println(
+                "Invalid account status option.");
             return;
         }
-    }
 
-    System.out.println();
-    System.out.println("Account Status:");
-    System.out.println("0. All Accounts");
-    System.out.println("1. Active Accounts");
-    System.out.println("2. Inactive Accounts");
-    System.out.print("Enter status option: ");
+        System.out.print("Enter minimum points: ");
 
-    int statusOption = readChoice();
+        int minimumPoints;
 
-    if (statusOption < 0 || statusOption > 2) {
-        System.out.println(
-                "Invalid account status option.");
-        return;
-    }
-
-    System.out.print("Enter minimum points: ");
-
-    int minimumPoints;
-
-    try {
-        minimumPoints = Integer.parseInt(
+        try {
+            minimumPoints = Integer.parseInt(
                 scanner.nextLine().trim());
 
-    } catch (NumberFormatException e) {
-        System.out.println(
+        } catch (NumberFormatException e) {
+            System.out.println(
                 "Invalid points. Please enter a number.");
-        return;
-    }
+            return;
+        }
 
-    if (minimumPoints < 0) {
-        System.out.println(
+        if (minimumPoints < 0) {
+            System.out.println(
                 "Minimum points cannot be negative.");
-        return;
+            return;
+        }
+
+        ListQueueInterface<LoyaltyAccount> filteredAccounts =
+        loyaltyControl.filterMembers(
+            selectedTier,
+            statusOption,
+            minimumPoints
+        );
+
+        displayAccountList(filteredAccounts);
     }
 
-    ListQueueInterface<LoyaltyAccount> filteredAccounts =
-            loyaltyControl.filterMembers(
-                    selectedTier,
-                    statusOption,
-                    minimumPoints
-            );
-
-    displayAccountList(filteredAccounts);
-}
-    
     /**
- * Deletes an existing loyalty account after confirmation.
- */
-    private void deleteLoyaltyMember() {
+    * Allows staff to activate or deactivate a loyalty account
+    * without permanently deleting its history.
+    */
+    private void updateLoyaltyAccountStatus() {
 
-    System.out.println();
-    System.out.println(
-            "+------------------------------------------------+");
-    System.out.println(
-            "|             DELETE LOYALTY MEMBER              |");
-    System.out.println(
-            "+------------------------------------------------+");
-
-    System.out.print("Enter Loyalty ID: ");
-
-    String loyaltyId =
-            scanner.nextLine().trim();
-
-    if (loyaltyId.isEmpty()) {
+        System.out.println();
         System.out.println(
+            "+------------------------------------------------+");
+        System.out.println(
+            "|        ACTIVATE / DEACTIVATE ACCOUNT           |");
+        System.out.println(
+            "+------------------------------------------------+");
+
+        System.out.print("Enter Loyalty ID: ");
+
+        String loyaltyId =
+        scanner.nextLine().trim();
+
+        if (loyaltyId.isEmpty()) {
+            System.out.println(
                 "Loyalty ID cannot be empty.");
-        return;
-    }
+            return;
+        }
 
-    LoyaltyAccount account =
-            loyaltyControl.findMemberByLoyaltyId(
-                    loyaltyId);
+        LoyaltyAccount account =
+        loyaltyControl.findMemberByLoyaltyId(
+            loyaltyId);
 
-    if (account == null) {
-        System.out.println(
+        if (account == null) {
+            System.out.println(
                 "Loyalty member not found.");
-        return;
-    }
+            return;
+        }
 
-    displayAccountDetails(account);
+        displayAccountDetails(account);
 
-    System.out.println();
-    System.out.println(
-            "Warning: This loyalty account will be removed.");
+        System.out.println();
+        System.out.println("1. Activate Account");
+        System.out.println("2. Deactivate Account");
+        System.out.print("Enter option: ");
 
-    System.out.print(
-            "Confirm deletion? (Y/N): ");
+        int option = readChoice();
 
-    String confirmation =
-            scanner.nextLine().trim();
+        boolean newStatus;
 
-    if (!confirmation.equalsIgnoreCase("Y")) {
+        switch (option) {
+
+            case 1 ->
+            newStatus = true;
+
+            case 2 ->
+            newStatus = false;
+
+            default -> {
+                System.out.println(
+                    "Invalid option.");
+                return;
+            }
+        }
+
+        if (account.isActive() == newStatus) {
+
+            if (newStatus) {
+                System.out.println(
+                    "This account is already active.");
+            } else {
+                System.out.println(
+                    "This account is already inactive.");
+            }
+
+            return;
+        }
+
+        System.out.print(
+            "Confirm status change? (Y/N): ");
+
+        String confirmation =
+        scanner.nextLine().trim();
+
+        if (!confirmation.equalsIgnoreCase("Y")) {
+            System.out.println(
+                "Status update cancelled.");
+            return;
+        }
+
+        boolean updated =
+        loyaltyControl.updateAccountStatus(
+            loyaltyId,
+            newStatus);
+
+        if (!updated) {
+            System.out.println(
+                "Unable to update account status.");
+            return;
+        }
+
+        System.out.println();
         System.out.println(
-                "Deletion cancelled.");
-        return;
+            "Account status updated successfully.");
+
+        displayAccountDetails(account);
     }
 
-    boolean deleted =
-            loyaltyControl.deleteLoyaltyMember(
-                    loyaltyId);
-
-    if (!deleted) {
-        System.out.println(
-                "Unable to delete loyalty member.");
-        return;
-    }
-
-    System.out.println(
-            "Loyalty member deleted successfully.");
-}
-    
     /**
- * Displays all loyalty accounts currently stored
- * in the custom ADT collection.
- */
+    * Displays all loyalty accounts currently stored
+    * in the custom ADT collection.
+    */
     private void displayAllLoyaltyAccounts() {
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "|           ALL LOYALTY ACCOUNTS                 |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
 
-    ListQueueInterface<LoyaltyAccount> accounts =
-            loyaltyControl.getLoyaltyAccounts();
+        ListQueueInterface<LoyaltyAccount> accounts =
+        loyaltyControl.getLoyaltyAccounts();
 
-    displayAccountList(accounts);
-}
-    
+        displayAccountList(accounts);
+    }
+
     /**
- * Accepts expiry-report filters and displays matching
- * earned-points transactions.
- */
+    * Accepts expiry-report filters and displays matching
+    * earned-points transactions.
+    */
     private void displayExpiringPointsReport() {
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "|            EXPIRING POINTS REPORT              |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
 
-    LocalDate startDate;
-    LocalDate endDate;
+        LocalDate startDate;
+        LocalDate endDate;
 
-    try {
-        System.out.print(
+        try {
+            System.out.print(
                 "Enter start date (YYYY-MM-DD): ");
 
-        startDate = LocalDate.parse(
+            startDate = LocalDate.parse(
                 scanner.nextLine().trim());
 
-        System.out.print(
+            System.out.print(
                 "Enter end date (YYYY-MM-DD): ");
 
-        endDate = LocalDate.parse(
+            endDate = LocalDate.parse(
                 scanner.nextLine().trim());
 
-    } catch (DateTimeParseException e) {
-        System.out.println(
-                "Invalid date. Use the format YYYY-MM-DD.");
-        return;
-    }
-
-    if (endDate.isBefore(startDate)) {
-        System.out.println(
-                "End date cannot be before the start date.");
-        return;
-    }
-
-    System.out.println();
-    System.out.println("Membership Tier:");
-    System.out.println("0. All Tiers");
-    System.out.println("1. NONE");
-    System.out.println("2. SILVER");
-    System.out.println("3. GOLD");
-    System.out.println("4. PLATINUM");
-    System.out.println("5. DIAMOND");
-    System.out.println("6. ELITE");
-    System.out.print("Enter tier option: ");
-
-    int tierOption = readChoice();
-
-    MembershipTier selectedTier;
-
-    switch (tierOption) {
-        case 0 ->
-            selectedTier = null;
-
-        case 1 ->
-            selectedTier = MembershipTier.NONE;
-
-        case 2 ->
-            selectedTier = MembershipTier.SILVER;
-
-        case 3 ->
-            selectedTier = MembershipTier.GOLD;
-
-        case 4 ->
-            selectedTier = MembershipTier.PLATINUM;
-
-        case 5 ->
-            selectedTier = MembershipTier.DIAMOND;
-
-        case 6 ->
-            selectedTier = MembershipTier.ELITE;
-
-        default -> {
+        } catch (DateTimeParseException e) {
             System.out.println(
-                    "Invalid membership tier option.");
+                "Invalid date. Use the format YYYY-MM-DD.");
             return;
         }
-    }
 
-    System.out.print(
+        if (endDate.isBefore(startDate)) {
+            System.out.println(
+                "End date cannot be before the start date.");
+            return;
+        }
+
+        System.out.println();
+        System.out.println("Membership Tier:");
+        System.out.println("0. All Tiers");
+        System.out.println("1. NONE");
+        System.out.println("2. SILVER");
+        System.out.println("3. GOLD");
+        System.out.println("4. PLATINUM");
+        System.out.println("5. DIAMOND");
+        System.out.println("6. ELITE");
+        System.out.print("Enter tier option: ");
+
+        int tierOption = readChoice();
+
+        MembershipTier selectedTier;
+
+        switch (tierOption) {
+            case 0 ->
+            selectedTier = null;
+
+            case 1 ->
+            selectedTier = MembershipTier.NONE;
+
+            case 2 ->
+            selectedTier = MembershipTier.SILVER;
+
+            case 3 ->
+            selectedTier = MembershipTier.GOLD;
+
+            case 4 ->
+            selectedTier = MembershipTier.PLATINUM;
+
+            case 5 ->
+            selectedTier = MembershipTier.DIAMOND;
+
+            case 6 ->
+            selectedTier = MembershipTier.ELITE;
+
+            default -> {
+                System.out.println(
+                    "Invalid membership tier option.");
+                return;
+            }
+        }
+
+        System.out.print(
             "Enter minimum expiring points: ");
 
-    int minimumPoints;
+        int minimumPoints;
 
-    try {
-        minimumPoints = Integer.parseInt(
+        try {
+            minimumPoints = Integer.parseInt(
                 scanner.nextLine().trim());
 
-    } catch (NumberFormatException e) {
-        System.out.println(
+        } catch (NumberFormatException e) {
+            System.out.println(
                 "Invalid points. Please enter a number.");
-        return;
-    }
+            return;
+        }
 
-    if (minimumPoints < 0) {
-        System.out.println(
+        if (minimumPoints < 0) {
+            System.out.println(
                 "Minimum points cannot be negative.");
-        return;
+            return;
+        }
+
+        ListQueueInterface<LoyaltyTransaction> report =
+        loyaltyControl.generateExpiringPointsReport(
+            startDate,
+            endDate,
+            selectedTier,
+            minimumPoints
+        );
+
+    // -------------------------------------------------------------------------
+    // DISPLAY HELPERS
+    // -------------------------------------------------------------------------
+
+        displayExpiringTransactionList(report);
     }
 
-    ListQueueInterface<LoyaltyTransaction> report =
-            loyaltyControl.generateExpiringPointsReport(
-                    startDate,
-                    endDate,
-                    selectedTier,
-                    minimumPoints
-            );
-
-    displayExpiringTransactionList(report);
-}
-    
     /**
- * Displays notifications for points expiring within
- * the next 30 days.
- */
+    * Displays notifications for points expiring within
+    * the next 30 days.
+    */
     private void displayExpiringPointsAlerts() {
 
-    LocalDate currentDate = LocalDate.now();
-    int alertPeriodDays = 30;
+        LocalDate currentDate = LocalDate.now();
+        int alertPeriodDays = 30;
 
-    ListQueueInterface<LoyaltyTransaction> alerts =
-            loyaltyControl.generateExpiringPointsAlerts(
-                    currentDate,
-                    alertPeriodDays
-            );
+        ListQueueInterface<LoyaltyTransaction> alerts =
+        loyaltyControl.generateExpiringPointsAlerts(
+            currentDate,
+            alertPeriodDays
+        );
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "|          EXPIRING POINTS NOTIFICATIONS         |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
 
-    System.out.println(
+        System.out.println(
             "Checking period: "
             + currentDate
             + " to "
             + currentDate.plusDays(alertPeriodDays));
 
-    if (alerts == null || alerts.isEmpty()) {
-        System.out.println();
-        System.out.println(
+        if (alerts == null || alerts.isEmpty()) {
+            System.out.println();
+            System.out.println(
                 "No points will expire within the next "
                 + alertPeriodDays
                 + " days.");
-        return;
-    }
-
-    System.out.println();
-
-    for (int i = 0;
-            i < alerts.getNumberOfEntries();
-            i++) {
-
-        LoyaltyTransaction transaction =
-                alerts.getEntry(i);
-
-        LoyaltyAccount account =
-                loyaltyControl.findMemberByLoyaltyId(
-                        transaction.getLoyaltyId());
-
-        if (account == null) {
-            continue;
+            return;
         }
 
-        long daysRemaining =
-                ChronoUnit.DAYS.between(
-                        currentDate,
-                        transaction.getExpiryDate());
+        System.out.println();
 
-        System.out.println(
-                "Notification " + (i + 1));
+        Iterator<LoyaltyTransaction> alertIterator =
+        alerts.getIterator();
 
-        System.out.println(
+        int notificationNumber = 1;
+
+        while (alertIterator.hasNext()) {
+
+            LoyaltyTransaction transaction =
+            alertIterator.next();
+
+            LoyaltyAccount account =
+            loyaltyControl.findMemberByLoyaltyId(
+                transaction.getLoyaltyId());
+
+            if (account == null) {
+                continue;
+            }
+
+            long daysRemaining =
+            ChronoUnit.DAYS.between(
+                currentDate,
+                transaction.getExpiryDate());
+
+            System.out.println(
+                "Notification " + notificationNumber);
+
+            System.out.println(
                 "Member       : "
                 + account.getMemberName());
 
-        System.out.println(
+            System.out.println(
                 "Loyalty ID   : "
                 + account.getLoyaltyId());
 
-        System.out.println(
+            System.out.println(
                 "Points       : "
                 + transaction.getRemainingPoints());
 
-        System.out.println(
+            System.out.println(
                 "Expiry Date  : "
                 + transaction.getExpiryDate());
 
-        System.out.println(
+            System.out.println(
                 "Days Left    : "
                 + daysRemaining);
 
-        System.out.println(
+            System.out.println(
                 "Message      : You have "
                 + transaction.getRemainingPoints()
                 + " loyalty points expiring in "
                 + daysRemaining
                 + " day(s). Please redeem them before expiry.");
 
-        System.out.println(
+            System.out.println(
                 "--------------------------------------------------");
-    }
 
-    System.out.println(
+            notificationNumber++;
+        }
+
+        System.out.println(
             "Total notifications: "
             + alerts.getNumberOfEntries());
-}
-    
+    }
+
     /**
- * Displays the Expiring Points Report.
- *
- * @param transactions custom ADT containing expiring records
- */
+    * Displays the Expiring Points Report.
+    *
+    * @param transactions custom ADT containing expiring records
+    */
     private void displayExpiringTransactionList(
         ListQueueInterface<LoyaltyTransaction> transactions) {
 
-    System.out.println();
+        System.out.println();
 
-    if (transactions == null
+        if (transactions == null
             || transactions.isEmpty()) {
 
-        System.out.println(
+            System.out.println(
                 "No expiring points match the selected filters.");
-        return;
-    }
+            return;
+        }
 
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------------------------------------------------+");
 
-    System.out.printf(
+        System.out.printf(
             "| %-8s | %-8s | %-18s | %10s | %-12s | %-10s |%n",
             "Trans ID",
             "Loyalty",
@@ -1058,23 +1339,28 @@ public class LoyaltyRewardsUI {
             "Remaining",
             "Expiry Date",
             "Tier"
-    );
+        );
 
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------------------------------------------------+");
 
-    for (int i = 0;
-            i < transactions.getNumberOfEntries();
-            i++) {
+        Iterator<LoyaltyTransaction> transactionIterator =
+        transactions.getIterator();
 
-        LoyaltyTransaction transaction =
-                transactions.getEntry(i);
+        while (transactionIterator.hasNext()) {
 
-        LoyaltyAccount account =
-                loyaltyControl.findMemberByLoyaltyId(
-                        transaction.getLoyaltyId());
+            LoyaltyTransaction transaction =
+            transactionIterator.next();
 
-        System.out.printf(
+            LoyaltyAccount account =
+            loyaltyControl.findMemberByLoyaltyId(
+                transaction.getLoyaltyId());
+
+            if (account == null) {
+                continue;
+            }
+
+            System.out.printf(
                 "| %-8s | %-8s | %-18s | %10d | %-12s | %-10s |%n",
                 transaction.getTransactionId(),
                 transaction.getLoyaltyId(),
@@ -1082,36 +1368,36 @@ public class LoyaltyRewardsUI {
                 transaction.getRemainingPoints(),
                 transaction.getExpiryDate(),
                 account.getMembershipTier()
-        );
-    }
+            );
+        }
 
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------------------------------------------------+");
 
-    System.out.println(
+        System.out.println(
             "Total expiring records: "
             + transactions.getNumberOfEntries());
-}
-    
-    /**
- * Displays a collection of loyalty accounts.
- *
- * @param accounts custom ADT containing loyalty accounts
- */
-    private void displayAccountList(
-            ListQueueInterface<LoyaltyAccount> accounts) {
-
-    System.out.println();
-
-    if (accounts == null || accounts.isEmpty()) {
-        System.out.println(
-                "No loyalty members match the selected filters.");
-        return;
     }
 
-    System.out.println(
+    /**
+    * Displays a collection of loyalty accounts.
+    *
+    * @param accounts custom ADT containing loyalty accounts
+    */
+    private void displayAccountList(
+        ListQueueInterface<LoyaltyAccount> accounts) {
+
+        System.out.println();
+
+        if (accounts == null || accounts.isEmpty()) {
+            System.out.println(
+                "No loyalty members match the selected filters.");
+            return;
+        }
+
+        System.out.println(
             "+-------------------------------------------------------------------------------+");
-    System.out.printf(
+        System.out.printf(
             "| %-8s | %-8s | %-20s | %10s | %-10s | %-8s |%n",
             "Loyalty",
             "Guest",
@@ -1119,18 +1405,19 @@ public class LoyaltyRewardsUI {
             "Points",
             "Tier",
             "Status"
-    );
-    System.out.println(
+        );
+        System.out.println(
             "+-------------------------------------------------------------------------------+");
 
-    for (int i = 0;
-            i < accounts.getNumberOfEntries();
-            i++) {
+        Iterator<LoyaltyAccount> accountIterator =
+        accounts.getIterator();
 
-        LoyaltyAccount account =
-                accounts.getEntry(i);
+        while (accountIterator.hasNext()) {
 
-        System.out.printf(
+            LoyaltyAccount account =
+            accountIterator.next();
+
+            System.out.printf(
                 "| %-8s | %-8s | %-20s | %10d | %-10s | %-8s |%n",
                 account.getLoyaltyId(),
                 account.getGuestId(),
@@ -1138,205 +1425,213 @@ public class LoyaltyRewardsUI {
                 account.getPointsBalance(),
                 account.getMembershipTier(),
                 account.isActive()
-                        ? "ACTIVE"
-                        : "INACTIVE"
-        );
-    }
+                ? "ACTIVE"
+                : "INACTIVE"
+            );
+        }
 
-    System.out.println(
+        System.out.println(
             "+-------------------------------------------------------------------------------+");
 
-    System.out.println(
+        System.out.println(
             "Total matching members: "
             + accounts.getNumberOfEntries());
-}
-
-    /**
- * Displays the details of one loyalty account.
- *
- * @param account loyalty account to display
- */
-    private void displayAccountDetails(
-            LoyaltyAccount account) {
-
-        System.out.println();
-        System.out.println(
-                "+-------------------------------------------------+");
-        System.out.println(
-                "|             LOYALTY MEMBER DETAILS             |");
-        System.out.println(
-                "+-------------------------------------------------+");
-
-        System.out.printf(
-                "| %-18s : %-25s |%n",
-                "Loyalty ID",
-                account.getLoyaltyId());
-
-        System.out.printf(
-                "| %-18s : %-25s |%n",
-                "Guest ID",
-                account.getGuestId());
-
-        System.out.printf(
-                "| %-18s : %-25s |%n",
-                "Member Name",
-                account.getMemberName());
-
-        System.out.printf(
-                "| %-18s : %-25d |%n",
-                "Points Balance",
-                account.getPointsBalance());
-
-        System.out.printf(
-                "| %-18s : %-25s |%n",
-                "Membership Tier",
-                account.getMembershipTier());
-
-        System.out.printf(
-                "| %-18s : %-25s |%n",
-                "Account Status",
-                account.isActive()
-                        ? "ACTIVE"
-                        : "INACTIVE");
-
-        System.out.println(
-                "+-------------------------------------------------+");
     }
 
     /**
-     * Prints the Loyalty and Rewards menu.
-     */
+    * Displays the details of one loyalty account.
+    *
+    * @param account loyalty account to display
+    */
+    private void displayAccountDetails(
+        LoyaltyAccount account) {
+
+        System.out.println();
+        System.out.println(
+            "+-------------------------------------------------+");
+        System.out.println(
+            "|             LOYALTY MEMBER DETAILS             |");
+        System.out.println(
+            "+-------------------------------------------------+");
+
+        System.out.printf(
+            "| %-18s : %-25s |%n",
+            "Loyalty ID",
+            account.getLoyaltyId());
+
+        System.out.printf(
+            "| %-18s : %-25s |%n",
+            "Guest ID",
+            account.getGuestId());
+
+        System.out.printf(
+            "| %-18s : %-25s |%n",
+            "Member Name",
+            account.getMemberName());
+
+        System.out.printf(
+            "| %-18s : %-25d |%n",
+            "Points Balance",
+            account.getPointsBalance());
+
+        System.out.printf(
+            "| %-18s : %-25s |%n",
+            "Membership Tier",
+            account.getMembershipTier());
+
+        System.out.printf(
+            "| %-18s : %-25s |%n",
+            "Account Status",
+            account.isActive()
+            ? "ACTIVE"
+            : "INACTIVE");
+
+        System.out.println(
+            "+-------------------------------------------------+");
+    }
+
+    /**
+    * Prints the Loyalty and Rewards menu.
+    */
     private void displayMenu() {
 
-        System.out.println();
-        System.out.println(
-                "+------------------------------------------------+");
-        System.out.println(
-                "|          LOYALTY & REWARDS SERVICE             |");
-        System.out.println(
-                "+------------------------------------------------+");
+    System.out.println();
+    System.out.println(
+            "+------------------------------------------------+");
+    System.out.println(
+            "|          LOYALTY & REWARDS SERVICE             |");
+    System.out.println(
+            "+------------------------------------------------+");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "1. Find Loyalty Member");
+    System.out.printf(
+            "| %-46s |%n",
+            "1. Find Loyalty Member");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "2. Create Loyalty Account");
+    System.out.printf(
+            "| %-46s |%n",
+            "2. Create Loyalty Account");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "3. Add Points from Completed Stay");
+    System.out.printf(
+            "| %-46s |%n",
+            "3. Add Points from Completed Stay");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "4. Redeem Points");
+    System.out.printf(
+            "| %-46s |%n",
+            "4. Submit Redemption Request");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "5. Update Points Balance");
+    System.out.printf(
+            "| %-46s |%n",
+            "5. View Pending Redemption Queue");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "6. Tier and Points Report");
+    System.out.printf(
+            "| %-46s |%n",
+            "6. Process Next Redemption Request");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "7. Delete Loyalty Member");
+    System.out.printf(
+            "| %-46s |%n",
+            "7. Cancel Pending Redemption Request");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "8. Display All Loyalty Accounts");
-        
-        System.out.printf(
-                "| %-46s |%n",
-                "9. Expiring Points Report");
-        
-        System.out.printf(
-                "| %-46s |%n",
-                "10. Expiring Points Notifications");
-        
-        System.out.printf(
-                "| %-46s |%n",
-                "11. Process Expired Points");
+    System.out.printf(
+            "| %-46s |%n",
+            "8. Tier and Points Report");
 
-        System.out.printf(
-                "| %-46s |%n",
-                "0. Return to Main Menu");
+    System.out.printf(
+            "| %-46s |%n",
+            "9. Activate / Deactivate Account");
 
-        System.out.println(
-                "+------------------------------------------------+");
+    System.out.printf(
+            "| %-46s |%n",
+            "10. Display All Loyalty Accounts");
 
-        System.out.print("Enter choice: ");
+    System.out.printf(
+            "| %-46s |%n",
+            "11. Expiring Points Report");
+
+    System.out.printf(
+            "| %-46s |%n",
+            "12. Expiring Points Notifications");
+
+    System.out.printf(
+            "| %-46s |%n",
+            "13. Process Expired Points");
+
+    System.out.printf(
+            "| %-46s |%n",
+            "0. Return to Main Menu");
+
+    System.out.println(
+            "+------------------------------------------------+");
+
+    System.out.print("Enter choice: ");
     }
 
     /**
-     * Reads and validates a numerical menu choice.
-     *
-     * @return entered menu choice, or -1 for invalid input
-     */
+    * Reads and validates a numerical menu choice.
+    *
+    * @return entered menu choice, or -1 for invalid input
+    */
     private int readChoice() {
 
         try {
             return Integer.parseInt(
-                    scanner.nextLine().trim());
+                scanner.nextLine().trim());
 
         } catch (NumberFormatException e) {
 
             System.out.println(
-                    "Invalid input. Please enter a number.");
+                "Invalid input. Please enter a number.");
 
             return -1;
         }
     }
-    
+
     /**
- * Processes all points that have already expired.
- */
+    * Processes all points that have already expired.
+    */
     private void processExpiredPoints() {
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "+------------------------------------------------+");
-    System.out.println(
+        System.out.println(
             "|             PROCESS EXPIRED POINTS             |");
-    System.out.println(
+        System.out.println(
             "+------------------------------------------------+");
 
-    LocalDate currentDate = LocalDate.now();
+        LocalDate currentDate = LocalDate.now();
 
-    System.out.println(
+        System.out.println(
             "Processing date: " + currentDate);
 
-    System.out.print(
+        System.out.print(
             "Confirm processing expired points? (Y/N): ");
 
-    String confirmation =
-            scanner.nextLine().trim();
+        String confirmation =
+        scanner.nextLine().trim();
 
-    if (!confirmation.equalsIgnoreCase("Y")) {
-        System.out.println(
+        if (!confirmation.equalsIgnoreCase("Y")) {
+            System.out.println(
                 "Expired-points processing cancelled.");
-        return;
-    }
+            return;
+        }
 
-    int totalExpiredPoints =
-            loyaltyControl.processExpiredPoints(
-                    currentDate);
+        int totalExpiredPoints =
+        loyaltyControl.processExpiredPoints(
+            currentDate);
 
-    if (totalExpiredPoints == 0) {
-        System.out.println(
+        if (totalExpiredPoints == 0) {
+            System.out.println(
                 "No expired points were found.");
-        return;
-    }
+            return;
+        }
 
-    System.out.println();
-    System.out.println(
+        System.out.println();
+        System.out.println(
             "Expired points processed successfully.");
 
-    System.out.println(
+        System.out.println(
             "Total points expired: "
             + totalExpiredPoints);
-}
-    
+    }
+
 }

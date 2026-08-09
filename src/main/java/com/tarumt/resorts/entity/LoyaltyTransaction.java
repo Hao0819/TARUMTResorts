@@ -5,34 +5,41 @@
  */
 package com.tarumt.resorts.entity;
 
-/**
- *
- * @author user
- */
-
 import java.time.LocalDate;
 
 /**
- * LoyaltyTransaction.java
- *
  * Represents a points transaction belonging to a loyalty account.
- * Transactions may be points earned, redeemed, or expired.
  *
- * Earn transactions store the booking ID and expiry date so that
- * duplicate stay rewards and expiring points can be checked.
+ * <p>Supported transaction types:</p>
+ * <ul>
+ *     <li>EARN   - points earned from a completed booking</li>
+ *     <li>REDEEM - points redeemed by the member</li>
+ *     <li>EXPIRE - points removed after expiry</li>
+ *     <li>ADJUST - opening-balance or audited adjustment points</li>
+ * </ul>
  *
- * @author YourName
+ * <p>EARN transactions store a booking ID and expiry date so that
+ * duplicate stay rewards and expiring points can be checked.</p>
  */
 public class LoyaltyTransaction {
 
+    // -------------------------------------------------------------------------
+    // TRANSACTION TYPE
+    // -------------------------------------------------------------------------
+
     /**
-     * Types of loyalty points transactions.
+     * Types of loyalty point transactions.
      */
     public enum TransactionType {
         EARN,
         REDEEM,
-        EXPIRE
+        EXPIRE,
+        ADJUST
     }
+
+    // -------------------------------------------------------------------------
+    // DATA FIELDS
+    // -------------------------------------------------------------------------
 
     private String transactionId;
     private String loyaltyId;
@@ -42,6 +49,10 @@ public class LoyaltyTransaction {
     private int remainingPoints;
     private LocalDate transactionDate;
     private LocalDate expiryDate;
+
+    // -------------------------------------------------------------------------
+    // CONSTRUCTORS
+    // -------------------------------------------------------------------------
 
     /**
      * Default constructor.
@@ -55,7 +66,7 @@ public class LoyaltyTransaction {
      * @param transactionId unique transaction ID
      * @param loyaltyId loyalty account ID
      * @param bookingId booking ID for an earning transaction
-     * @param transactionType EARN, REDEEM, or EXPIRE
+     * @param transactionType EARN, REDEEM, EXPIRE, or ADJUST
      * @param points number of points involved
      * @param transactionDate transaction date
      * @param expiryDate expiry date for earned points
@@ -101,11 +112,16 @@ public class LoyaltyTransaction {
         this.points = points;
 
         /*
-         * Only earned points have a remaining balance that may
-         * later be redeemed or expired.
+         * EARN and ADJUST transactions provide usable points.
+         *
+         * ADJUST is used for an opening balance so that existing
+         * loyalty points are represented in the transaction ledger.
          */
-        if (transactionType == TransactionType.EARN) {
+        if (transactionType == TransactionType.EARN
+                || transactionType == TransactionType.ADJUST) {
+
             this.remainingPoints = points;
+
         } else {
             this.remainingPoints = 0;
         }
@@ -116,6 +132,10 @@ public class LoyaltyTransaction {
 
         this.expiryDate = expiryDate;
     }
+
+    // -------------------------------------------------------------------------
+    // GETTERS AND SETTERS
+    // -------------------------------------------------------------------------
 
     public String getTransactionId() {
         return transactionId;
@@ -177,6 +197,10 @@ public class LoyaltyTransaction {
         this.expiryDate = expiryDate;
     }
 
+    // -------------------------------------------------------------------------
+    // TRANSACTION HELPERS
+    // -------------------------------------------------------------------------
+
     /**
      * Checks whether this is an earned-points transaction.
      *
@@ -187,9 +211,7 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Deducts points from the remaining earned-points balance.
-     *
-     * This will later be used when a member redeems points.
+     * Deducts points from this transaction's remaining usable balance.
      *
      * @param amount number of points to deduct
      * @return actual number of points deducted
@@ -214,9 +236,9 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Expires all remaining points in this earning transaction.
+     * Removes all remaining points from this transaction.
      *
-     * @return number of points that expired
+     * @return number of points removed
      */
     public int expireRemainingPoints() {
 
@@ -226,11 +248,15 @@ public class LoyaltyTransaction {
         return expiredPoints;
     }
 
+    // -------------------------------------------------------------------------
+    // EXPIRY CHECKING
+    // -------------------------------------------------------------------------
+
     /**
-     * Checks whether the remaining points have expired.
+     * Checks whether the remaining earned points have expired.
      *
      * @param currentDate date used for the expiry check
-     * @return true if the remaining points have expired
+     * @return true if the remaining earned points have expired
      */
     public boolean isExpiredOn(LocalDate currentDate) {
 
@@ -275,6 +301,10 @@ public class LoyaltyTransaction {
 
         return onOrAfterStart && onOrBeforeEnd;
     }
+
+    // -------------------------------------------------------------------------
+    // OBJECT METHODS
+    // -------------------------------------------------------------------------
 
     @Override
     public String toString() {
