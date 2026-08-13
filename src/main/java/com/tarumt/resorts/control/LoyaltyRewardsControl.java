@@ -84,10 +84,33 @@ public class LoyaltyRewardsControl {
             return null;
         }
 
-        // Requested points cannot exceed the current balance.
-        if (points > account.getPointsBalance()) {
-            return null;
+        long pendingPoints = 0;
+
+        Iterator<RedemptionRequest> requestIterator =
+            redemptionRequests.getIterator();
+
+        while (requestIterator.hasNext()) {
+
+        RedemptionRequest pendingRequest =
+            requestIterator.next();
+
+        if (pendingRequest.getLoyaltyId() != null
+                && pendingRequest.getLoyaltyId()
+                    .equalsIgnoreCase(
+                            account.getLoyaltyId())) {
+
+            pendingPoints +=
+                    pendingRequest.getPoints();
+            }
         }
+
+long availablePoints =
+        (long) account.getPointsBalance()
+        - pendingPoints;
+
+if (points > availablePoints) {
+    return null;
+}
 
         RedemptionRequest request =
                 new RedemptionRequest(
@@ -629,7 +652,7 @@ public class LoyaltyRewardsControl {
     // POINT REDEMPTION
     // -------------------------------------------------------------------------
 
-    public boolean redeemPoints(
+    private boolean redeemPoints(
         String loyaltyId,
         int points) {
 
