@@ -204,7 +204,7 @@ public class FrontDeskUI {
 
         printReportHeader("ROOM AVAILABILITY",
                 "Room type filter: " + roomType,
-                "Bookable = vacant AND Housekeeping status READY");
+                "Bookable now = vacant AND Housekeeping READY AND not reserved for today");
 
         String border = "+----------+------------+-------------+--------------+------------+";
         System.out.println(border);
@@ -372,6 +372,15 @@ public class FrontDeskUI {
             return;
         }
 
+        // No early check-in: a guest cannot arrive before the scheduled date.
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (control.isBeforeScheduledCheckIn(booking, today)) {
+            System.out.println("Cannot check in yet. Booking " + booking.getConfirmationNumber()
+                    + " is scheduled from " + booking.getScheduledCheckInDate()
+                    + " - the guest is arriving early (today is " + today + ").");
+            return;
+        }
+
         String checkInTime = java.time.LocalDateTime.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
@@ -407,7 +416,8 @@ public class FrontDeskUI {
         String room = booking.getRoom().getRoomNumber();
         if (control.cancelBooking(booking.getConfirmationNumber())) {
             System.out.println("Booking " + booking.getConfirmationNumber()
-                    + " cancelled (kept on record as CANCELLED). Room " + room + " has been released.");
+                    + " cancelled (kept on record as CANCELLED). Room " + room
+                    + " is freed for that reserved period.");
         } else {
             System.out.println("Cancellation failed.");
         }
@@ -492,18 +502,14 @@ public class FrontDeskUI {
     private String readPaymentFilter() {
         while (true) {
             System.out.println("\nPayment Status Filter");
-            System.out.println("1. Outstanding (UNPAID or PARTIAL)");
-            System.out.println("2. Unpaid");
-            System.out.println("3. Partial");
-            System.out.println("4. Paid");
-            System.out.println("5. All");
+            System.out.println("1. Unpaid (outstanding)");
+            System.out.println("2. Paid");
+            System.out.println("3. All");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
-                case "1": return "OUTSTANDING";
-                case "2": return "UNPAID";
-                case "3": return "PARTIAL";
-                case "4": return "PAID";
-                case "5": return "ALL";
+                case "1": return "UNPAID";
+                case "2": return "PAID";
+                case "3": return "ALL";
                 default: System.out.println("Invalid payment filter. Please try again.");
             }
         }

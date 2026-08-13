@@ -178,10 +178,18 @@ public class FrontDeskControl {
     }
 
     /**
-     * Returns the rooms currently available, optionally filtered by room type
-     * ("ALL" for every type). Self-implemented linear scan.
+     * Returns the rooms that are genuinely bookable RIGHT NOW, optionally
+     * filtered by room type ("ALL" for every type). A room qualifies only if
+     * all three hold:
+     *   1. it is vacant (occupancy flag available),
+     *   2. Housekeeping has it READY (or it has never been logged / UNKNOWN),
+     *   3. it has no CONFIRMED/ACTIVE booking overlapping today (not reserved
+     *      for a guest arriving today).
+     * Self-implemented linear scan.
      */
     public Room[] getAvailableRooms(String roomTypeFilter) {
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
         String type = (roomTypeFilter == null) ? "ALL" : roomTypeFilter.trim();
         int total = roomList.getNumberOfEntries();
 
@@ -190,7 +198,7 @@ public class FrontDeskControl {
         for (int i = 0; i < total; i++) {
             Room r = roomList.getEntry(i);
             boolean typeOk = type.equalsIgnoreCase("ALL") || type.equalsIgnoreCase(r.getRoomType());
-            if (r.isAvailable() && typeOk) {
+            if (typeOk && isBookable(r) && !isRoomTakenInRange(r, today, tomorrow)) {
                 temp[count++] = r;
             }
         }
@@ -342,7 +350,9 @@ public class FrontDeskControl {
 
     /**
      * Filters bookings by two criteria: payment status and room type.
-     * The special payment filter "OUTSTANDING" matches UNPAID or PARTIAL.
+     * Payment is a two-state flow in this system - UNPAID (booking made) or
+     * PAID (settled at check-in) - so the only outstanding state is UNPAID.
+     * "OUTSTANDING" is kept as an alias of UNPAID for report readability.
      * Self-implemented linear scan.
      */
     public Booking[] filterByPayment(String paymentFilter, String roomTypeFilter) {
@@ -359,7 +369,7 @@ public class FrontDeskControl {
             if (pay.equalsIgnoreCase("ALL")) {
                 payOk = true;
             } else if (pay.equalsIgnoreCase("OUTSTANDING")) {
-                payOk = "UNPAID".equalsIgnoreCase(status) || "PARTIAL".equalsIgnoreCase(status);
+                payOk = "UNPAID".equalsIgnoreCase(status);
             } else {
                 payOk = pay.equalsIgnoreCase(status);
             }
@@ -408,21 +418,56 @@ public class FrontDeskControl {
 
     /**
      * Checks a guest in: a CONFIRMED booking (booked but not yet arrived)
-     * becomes ACTIVE and gets its check-in time recorded. The bill is settled
-     * on arrival, so the payment status is marked PAID at check-in. Only
-     * CONFIRMED bookings can be checked in.
+     * becomes ACTIVE and gets its check-in time recorded. Only CONFIRMED
+     * bookings can be checked in, and never BEFORE the scheduled check-in date
+     * (a guest cannot arrive early). On success the room is marked occupied
+     * (not available) and, since the bill is settled on arrival, the payment
+     * status is marked PAID (CONFIRMED/UNPAID -> ACTIVE/PAID).
      *
-     * @return false if the booking is missing or not in CONFIRMED state
+     * @return false if the booking is missing, not CONFIRMED, or the arrival
+     *         date is before the scheduled check-in date
      */
     public boolean checkInBooking(String confirmationNumber, String checkInTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
         if (booking == null || !"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
             return false;
         }
+        // No early check-in: the arrival date must not precede the schedule.
+        if (isBeforeScheduledCheckIn(booking, parseDatePart(checkInTime))) {
+            return false;
+        }
         booking.setCheckInTime(checkInTime);
         booking.setStatus("ACTIVE");
         booking.setPaymentStatus("PAID"); // guest settles the bill on check-in
+        Room room = booking.getRoom();
+        if (room != null) {
+            room.setAvailable(false); // guest now occupies the room
+        }
         return true;
+    }
+
+    /**
+     * True if the guest would be checking in BEFORE the booking's scheduled
+     * check-in date. Bookings without a schedule (null) never count as early.
+     * Exposed so the UI can show a specific "too early" message.
+     */
+    public boolean isBeforeScheduledCheckIn(Booking booking, LocalDate arrivalDate) {
+        return booking != null
+                && booking.getScheduledCheckInDate() != null
+                && arrivalDate != null
+                && arrivalDate.isBefore(booking.getScheduledCheckInDate());
+    }
+
+    /** Extracts the date (yyyy-MM-dd) from a "yyyy-MM-dd HH:mm" string; null if unparseable. */
+    private LocalDate parseDatePart(String dateTime) {
+        if (dateTime == null || dateTime.trim().length() < 10) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(dateTime.trim().substring(0, 10));
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
     }
 
     // =====================================================================
@@ -437,8 +482,14 @@ public class FrontDeskControl {
     // =====================================================================
 
     /**
-     * Cancels a CONFIRMED booking: marks it CANCELLED (kept in the collection)
-     * and releases its reserved room.
+     * Cancels a CONFIRMED booking: marks it CANCELLED (kept in the collection).
+     *
+     * The room's occupancy flag is deliberately left untouched. A CONFIRMED
+     * booking may be for a FUTURE date on a room that is currently occupied by
+     * another ACTIVE guest; forcing the room to "available" here would wrongly
+     * free an in-house room. Because date-range availability ignores CANCELLED
+     * bookings, cancelling automatically frees the room for that period without
+     * changing the current occupancy flag.
      *
      * @return false if the booking is missing or not in CONFIRMED state
      */
@@ -448,11 +499,7 @@ public class FrontDeskControl {
             return false;
         }
         booking.setStatus("CANCELLED");          // soft-cancel: retained, not deleted
-        Room room = booking.getRoom();
-        if (room != null) {
-            room.setAvailable(true);             // reserved room released, bookable again
-        }
-        return true;
+        return true;                              // schedule auto-frees; occupancy untouched
     }
 
     // =====================================================================

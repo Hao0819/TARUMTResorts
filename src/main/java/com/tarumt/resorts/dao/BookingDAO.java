@@ -534,11 +534,17 @@ public class BookingDAO {
     }
 
     /**
-     * Sets amount + payment on a freshly built CONFIRMED booking before storing.
+     * Sets the amount on a freshly built booking that has NOT been checked in
+     * (every CONFIRMED and CANCELLED sample goes through here). Under the
+     * unified payment flow such bookings are ALWAYS UNPAID - payment is only
+     * settled at check-in (CONFIRMED/UNPAID -> ACTIVE/PAID). The payment status
+     * is therefore fixed to UNPAID here; the third argument is retained only so
+     * the call sites read as "amount, expected-status" and is intentionally
+     * ignored to keep every seed CONFIRMED/CANCELLED booking UNPAID.
      */
     private Booking withBilling(Booking booking, double amount, String paymentStatus) {
         booking.setAmount(amount);
-        booking.setPaymentStatus(paymentStatus);
+        booking.setPaymentStatus("UNPAID");
         return booking;
     }
 
