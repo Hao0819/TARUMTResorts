@@ -42,6 +42,77 @@ public class HouseKeepingUI {
         System.out.println("| " + " ".repeat(leftPadding) + text + " ".repeat(rightPadding) + " |");
     }
 
+    /**
+     * Added: prints a quick-reference table of every room in the system
+     * (room number, type, current status) so staff can see at a glance
+     * which room numbers exist and what state each one is in, before
+     * being asked to type a room number. Used by logStatusChange(),
+     * viewCurrentStatus(), and viewFullHistory() (functions 1, 2, 4).
+     *
+     * Uses control.getAllRooms() (a copy of the shared room list) and
+     * control.getCurrentStatus() per room, so it always reflects the
+     * latest logged status — including anything auto-logged by the
+     * background CLEANING -> INSPECTED timer.
+     */
+    private void printAllRoomsTable() {
+        ListQueueInterface<Room> allRooms = control.getAllRooms();
+        int total = allRooms.getNumberOfEntries();
+
+        String border = "+------------+------------+------------------+";
+        int contentWidth = border.length() - 4;
+
+        System.out.println();
+        System.out.println(border);
+        printCentered("AVAILABLE ROOMS", contentWidth);
+        System.out.println(border);
+        System.out.printf("| %-10s | %-10s | %-16s |%n", "Room", "Type", "Status");
+        System.out.println(border);
+        if (total == 0) {
+            System.out.printf("| %-" + contentWidth + "s |%n", "No rooms available in the system.");
+        } else {
+            for (int i = 0; i < total; i++) {
+                Room room = allRooms.getEntry(i);
+                RoomStatusLog current = control.getCurrentStatus(room.getRoomNumber());
+                String status = (current != null) ? current.getStatus() : "UNKNOWN";
+                System.out.printf("| %-10.10s | %-10.10s | %-16.16s |%n",
+                        room.getRoomNumber(), room.getRoomType(), status);
+            }
+        }
+        System.out.println(border);
+    }
+
+    /**
+     * Added: like printAllRoomsTable(), but WITHOUT the Status column.
+     * Used by viewCurrentStatus() (function 2) only — that function's
+     * whole purpose is to look up a room's current status, so showing
+     * the status in the pre-prompt table would spoil the answer before
+     * the user even picks a room. Room number + type is still shown so
+     * staff can see which room numbers exist.
+     */
+    private void printRoomsBasicTable() {
+        ListQueueInterface<Room> allRooms = control.getAllRooms();
+        int total = allRooms.getNumberOfEntries();
+
+        String border = "+------------+------------+";
+        int contentWidth = border.length() - 4;
+
+        System.out.println();
+        System.out.println(border);
+        printCentered("AVAILABLE ROOMS", contentWidth);
+        System.out.println(border);
+        System.out.printf("| %-10s | %-10s |%n", "Room", "Type");
+        System.out.println(border);
+        if (total == 0) {
+            System.out.printf("| %-" + contentWidth + "s |%n", "No rooms available in the system.");
+        } else {
+            for (int i = 0; i < total; i++) {
+                Room room = allRooms.getEntry(i);
+                System.out.printf("| %-10.10s | %-10.10s |%n", room.getRoomNumber(), room.getRoomType());
+            }
+        }
+        System.out.println(border);
+    }
+
     public void showMenu() {
         int choice;
         do {
@@ -87,6 +158,10 @@ public class HouseKeepingUI {
     }
 
     private void logStatusChange() {
+        // Added: show all rooms + current status first, so staff know
+        // which room numbers exist before being asked to type one.
+        printAllRoomsTable();
+
         String roomNumber;
         while (true) {
             System.out.print("Enter room number: ");
@@ -138,6 +213,11 @@ public class HouseKeepingUI {
      * cleaning history yet" — instead of both cases looking identical.
      */
     private void viewCurrentStatus() {
+        // Added: show room number + type first (no status — this
+        // function's job IS to reveal the status, so pre-showing it
+        // here would give the answer away before the lookup).
+        printRoomsBasicTable();
+
         System.out.print("Enter room number: ");
         String roomNumber = sc.nextLine();
 
@@ -227,6 +307,11 @@ public class HouseKeepingUI {
      * would otherwise look identical to a valid room with no entries.
      */
     private void viewFullHistory() {
+        // Added: show all rooms + current status first, so staff can
+        // see which room number is available before choosing one to
+        // view the full history of.
+        printAllRoomsTable();
+
         System.out.print("Enter room number: ");
         String roomNumber = sc.nextLine();
 
