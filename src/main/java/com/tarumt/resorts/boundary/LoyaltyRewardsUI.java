@@ -303,17 +303,59 @@ public class LoyaltyRewardsUI {
 
         Booking booking =
         loyaltyControl.findBookingByConfirmationNumber(
-            bookingId);
+                bookingId);
 
-        if (booking == null) {
-            System.out.println(
-                "Booking not found.");
-            return;
-        }
+    if (booking == null) {
+    System.out.println(
+            "Booking not found.");
+    return;
+    }
 
-        int points =
+    // Booking must contain valid Guest information
+    if (booking.getGuest() == null
+        || booking.getGuest().getGuestId() == null) {
+
+    System.out.println(
+            "Booking does not contain valid Guest information.");
+    return;
+    }
+
+    // Booking must belong to the Loyalty member
+    if (account.getGuestId() == null
+        || !account.getGuestId()
+                .equalsIgnoreCase(
+                        booking.getGuest().getGuestId())) {
+
+    System.out.println(
+            "This booking belongs to a different Guest.");
+    return;
+    }
+
+    // Booking must already be checked out
+    if (booking.getStatus() == null
+        || !booking.getStatus()
+                .equalsIgnoreCase("CHECKED_OUT")) {
+
+        System.out.println(
+            "Loyalty points can only be awarded "
+            + "after the booking is CHECKED_OUT.");
+        return;
+    }
+
+    // Booking must already be paid
+    if (booking.getPaymentStatus() == null
+        || !booking.getPaymentStatus()
+                .equalsIgnoreCase("PAID")) {
+
+        System.out.println(
+            "Loyalty points cannot be awarded "
+            + "because this booking is not PAID.");
+        return;
+    }
+
+    int points =
         loyaltyControl.calculateRewardPoints(
-            booking);
+                booking);
 
         System.out.println();
         System.out.println("Booking found:");
@@ -328,6 +370,10 @@ public class LoyaltyRewardsUI {
         System.out.println(
             "Status          : "
             + booking.getStatus());
+        
+        System.out.println(
+            "Payment Status  : "
+            + booking.getPaymentStatus());
 
         System.out.printf(
             "Booking Amount  : RM %.2f%n",
@@ -393,142 +439,7 @@ public class LoyaltyRewardsUI {
             + account.getMembershipTier());
     }
 
-    /**
-    * Allows a loyalty member to redeem available points.
-    */
-    private void redeemPoints() {
-
-        System.out.println();
-        System.out.println(
-            "+------------------------------------------------+");
-        System.out.println(
-            "|                 REDEEM POINTS                  |");
-        System.out.println(
-            "+------------------------------------------------+");
-
-        System.out.print("Enter Loyalty ID: ");
-
-        String loyaltyId =
-        scanner.nextLine().trim();
-
-        if (loyaltyId.isEmpty()) {
-            System.out.println(
-                "Loyalty ID cannot be empty.");
-            return;
-        }
-
-        LoyaltyAccount account =
-        loyaltyControl.findMemberByLoyaltyId(
-            loyaltyId);
-
-        if (account == null) {
-            System.out.println(
-                "Loyalty member not found.");
-            return;
-        }
-
-        if (!account.isActive()) {
-            System.out.println(
-                "This loyalty account is inactive.");
-            return;
-        }
-
-        System.out.println();
-        System.out.println("Member found:");
-        System.out.println(
-            "Name            : "
-            + account.getMemberName());
-
-        System.out.println(
-            "Current Points  : "
-            + account.getPointsBalance());
-
-        System.out.println(
-            "Current Tier    : "
-            + account.getMembershipTier());
-
-        System.out.print(
-            "\nEnter points to redeem: ");
-
-        int points;
-
-        try {
-            points = Integer.parseInt(
-                scanner.nextLine().trim());
-
-        } catch (NumberFormatException e) {
-            System.out.println(
-                "Invalid points. Please enter a number.");
-            return;
-        }
-
-        if (points <= 0) {
-            System.out.println(
-                "Points must be greater than zero.");
-            return;
-        }
-
-        if (points > account.getPointsBalance()) {
-            System.out.println(
-                "Insufficient loyalty points.");
-            return;
-        }
-
-        int previousPoints =
-        account.getPointsBalance();
-
-        String previousTier =
-        account.getMembershipTier().toString();
-
-        System.out.print(
-            "Confirm redemption of "
-            + points
-            + " points? (Y/N): ");
-
-        String confirmation =
-        scanner.nextLine().trim();
-
-        if (!confirmation.equalsIgnoreCase("Y")) {
-            System.out.println(
-                "Redemption cancelled.");
-            return;
-        }
-
-        boolean redeemed =
-        loyaltyControl.redeemPoints(
-            loyaltyId,
-            points);
-
-        if (!redeemed) {
-            System.out.println(
-                "Unable to redeem points. The points may be expired or unavailable.");
-            return;
-        }
-
-        System.out.println();
-        System.out.println(
-            "Points redeemed successfully.");
-
-        System.out.println(
-            "Previous Points : "
-            + previousPoints);
-
-        System.out.println(
-            "Points Redeemed : "
-            + points);
-
-        System.out.println(
-            "New Balance     : "
-            + account.getPointsBalance());
-
-        System.out.println(
-            "Previous Tier   : "
-            + previousTier);
-
-        System.out.println(
-            "Current Tier    : "
-            + account.getMembershipTier());
-    }
+    
     
     /**
     * Submits a loyalty-points redemption request

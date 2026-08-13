@@ -261,6 +261,14 @@ public class LoyaltyInitializerData {
 
             return;
         }
+        
+        // Only paid bookings may generate EARN records.
+        if (booking.getPaymentStatus() == null
+            || !booking.getPaymentStatus()
+                .equalsIgnoreCase("PAID")) {
+
+            return;
+        }
 
         // Booking must belong to the same Guest.
         if (booking.getGuest() == null
@@ -354,24 +362,25 @@ public class LoyaltyInitializerData {
         addBookingEarnTransaction("L005", "20260007");
         addBookingEarnTransaction("L007", "20260008");
         addBookingEarnTransaction("L014", "20260009");
-        addBookingEarnTransaction("L002", "20260010");
         addBookingEarnTransaction("L009", "20260011");
         addBookingEarnTransaction("L013", "20260012");
         addBookingEarnTransaction("L017", "20260013");
-        addBookingEarnTransaction("L020", "20260014");
 
-        addOpeningBalance("L001", 1000);
-        addOpeningBalance("L003", 7500);
-        addOpeningBalance("L004", 12000);
-        addOpeningBalance("L006", 23000);
-        addOpeningBalance("L008", 3200);
-        addOpeningBalance("L010", 12000);
-        addOpeningBalance("L011", 17500);
-        addOpeningBalance("L012", 23000);
-        addOpeningBalance("L015", 7500);
-        addOpeningBalance("L016", 900);
-        addOpeningBalance("L018", 7500);
-        addOpeningBalance("L019", 3200);
+    // Opening balances for members without a valid seed EARN record
+    addOpeningBalance("L001", 1000);
+    addOpeningBalance("L002", 3200);
+    addOpeningBalance("L003", 7500);
+    addOpeningBalance("L004", 12000);
+    addOpeningBalance("L006", 23000);
+    addOpeningBalance("L008", 3200);
+    addOpeningBalance("L010", 12000);
+    addOpeningBalance("L011", 17500);
+    addOpeningBalance("L012", 23000);
+    addOpeningBalance("L015", 7500);
+    addOpeningBalance("L016", 900);
+    addOpeningBalance("L018", 7500);
+    addOpeningBalance("L019", 3200);
+    addOpeningBalance("L020", 7500);
 
     }
 
