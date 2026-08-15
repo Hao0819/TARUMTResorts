@@ -34,7 +34,7 @@ import com.tarumt.resorts.entity.VIPAllocationRequest;
 import com.tarumt.resorts.boundary.MainMenuUI;
 import com.tarumt.resorts.boundary.LoyaltyRewardsUI;
 import com.tarumt.resorts.control.LoyaltyRewardsControl;
-import com.tarumt.resorts.dao.LoyaltyInitializerData;
+import com.tarumt.resorts.dao.LoyaltyDAO;
 import com.tarumt.resorts.entity.LoyaltyAccount;
 import com.tarumt.resorts.entity.LoyaltyTransaction;
 
@@ -62,7 +62,7 @@ public class TARUMTResorts {
                 ListQueueInterface<RoomStatusLog> sharedStatusLogs = new RoomStatusLogDAO().getAllLogs();
 
                 // Initialize Loyalty data using the same shared Guest collection.
-               LoyaltyInitializerData loyaltyInitializer = new LoyaltyInitializerData(
+               LoyaltyDAO loyaltyInitializer = new LoyaltyDAO(
                                 sharedGuests,
                                 sharedBookings);
 
