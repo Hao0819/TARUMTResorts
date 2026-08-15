@@ -59,8 +59,8 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
     @Override
     public boolean enqueue(T newEntry) {
 
-        // A linked structure is full only when no more memory is available.
-        if (isFull()) {
+        // Null is reserved to represent an empty-operation result.
+        if (newEntry == null || isFull()) {
             return false;
         }
 
@@ -157,6 +157,10 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
 
     @Override
     public boolean contains(T anEntry) {
+
+        if (anEntry == null) {
+            return false;
+        }
         Node current = front;
         while (current != null) {
             if (current.data.equals(anEntry)) {

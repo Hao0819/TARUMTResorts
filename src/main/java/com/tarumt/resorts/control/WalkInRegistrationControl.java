@@ -308,8 +308,117 @@ public class WalkInRegistrationControl {
             return false;
         }
 
+        boolean roomAvailable = hasAvailableRoomForSchedule(
+                normalizedRoomType,
+                selectedRegistration.getRequestedCheckInDate(),
+                selectedRegistration.getStayDurationDays());
+
+        if (!roomAvailable) {
+            return false;
+        }
+
+        String previousRoomType = selectedRegistration.getRequestedRoomType();
+
         selectedRegistration.setRequestedRoomType(
                 normalizedRoomType);
+
+        // Record the successful room-type change in the Entity ADT.
+        selectedRegistration.recordChange(
+                "Room Type",
+                previousRoomType,
+                normalizedRoomType);
+
+        return true;
+    }
+
+    /**
+     * Updates the requested check-in date of one WAITING booking request.
+     * The new date must have an available room for the complete stay.
+     */
+    public boolean updateRequestedCheckInDate(
+            String registrationId,
+            String guestId,
+            LocalDate newCheckInDate) {
+
+        if (newCheckInDate == null
+                || newCheckInDate.isBefore(LocalDate.now())) {
+
+            return false;
+        }
+
+        WalkInRegistration selectedRegistration = findWaitingRegistration(
+                registrationId,
+                guestId);
+
+        if (selectedRegistration == null) {
+            return false;
+        }
+
+        boolean roomAvailable = hasAvailableRoomForSchedule(
+                selectedRegistration.getRequestedRoomType(),
+                newCheckInDate,
+                selectedRegistration.getStayDurationDays());
+
+        if (!roomAvailable) {
+            return false;
+        }
+
+        LocalDate previousCheckInDate = selectedRegistration.getRequestedCheckInDate();
+
+        selectedRegistration.setRequestedCheckInDate(
+                newCheckInDate);
+
+        // Record the successful check-in date change in the Entity ADT.
+        selectedRegistration.recordChange(
+                "Check-In Date",
+                previousCheckInDate.toString(),
+                newCheckInDate.toString());
+
+        return true;
+    }
+
+    /**
+     * Updates the stay duration of one WAITING booking request.
+     * The complete updated stay period must have an available room.
+     */
+    public boolean updateStayDuration(
+            String registrationId,
+            String guestId,
+            int newStayDurationDays) {
+
+        if (newStayDurationDays < 1
+                || newStayDurationDays > 30) {
+
+            return false;
+        }
+
+        WalkInRegistration selectedRegistration = findWaitingRegistration(
+                registrationId,
+                guestId);
+
+        if (selectedRegistration == null) {
+            return false;
+        }
+
+        boolean roomAvailable = hasAvailableRoomForSchedule(
+                selectedRegistration.getRequestedRoomType(),
+                selectedRegistration.getRequestedCheckInDate(),
+                newStayDurationDays);
+
+        if (!roomAvailable) {
+            return false;
+        }
+
+        int previousStayDurationDays = selectedRegistration.getStayDurationDays();
+
+        selectedRegistration.setStayDurationDays(
+                newStayDurationDays);
+
+        // Record the successful stay-duration change in the Entity ADT.
+        selectedRegistration.recordChange(
+                "Stay Duration (Nights)",
+                String.valueOf(previousStayDurationDays),
+                String.valueOf(newStayDurationDays));
 
         return true;
     }
@@ -409,9 +518,17 @@ public class WalkInRegistrationControl {
                     && isWaiting) {
 
                 // Keep the record in history but remove it from the active queue.
-                currentRegistration.setStatus("CANCELLED");
-                registrationCancelled = true;
+                String previousStatus = currentRegistration.getStatus();
 
+                currentRegistration.setStatus("CANCELLED");
+
+                // Record the successful status change in the Entity ADT.
+                currentRegistration.recordChange(
+                        "Status",
+                        previousStatus,
+                        "CANCELLED");
+
+                registrationCancelled = true;
             } else {
                 // Restore non-target registrations in their original FIFO order.
                 registrationQueue.enqueue(currentRegistration);
@@ -787,12 +904,28 @@ public class WalkInRegistrationControl {
                 nextGuest.getStayDurationDays());
 
         boolean bookingSaved = bookingList.enqueue(booking);
+
         if (!bookingSaved) {
             return null;
         }
 
+        // Link the completed registration to its created Booking.
+        nextGuest.setBookingConfirmationNumber(
+                booking.getConfirmationNumber());
+
+        String previousStatus = nextGuest.getStatus();
+
         nextGuest.setStatus("ASSIGNED");
+
+        // Record the successful status change in the Entity ADT.
+        nextGuest.recordChange(
+                "Status",
+                previousStatus,
+                "ASSIGNED");
+
+        // Remove the front request only after the Booking is saved successfully.
         registrationQueue.dequeue();
+
         return booking;
     }
 
@@ -834,6 +967,29 @@ public class WalkInRegistrationControl {
         }
 
         return latestRegistration;
+    }
+
+    /**
+     * Finds one registration-history record using its Registration ID.
+     *
+     * The complete history is searched so WAITING, ASSIGNED and
+     * CANCELLED records can all be found.
+     *
+     * @param registrationId Registration ID entered by staff
+     * @return matching registration, or null when no record exists
+     */
+    public WalkInRegistration findRegistrationById(
+            String registrationId) {
+
+        if (registrationId == null
+                || registrationId.trim().isEmpty()) {
+
+            return null;
+        }
+
+        return registrationHistory.searchByKey(
+                registrationId.trim(),
+                registration -> registration.getRegistrationId());
     }
 
     /**
@@ -1017,31 +1173,49 @@ public class WalkInRegistrationControl {
         return roomCount;
     }
 
-    /*
-     * Correct type
-     * + available
-     * + READY/UNKNOWN
-     * = counted as allocatable
+    /**
+     * Counts rooms of one type that can be allocated for tonight.
+     *
+     * A room must:
+     * 1. Match the requested room type.
+     * 2. Be operationally available.
+     * 3. Be ready according to Housekeeping.
+     * 4. Have no CONFIRMED or ACTIVE booking overlapping tonight.
      */
-    // count currently available rooms belogingd to one room type
     public int countAvailableRoomsByType(String roomType) {
-        if (roomType == null || roomType.trim().isEmpty()) {
+
+        if (roomType == null
+                || roomType.trim().isEmpty()) {
+
             return 0;
         }
 
         int availableRoomCount = 0;
 
-        Iterator<Room> iterator = roomList.getIterator();
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
 
-        while (iterator.hasNext()) {
-            Room room = iterator.next();
+        Iterator<Room> roomIterator = roomList.getIterator();
 
-            boolean roomTypeMatches = room.getRoomType()
-                    .equalsIgnoreCase(roomType.trim());
+        while (roomIterator.hasNext()) {
+
+            Room room = roomIterator.next();
+
+            boolean roomTypeMatches = room.getRoomType().equalsIgnoreCase(
+                    roomType.trim());
+
+            boolean operationallyAvailable = room.isAvailable()
+                    && isReadyForAllocation(room);
+
+            boolean scheduleAvailableTonight = isRoomAvailableForSchedule(
+                    room,
+                    today,
+                    tomorrow);
 
             if (roomTypeMatches
-                    && room.isAvailable()
-                    && isReadyForAllocation(room)) {
+                    && operationallyAvailable
+                    && scheduleAvailableTonight) {
+
                 availableRoomCount++;
             }
         }
