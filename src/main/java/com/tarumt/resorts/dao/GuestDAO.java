@@ -17,95 +17,95 @@ public class GuestDAO {
         public ListQueueInterface<Guest> getAllGuests() {
                 ListQueueInterface<Guest> guests = new DoublyLinkedListQueue<>();
                 guests.enqueue(new Guest(
-                                "G001", "Amy Tan", "012-3456789", "amy@mail.com",
+                                "G001", "Ali", "012-3456789", "ali@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G002", "Ben Lee", "013-4567890", "ben@mail.com",
+                                "G002", "Lee Boon Yew", "013-4567890", "boon@mail.com",
                                 MembershipTier.SILVER));
 
                 guests.enqueue(new Guest(
-                                "G003", "Cara Wong", "014-5678901", "cara@mail.com",
+                                "G003", "Brian Kam", "014-5678901", "brianKam@mail.com",
                                 MembershipTier.GOLD));
 
                 guests.enqueue(new Guest(
-                                "G004", "David Ho", "016-6789012", "david@mail.com",
+                                "G004", "Edward Tan Keng Ting", "016-6789012", "EdwardTan@mail.com",
                                 MembershipTier.PLATINUM));
 
                 guests.enqueue(new Guest(
-                                "G005", "Ella Ng", "017-7890123", "ella@mail.com",
+                                "G005", "Isaac", "017-7890123", "isaac@mail.com",
                                 MembershipTier.DIAMOND));
 
                 guests.enqueue(new Guest(
-                                "G006", "Farah Ismail", "018-8901234", "farah@mail.com",
+                                "G006", "Jerry", "018-8901234", "jerry@mail.com",
                                 MembershipTier.ELITE));
 
                 guests.enqueue(new Guest(
-                                "G007", "George Tan", "019-9012345", "george@mail.com",
+                                "G007", "Gary", "019-9012345", "gary@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G008", "Hana Yusof", "011-0123456", "hana@mail.com",
+                                "G008", "Koh Jun", "011-0123456", "kohjun@mail.com",
                                 MembershipTier.SILVER));
 
                 guests.enqueue(new Guest(
-                                "G009", "Ivan Chong", "012-1234567", "ivan@mail.com",
+                                "G009", "Kai Xian", "012-1234567", "kai@mail.com",
                                 MembershipTier.GOLD));
 
                 guests.enqueue(new Guest(
-                                "G010", "Jasmine Lim", "013-2345678", "jasmine@mail.com",
+                                "G010", "You Jing Hong", "013-2345678", "jinghong@mail.com",
                                 MembershipTier.PLATINUM));
 
                 guests.enqueue(new Guest(
-                                "G011", "Kumar Raj", "014-3456789", "kumar@mail.com",
+                                "G011", "Tee Teck Lee", "014-3456789", "tecklee@mail.com",
                                 MembershipTier.DIAMOND));
 
                 guests.enqueue(new Guest(
-                                "G012", "Lily Chen", "016-4567890", "lily@mail.com",
+                                "G012", "Chong Jian Min", "016-4567890", "jianmin@mail.com",
                                 MembershipTier.ELITE));
 
                 guests.enqueue(new Guest(
-                                "G013", "Mohan Das", "017-5678901", "mohan@mail.com",
+                                "G013", "Sarah Khoo", "017-5678901", "sarahKhoo@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G014", "Nurul Aina", "018-6789012", "nurul@mail.com",
+                                "G014", "Wo Xiao Bing", "018-6789012", "xiaoBing@mail.com",
                                 MembershipTier.SILVER));
 
                 guests.enqueue(new Guest(
-                                "G015", "Oscar Teoh", "019-7890123", "oscar@mail.com",
+                                "G015", "Brian Lee Kit Mun", "019-7890123", "brianlee@mail.com",
                                 MembershipTier.GOLD));
 
                 guests.enqueue(new Guest(
-                                "G016", "Priya Sharma", "011-8901234", "priya@mail.com",
+                                "G016", "Tee Yik Wah", "011-8901234", "yikwah@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G017", "Qistina Rahman", "012-9012345", "qistina@mail.com",
+                                "G017", "Wilson Ang", "012-9012345", "wilsonAng@mail.com",
                                 MembershipTier.SILVER));
 
                 guests.enqueue(new Guest(
-                                "G018", "Ryan Goh", "013-0123456", "ryan@mail.com",
+                                "G018", "Yeong Wei Kin", "013-0123456", "weikin@mail.com",
                                 MembershipTier.GOLD));
 
                 guests.enqueue(new Guest(
-                                "G019", "Siti Aisyah", "014-1234567", "siti@mail.com",
+                                "G019", "Chia Kah Shun", "014-1234567", "kahshun@mail.com",
                                 MembershipTier.SILVER));
 
                 guests.enqueue(new Guest(
-                                "G020", "Tan Wei Ming", "016-2345678", "tanwm@mail.com",
+                                "G020", "Lee Shen Fung", "016-2345678", "shenfung@mail.com",
                                 MembershipTier.GOLD));
                 // Additional non-member guests used by booking and reporting data.
                 guests.enqueue(new Guest(
-                                "G021", "Aiman Zaki", "010-1000021", "aiman@mail.com",
+                                "G021", "Tan See Tian", "010-1000021", "seetian@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G022", "Alicia Ong", "010-1000022", "alicia@mail.com",
+                                "G022", "Sim Heng Sheng", "010-1000022", "hengsheng@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G023", "Brandon Chua", "010-1000023", "brandon@mail.com",
+                                "G023", "Yao Soon Han", "010-1000023", "soonhan@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
@@ -113,11 +113,11 @@ public class GuestDAO {
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G025", "Daniel Wong", "010-1000025", "daniel@mail.com",
+                                "G025", "Liu Zheng Yu", "010-1000025", "zhengyu@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G026", "Emma Lau", "010-1000026", "emma@mail.com",
+                                "G026", "Isaac Mok", "010-1000026", "isaacMok@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
@@ -145,7 +145,7 @@ public class GuestDAO {
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G033", "Lucas Teh", "010-1000033", "lucas@mail.com",
+                                "G033", "Tan Yit Shen", "010-1000033", "yitshen@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
@@ -165,11 +165,11 @@ public class GuestDAO {
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G038", "Raymond Chan", "010-1000038", "raymond@mail.com",
+                                "G038", "Keat Seng", "010-1000038", "keatseng@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
-                                "G039", "Sarah Lee", "010-1000039", "sarah@mail.com",
+                                "G039", "Lim Le Yee", "010-1000039", "limleyee@mail.com",
                                 MembershipTier.NONE));
 
                 guests.enqueue(new Guest(
