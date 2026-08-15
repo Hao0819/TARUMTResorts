@@ -31,9 +31,9 @@ public class WalkInRegistration {
     // Confirmation number of the Booking created from this registration.
     // Remains null while the registration is WAITING or CANCELLED.
     private String bookingConfirmationNumber;
-    // ADT declaration: stores this request's changes chronologically.
-    private final ListQueueInterface<RegistrationChange> changeHistory = new DoublyLinkedListQueue<>(); // ADT
-                                                                                                        // declaration
+    // Stores this request's changes chronologically.
+    private final ListQueueInterface<RegistrationChange> changeHistory =
+            new DoublyLinkedListQueue<>(); // ADT collection declaration
 
     public WalkInRegistration() {
     }
@@ -168,7 +168,7 @@ public class WalkInRegistration {
                 previousValue,
                 updatedValue);
 
-        changeHistory.enqueue(change); // ADT method call
+        changeHistory.enqueue(change); // ADT method call: enqueue()
     }
 
     /**
@@ -176,14 +176,14 @@ public class WalkInRegistration {
      */
     public Iterator<RegistrationChange> getChangeHistoryIterator() {
 
-        return changeHistory.getIterator(); // ADT method call
+        return changeHistory.getIterator(); // ADT method call: getIterator()
     }
 
     /**
      * Returns the number of changes recorded for this request.
      */
     public int getNumberOfChanges() {
-        return changeHistory.getNumberOfEntries(); // ADT method call
+        return changeHistory.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
     }
 
     public String getBookingConfirmationNumber() {
