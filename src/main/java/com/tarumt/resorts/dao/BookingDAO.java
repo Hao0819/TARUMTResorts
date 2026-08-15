@@ -175,7 +175,7 @@ public class BookingDAO {
                                 findRoom("103"),
                                 "2026-08-20 08:00",
                                 1400.00,
-                                "UNPAID"));
+                                "PAID"));
 
                 bookings.enqueue(new Booking(
                                 "20260002",
@@ -199,7 +199,7 @@ public class BookingDAO {
                                 findRoom("205"),
                                 "2026-08-20 08:45",
                                 2450.00,
-                                "UNPAID"));
+                                "PAID"));
 
                 bookings.enqueue(new Booking(
                                 "20260005",
@@ -207,7 +207,7 @@ public class BookingDAO {
                                 findRoom("302"),
                                 "2026-08-20 09:00",
                                 3500.00,
-                                "UNPAID"));
+                                "PAID"));
 
                 bookings.enqueue(new Booking(
                                 "20260006",
@@ -235,7 +235,7 @@ public class BookingDAO {
                                 "2026-07-15 12:00"));
                 bookings.enqueue(markCheckedOut(
                                 new Booking("20260010", findGuest("G002"), findRoom("104"), "2026-07-13 10:45", 300.00,
-                                                "UNPAID"),
+                                                "PAID"),
                                 "2026-07-14 09:40"));
                 bookings.enqueue(markCheckedOut(
                                 new Booking("20260011", findGuest("G009"), findRoom("105"), "2026-07-08 15:20", 520.00,
@@ -251,7 +251,7 @@ public class BookingDAO {
                                 "2026-07-09 12:15"));
                 bookings.enqueue(markCheckedOut(
                                 new Booking("20260014", findGuest("G020"), findRoom("305"), "2026-07-07 09:45", 2250.00,
-                                                "UNPAID"),
+                                                "PAID"),
                                 "2026-07-10 10:05"));
 
                 // CONFIRMED bookings (approved, guest NOT yet checked in). These let
@@ -268,14 +268,14 @@ public class BookingDAO {
                 bookings.enqueue(
                                 withBilling(new Booking("20260016", findGuest("G013"), findRoom("102"),
                                                 "2026-08-18 10:35", null),
-                                                480.00, "PAID"));
+                                                480.00, "UNPAID"));
                 bookings.enqueue(
                                 withBilling(new Booking("20260017", findGuest("G014"), findRoom("104"),
                                                 "2026-07-21 14:05", null),
                                                 450.00, "UNPAID"));
                 bookings.enqueue(withBilling(
                                 new Booking("20260018", findGuest("G015"), findRoom("105"), "2026-08-19 12:20", null),
-                                500.00, "PAID"));
+                                500.00, "UNPAID"));
                 bookings.enqueue(
                                 withBilling(new Booking("20260019", findGuest("G016"), findRoom("107"),
                                                 "2026-07-22 16:40", null),
@@ -283,14 +283,14 @@ public class BookingDAO {
                 bookings.enqueue(
                                 withBilling(new Booking("20260020", findGuest("G017"), findRoom("108"),
                                                 "2026-07-23 10:00", null),
-                                                450.00, "PAID"));
+                                                450.00, "UNPAID"));
                 bookings.enqueue(
                                 withBilling(new Booking("20260021", findGuest("G017"), findRoom("201"),
                                                 "2026-07-23 13:20", null),
                                                 950.00, "UNPAID"));
                 bookings.enqueue(withBilling(
                                 new Booking("20260022", findGuest("G018"), findRoom("203"), "2026-08-19 14:35", null),
-                                980.00, "PAID"));
+                                980.00, "UNPAID"));
                 bookings.enqueue(
                                 withBilling(new Booking("20260023", findGuest("G019"), findRoom("204"),
                                                 "2026-07-24 18:30", null),
@@ -298,7 +298,7 @@ public class BookingDAO {
                 bookings.enqueue(
                                 withBilling(new Booking("20260024", findGuest("G021"), findRoom("206"),
                                                 "2026-07-25 08:45", null),
-                                                1020.00, "PAID"));
+                                                1020.00, "UNPAID"));
                 bookings.enqueue(
                                 withBilling(new Booking("20260025", findGuest("G022"), findRoom("207"),
                                                 "2026-07-25 15:10", null),
@@ -310,11 +310,11 @@ public class BookingDAO {
                 bookings.enqueue(
                                 withBilling(new Booking("20260027", findGuest("G024"), findRoom("304"),
                                                 "2026-07-26 17:25", null),
-                                                1900.00, "PAID"));
+                                                1900.00, "UNPAID"));
                 bookings.enqueue(
                                 withBilling(new Booking("20260028", findGuest("G025"), findRoom("305"),
                                                 "2026-07-27 10:30", null),
-                                                1850.00, "PAID"));
+                                                1850.00, "UNPAID"));
                 bookings.enqueue(
                                 withBilling(
                                                 new Booking(
@@ -346,7 +346,7 @@ public class BookingDAO {
                                                                 "2026-07-28 16:15",
                                                                 null),
                                                 490.00,
-                                                "PAID"));
+                                                "UNPAID"));
 
                 bookings.enqueue(
                                 withBilling(
@@ -368,7 +368,7 @@ public class BookingDAO {
                                                                 "2026-07-29 19:00",
                                                                 null),
                                                 970.00,
-                                                "PAID"));
+                                                "UNPAID"));
 
                 bookings.enqueue(
                                 withBilling(
@@ -387,7 +387,7 @@ public class BookingDAO {
                                 findRoom("111"),
                                 "2026-08-20 09:30",
                                 1400.00,
-                                "UNPAID"));
+                                "PAID"));
 
                 bookings.enqueue(new Booking(
                                 "20260036",
@@ -411,7 +411,7 @@ public class BookingDAO {
                                 findRoom("213"),
                                 "2026-08-20 10:15",
                                 2450.00,
-                                "UNPAID"));
+                                "PAID"));
 
                 bookings.enqueue(new Booking(
                                 "20260039",
@@ -428,7 +428,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260040", findGuest("G026"), findRoom("109"),
                                                 "2026-08-01 08:00", null),
-                                600.00, "PAID"));
+                                600.00, "UNPAID"));
 
                 bookings.enqueue(withBilling(
                                 new Booking(
@@ -440,7 +440,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260042", findGuest("G028"), findRoom("112"),
                                                 "2026-08-01 08:30", null),
-                                600.00, "PAID"));
+                                600.00, "UNPAID"));
 
                 bookings.enqueue(withBilling(
                                 new Booking(
@@ -452,7 +452,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260044", findGuest("G030"), findRoom("114"),
                                                 "2026-08-01 09:00", null),
-                                600.00, "PAID"));
+                                600.00, "UNPAID"));
 
                 bookings.enqueue(withBilling(
                                 new Booking(
@@ -464,7 +464,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260046", findGuest("G032"), findRoom("208"),
                                                 "2026-08-01 09:30", null),
-                                1050.00, "PAID"));
+                                1050.00, "UNPAID"));
 
                 bookings.enqueue(withBilling(
                                 new Booking(
@@ -476,7 +476,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260048", findGuest("G034"), findRoom("211"),
                                                 "2026-08-01 10:00", null),
-                                1050.00, "PAID"));
+                                1050.00, "UNPAID"));
 
                 bookings.enqueue(withBilling(
                                 new Booking(
@@ -488,7 +488,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260050", findGuest("G036"), findRoom("214"),
                                                 "2026-08-01 10:30", null),
-                                1050.00, "PAID"));
+                                1050.00, "UNPAID"));
 
                 bookings.enqueue(withBilling(
                                 new Booking(
@@ -500,7 +500,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260052", findGuest("G038"), findRoom("308"),
                                                 "2026-08-01 11:00", null),
-                                1500.00, "PAID"));
+                                1500.00, "UNPAID"));
 
                 bookings.enqueue(withBilling(
                                 new Booking(
@@ -512,7 +512,7 @@ public class BookingDAO {
                                 new Booking(
                                                 "20260054", findGuest("G040"), findRoom("310"),
                                                 "2026-08-01 11:30", null),
-                                1500.00, "PAID"));
+                                1500.00, "UNPAID"));
 
                 // CANCELLED bookings remain in history but do not block room schedules.
                 bookings.enqueue(markCancelled(withBilling(
