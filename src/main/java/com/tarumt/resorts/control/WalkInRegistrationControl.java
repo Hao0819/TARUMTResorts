@@ -273,45 +273,50 @@ public class WalkInRegistrationControl {
     }
 
     /**
-     * Updates one WAITING registration identified by both
-     * Registration ID and Guest ID.
+     * Updates the final room type, check-in date and stay duration
+     * of one WAITING booking request as one operation.
      */
-    public boolean updateRequestedRoomType(
+    public boolean updateWaitingBookingRequest(
             String registrationId,
             String guestId,
-            String newRoomType) {
+            String updatedRoomType,
+            LocalDate updatedCheckInDate,
+            int updatedStayDurationDays) {
 
-        if (newRoomType == null) {
+        WalkInRegistration selectedRegistration = findWaitingRegistration(
+                registrationId,
+                guestId);
+
+        if (selectedRegistration == null
+                || updatedRoomType == null
+                || updatedCheckInDate == null
+                || updatedCheckInDate.isBefore(LocalDate.now())
+                || updatedStayDurationDays < 1
+                || updatedStayDurationDays > 30) {
+
             return false;
         }
 
         String normalizedRoomType;
 
-        if (newRoomType.equalsIgnoreCase("Standard")) {
+        if (updatedRoomType.equalsIgnoreCase("Standard")) {
             normalizedRoomType = "Standard";
 
-        } else if (newRoomType.equalsIgnoreCase("Deluxe")) {
+        } else if (updatedRoomType.equalsIgnoreCase("Deluxe")) {
             normalizedRoomType = "Deluxe";
 
-        } else if (newRoomType.equalsIgnoreCase("Suite")) {
+        } else if (updatedRoomType.equalsIgnoreCase("Suite")) {
             normalizedRoomType = "Suite";
 
         } else {
             return false;
         }
 
-        WalkInRegistration selectedRegistration = findWaitingRegistration(
-                registrationId,
-                guestId);
-
-        if (selectedRegistration == null) {
-            return false;
-        }
-
+        // Validate the complete final combination before changing anything.
         boolean roomAvailable = hasAvailableRoomForSchedule(
                 normalizedRoomType,
-                selectedRegistration.getRequestedCheckInDate(),
-                selectedRegistration.getStayDurationDays());
+                updatedCheckInDate,
+                updatedStayDurationDays);
 
         if (!roomAvailable) {
             return false;
@@ -319,106 +324,48 @@ public class WalkInRegistrationControl {
 
         String previousRoomType = selectedRegistration.getRequestedRoomType();
 
-        selectedRegistration.setRequestedRoomType(
-                normalizedRoomType);
-
-        // Record the successful room-type change in the Entity ADT.
-        selectedRegistration.recordChange(
-                "Room Type",
-                previousRoomType,
-                normalizedRoomType);
-
-        return true;
-    }
-
-    /**
-     * Updates the requested check-in date of one WAITING booking request.
-     * The new date must have an available room for the complete stay.
-     */
-    public boolean updateRequestedCheckInDate(
-            String registrationId,
-            String guestId,
-            LocalDate newCheckInDate) {
-
-        if (newCheckInDate == null
-                || newCheckInDate.isBefore(LocalDate.now())) {
-
-            return false;
-        }
-
-        WalkInRegistration selectedRegistration = findWaitingRegistration(
-                registrationId,
-                guestId);
-
-        if (selectedRegistration == null) {
-            return false;
-        }
-
-        boolean roomAvailable = hasAvailableRoomForSchedule(
-                selectedRegistration.getRequestedRoomType(),
-                newCheckInDate,
-                selectedRegistration.getStayDurationDays());
-
-        if (!roomAvailable) {
-            return false;
-        }
-
         LocalDate previousCheckInDate = selectedRegistration.getRequestedCheckInDate();
-
-        selectedRegistration.setRequestedCheckInDate(
-                newCheckInDate);
-
-        // Record the successful check-in date change in the Entity ADT.
-        selectedRegistration.recordChange(
-                "Check-In Date",
-                previousCheckInDate.toString(),
-                newCheckInDate.toString());
-
-        return true;
-    }
-
-    /**
-     * Updates the stay duration of one WAITING booking request.
-     * The complete updated stay period must have an available room.
-     */
-    public boolean updateStayDuration(
-            String registrationId,
-            String guestId,
-            int newStayDurationDays) {
-
-        if (newStayDurationDays < 1
-                || newStayDurationDays > 30) {
-
-            return false;
-        }
-
-        WalkInRegistration selectedRegistration = findWaitingRegistration(
-                registrationId,
-                guestId);
-
-        if (selectedRegistration == null) {
-            return false;
-        }
-
-        boolean roomAvailable = hasAvailableRoomForSchedule(
-                selectedRegistration.getRequestedRoomType(),
-                selectedRegistration.getRequestedCheckInDate(),
-                newStayDurationDays);
-
-        if (!roomAvailable) {
-            return false;
-        }
 
         int previousStayDurationDays = selectedRegistration.getStayDurationDays();
 
-        selectedRegistration.setStayDurationDays(
-                newStayDurationDays);
+        boolean roomTypeChanged = !previousRoomType.equalsIgnoreCase(
+                normalizedRoomType);
 
-        // Record the successful stay-duration change in the Entity ADT.
-        selectedRegistration.recordChange(
-                "Stay Duration (Nights)",
-                String.valueOf(previousStayDurationDays),
-                String.valueOf(newStayDurationDays));
+        boolean checkInDateChanged = !previousCheckInDate.equals(
+                updatedCheckInDate);
+
+        boolean stayDurationChanged = previousStayDurationDays != updatedStayDurationDays;
+
+        // Apply all validated values together.
+        selectedRegistration.setRequestedRoomType(
+                normalizedRoomType);
+
+        selectedRegistration.setRequestedCheckInDate(
+                updatedCheckInDate);
+
+        selectedRegistration.setStayDurationDays(
+                updatedStayDurationDays);
+
+        if (roomTypeChanged) {
+            selectedRegistration.recordChange(
+                    "Room Type",
+                    previousRoomType,
+                    normalizedRoomType);
+        }
+
+        if (checkInDateChanged) {
+            selectedRegistration.recordChange(
+                    "Check-In Date",
+                    previousCheckInDate.toString(),
+                    updatedCheckInDate.toString());
+        }
+
+        if (stayDurationChanged) {
+            selectedRegistration.recordChange(
+                    "Stay Duration (Nights)",
+                    String.valueOf(previousStayDurationDays),
+                    String.valueOf(updatedStayDurationDays));
+        }
 
         return true;
     }

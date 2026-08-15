@@ -169,52 +169,52 @@ public class BookingDAO {
                 // is queuing for a room while already occupying one. Amount and payment
                 // status give the Billing Summary Report real data.
                 // ACTIVE bookings for rooms currently marked unavailable in RoomDAO.
-                bookings.enqueue(new Booking(
-                                "20260001",
-                                findGuest("G001"),
-                                findRoom("103"),
-                                "2026-08-20 08:00",
-                                1400.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260001",
+                                                findGuest("G001"),
+                                                findRoom("103"),
+                                                "2026-08-20 08:00"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260002",
-                                findGuest("G002"),
-                                findRoom("106"),
-                                "2026-08-20 08:15",
-                                1400.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260002",
+                                                findGuest("G002"),
+                                                findRoom("106"),
+                                                "2026-08-20 08:15"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260003",
-                                findGuest("G003"),
-                                findRoom("202"),
-                                "2026-08-20 08:30",
-                                2450.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260003",
+                                                findGuest("G003"),
+                                                findRoom("202"),
+                                                "2026-08-20 08:30"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260004",
-                                findGuest("G004"),
-                                findRoom("205"),
-                                "2026-08-20 08:45",
-                                2450.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260004",
+                                                findGuest("G004"),
+                                                findRoom("205"),
+                                                "2026-08-20 08:45"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260005",
-                                findGuest("G005"),
-                                findRoom("302"),
-                                "2026-08-20 09:00",
-                                3500.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260005",
+                                                findGuest("G005"),
+                                                findRoom("302"),
+                                                "2026-08-20 09:00"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260006",
-                                findGuest("G006"),
-                                findRoom("303"),
-                                "2026-08-20 09:15",
-                                3500.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260006",
+                                                findGuest("G006"),
+                                                findRoom("303"),
+                                                "2026-08-20 09:15"),
                                 "PAID"));
 
                 // CHECKED_OUT bookings - completed past stays in rooms that are free
@@ -222,35 +222,75 @@ public class BookingDAO {
                 // today's walk-in queue (a returning guest), so these may reuse guests
                 // from the waiting list.
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260007", findGuest("G005"), findRoom("101"), "2026-07-10 12:00", 380.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260007",
+                                                                findGuest("G005"),
+                                                                findRoom("101"),
+                                                                "2026-07-10 12:00"),
                                                 "PAID"),
                                 "2026-07-12 11:30"));
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260008", findGuest("G007"), findRoom("201"), "2026-07-11 14:00", 890.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260008",
+                                                                findGuest("G007"),
+                                                                findRoom("201"),
+                                                                "2026-07-11 14:00"),
                                                 "PAID"),
                                 "2026-07-14 10:15"));
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260009", findGuest("G014"), findRoom("301"), "2026-07-12 16:30", 1650.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260009",
+                                                                findGuest("G014"),
+                                                                findRoom("301"),
+                                                                "2026-07-12 16:30"),
                                                 "PAID"),
                                 "2026-07-15 12:00"));
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260010", findGuest("G002"), findRoom("104"), "2026-07-13 10:45", 300.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260010",
+                                                                findGuest("G002"),
+                                                                findRoom("104"),
+                                                                "2026-07-13 10:45"),
                                                 "PAID"),
                                 "2026-07-14 09:40"));
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260011", findGuest("G009"), findRoom("105"), "2026-07-08 15:20", 520.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260011",
+                                                                findGuest("G009"),
+                                                                findRoom("105"),
+                                                                "2026-07-08 15:20"),
                                                 "PAID"),
                                 "2026-07-10 11:00"));
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260012", findGuest("G013"), findRoom("203"), "2026-07-09 13:10", 1020.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260012",
+                                                                findGuest("G013"),
+                                                                findRoom("203"),
+                                                                "2026-07-09 13:10"),
                                                 "PAID"),
                                 "2026-07-11 10:30"));
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260013", findGuest("G017"), findRoom("304"), "2026-07-06 16:00", 1980.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260013",
+                                                                findGuest("G017"),
+                                                                findRoom("304"),
+                                                                "2026-07-06 16:00"),
                                                 "PAID"),
                                 "2026-07-09 12:15"));
                 bookings.enqueue(markCheckedOut(
-                                new Booking("20260014", findGuest("G020"), findRoom("305"), "2026-07-07 09:45", 2250.00,
+                                withPaymentStatus(
+                                                new Booking(
+                                                                "20260014",
+                                                                findGuest("G020"),
+                                                                findRoom("305"),
+                                                                "2026-07-07 09:45"),
                                                 "PAID"),
                                 "2026-07-10 10:05"));
 
@@ -261,295 +301,211 @@ public class BookingDAO {
                 // numbers continue after the records above (20260015-20260034); Walk-In's
                 // counter (bookingList size + 1) resumes after these, so runtime bookings
                 // never collide. Rooms are ones NOT occupied by the ACTIVE bookings above.
-                bookings.enqueue(
-                                withBilling(new Booking("20260015", findGuest("G012"), findRoom("101"),
-                                                "2026-07-20 10:00", null),
-                                                450.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260016", findGuest("G013"), findRoom("102"),
-                                                "2026-08-18 10:35", null),
-                                                480.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260017", findGuest("G014"), findRoom("104"),
-                                                "2026-07-21 14:05", null),
-                                                450.00, "UNPAID"));
-                bookings.enqueue(withBilling(
+                bookings.enqueue(withPaymentStatus(new Booking("20260015", findGuest("G012"), findRoom("101"),
+                                "2026-07-20 10:00", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260016", findGuest("G013"), findRoom("102"),
+                                "2026-08-18 10:35", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260017", findGuest("G014"), findRoom("104"),
+                                "2026-07-21 14:05", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(
                                 new Booking("20260018", findGuest("G015"), findRoom("105"), "2026-08-19 12:20", null),
-                                500.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260019", findGuest("G016"), findRoom("107"),
-                                                "2026-07-22 16:40", null),
-                                                460.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260020", findGuest("G017"), findRoom("108"),
-                                                "2026-07-23 10:00", null),
-                                                450.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260021", findGuest("G017"), findRoom("201"),
-                                                "2026-07-23 13:20", null),
-                                                950.00, "UNPAID"));
-                bookings.enqueue(withBilling(
+                                "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260019", findGuest("G016"), findRoom("107"),
+                                "2026-07-22 16:40", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260020", findGuest("G017"), findRoom("108"),
+                                "2026-07-23 10:00", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260021", findGuest("G017"), findRoom("201"),
+                                "2026-07-23 13:20", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(
                                 new Booking("20260022", findGuest("G018"), findRoom("203"), "2026-08-19 14:35", null),
-                                980.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260023", findGuest("G019"), findRoom("204"),
-                                                "2026-07-24 18:30", null),
-                                                950.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260024", findGuest("G021"), findRoom("206"),
-                                                "2026-07-25 08:45", null),
-                                                1020.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260025", findGuest("G022"), findRoom("207"),
-                                                "2026-07-25 15:10", null),
-                                                950.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260026", findGuest("G023"), findRoom("301"),
-                                                "2026-07-26 11:00", null),
-                                                1850.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260027", findGuest("G024"), findRoom("304"),
-                                                "2026-07-26 17:25", null),
-                                                1900.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(new Booking("20260028", findGuest("G025"), findRoom("305"),
-                                                "2026-07-27 10:30", null),
-                                                1850.00, "UNPAID"));
-                bookings.enqueue(
-                                withBilling(
-                                                new Booking(
-                                                                "20260029",
-                                                                findGuest("G015"),
-                                                                findRoom("103"),
-                                                                "2026-07-27 14:50",
-                                                                null),
-                                                470.00,
-                                                "UNPAID"));
+                                "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260023", findGuest("G019"), findRoom("204"),
+                                "2026-07-24 18:30", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260024", findGuest("G021"), findRoom("206"),
+                                "2026-07-25 08:45", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260025", findGuest("G022"), findRoom("207"),
+                                "2026-07-25 15:10", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260026", findGuest("G023"), findRoom("301"),
+                                "2026-07-26 11:00", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260027", findGuest("G024"), findRoom("304"),
+                                "2026-07-26 17:25", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking("20260028", findGuest("G025"), findRoom("305"),
+                                "2026-07-27 10:30", null), "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260029",
+                                findGuest("G015"),
+                                findRoom("103"),
+                                "2026-07-27 14:50",
+                                null),
+                                "UNPAID"));
 
-                bookings.enqueue(
-                                withBilling(
-                                                new Booking(
-                                                                "20260030",
-                                                                findGuest("G016"),
-                                                                findRoom("106"),
-                                                                "2026-07-28 09:05",
-                                                                null),
-                                                450.00,
-                                                "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260030",
+                                findGuest("G016"),
+                                findRoom("106"),
+                                "2026-07-28 09:05",
+                                null),
+                                "UNPAID"));
 
-                bookings.enqueue(
-                                withBilling(
-                                                new Booking(
-                                                                "20260031",
-                                                                findGuest("G017"),
-                                                                findRoom("302"),
-                                                                "2026-07-28 16:15",
-                                                                null),
-                                                490.00,
-                                                "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260031",
+                                findGuest("G017"),
+                                findRoom("302"),
+                                "2026-07-28 16:15",
+                                null),
+                                "UNPAID"));
 
-                bookings.enqueue(
-                                withBilling(
-                                                new Booking(
-                                                                "20260032",
-                                                                findGuest("G018"),
-                                                                findRoom("202"),
-                                                                "2026-07-29 12:40",
-                                                                null),
-                                                950.00,
-                                                "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260032",
+                                findGuest("G018"),
+                                findRoom("202"),
+                                "2026-07-29 12:40",
+                                null),
+                                "UNPAID"));
 
-                bookings.enqueue(
-                                withBilling(
-                                                new Booking(
-                                                                "20260033",
-                                                                findGuest("G019"),
-                                                                findRoom("205"),
-                                                                "2026-07-29 19:00",
-                                                                null),
-                                                970.00,
-                                                "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260033",
+                                findGuest("G019"),
+                                findRoom("205"),
+                                "2026-07-29 19:00",
+                                null),
+                                "UNPAID"));
 
-                bookings.enqueue(
-                                withBilling(
-                                                new Booking(
-                                                                "20260034",
-                                                                findGuest("G020"),
-                                                                findRoom("303"),
-                                                                "2026-08-18 14:05",
-                                                                null),
-                                                1880.00,
-                                                "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260034",
+                                findGuest("G020"),
+                                findRoom("303"),
+                                "2026-08-18 14:05",
+                                null),
+                                "UNPAID"));
                 // Additional ACTIVE bookings for the expanded room inventory.
-                bookings.enqueue(new Booking(
-                                "20260035",
-                                findGuest("G007"),
-                                findRoom("111"),
-                                "2026-08-20 09:30",
-                                1400.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260035",
+                                                findGuest("G007"),
+                                                findRoom("111"),
+                                                "2026-08-20 09:30"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260036",
-                                findGuest("G008"),
-                                findRoom("115"),
-                                "2026-08-20 09:45",
-                                1400.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260036",
+                                                findGuest("G008"),
+                                                findRoom("115"),
+                                                "2026-08-20 09:45"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260037",
-                                findGuest("G009"),
-                                findRoom("209"),
-                                "2026-08-20 10:00",
-                                2450.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260037",
+                                                findGuest("G009"),
+                                                findRoom("209"),
+                                                "2026-08-20 10:00"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260038",
-                                findGuest("G010"),
-                                findRoom("213"),
-                                "2026-08-20 10:15",
-                                2450.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260038",
+                                                findGuest("G010"),
+                                                findRoom("213"),
+                                                "2026-08-20 10:15"),
                                 "PAID"));
 
-                bookings.enqueue(new Booking(
-                                "20260039",
-                                findGuest("G011"),
-                                findRoom("307"),
-                                "2026-08-20 10:30",
-                                3500.00,
+                bookings.enqueue(withPaymentStatus(
+                                new Booking(
+                                                "20260039",
+                                                findGuest("G011"),
+                                                findRoom("307"),
+                                                "2026-08-20 10:30"),
                                 "PAID"));
 
                 // CONFIRMED bookings for the additional available rooms.
                 // These bookings complete the fully-booked period from 10-12 August.
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260040", findGuest("G026"), findRoom("109"),
-                                                "2026-08-01 08:00", null),
-                                600.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260040", findGuest("G026"), findRoom("109"),
+                                "2026-08-01 08:00", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260041", findGuest("G027"), findRoom("110"),
-                                                "2026-08-01 08:15", null),
-                                600.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260041", findGuest("G027"), findRoom("110"),
+                                "2026-08-01 08:15", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260042", findGuest("G028"), findRoom("112"),
-                                                "2026-08-01 08:30", null),
-                                600.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260042", findGuest("G028"), findRoom("112"),
+                                "2026-08-01 08:30", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260043", findGuest("G029"), findRoom("113"),
-                                                "2026-08-01 08:45", null),
-                                600.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260043", findGuest("G029"), findRoom("113"),
+                                "2026-08-01 08:45", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260044", findGuest("G030"), findRoom("114"),
-                                                "2026-08-01 09:00", null),
-                                600.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260044", findGuest("G030"), findRoom("114"),
+                                "2026-08-01 09:00", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260045", findGuest("G031"), findRoom("116"),
-                                                "2026-08-01 09:15", null),
-                                600.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260045", findGuest("G031"), findRoom("116"),
+                                "2026-08-01 09:15", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260046", findGuest("G032"), findRoom("208"),
-                                                "2026-08-01 09:30", null),
-                                1050.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260046", findGuest("G032"), findRoom("208"),
+                                "2026-08-01 09:30", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260047", findGuest("G033"), findRoom("210"),
-                                                "2026-08-01 09:45", null),
-                                1050.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260047", findGuest("G033"), findRoom("210"),
+                                "2026-08-01 09:45", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260048", findGuest("G034"), findRoom("211"),
-                                                "2026-08-01 10:00", null),
-                                1050.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260048", findGuest("G034"), findRoom("211"),
+                                "2026-08-01 10:00", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260049", findGuest("G035"), findRoom("212"),
-                                                "2026-08-01 10:15", null),
-                                1050.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260049", findGuest("G035"), findRoom("212"),
+                                "2026-08-01 10:15", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260050", findGuest("G036"), findRoom("214"),
-                                                "2026-08-01 10:30", null),
-                                1050.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260050", findGuest("G036"), findRoom("214"),
+                                "2026-08-01 10:30", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260051", findGuest("G037"), findRoom("306"),
-                                                "2026-08-01 10:45", null),
-                                1500.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260051", findGuest("G037"), findRoom("306"),
+                                "2026-08-01 10:45", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260052", findGuest("G038"), findRoom("308"),
-                                                "2026-08-01 11:00", null),
-                                1500.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260052", findGuest("G038"), findRoom("308"),
+                                "2026-08-01 11:00", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260053", findGuest("G039"), findRoom("309"),
-                                                "2026-08-01 11:15", null),
-                                1500.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260053", findGuest("G039"), findRoom("309"),
+                                "2026-08-01 11:15", null), "UNPAID"));
 
-                bookings.enqueue(withBilling(
-                                new Booking(
-                                                "20260054", findGuest("G040"), findRoom("310"),
-                                                "2026-08-01 11:30", null),
-                                1500.00, "UNPAID"));
+                bookings.enqueue(withPaymentStatus(new Booking(
+                                "20260054", findGuest("G040"), findRoom("310"),
+                                "2026-08-01 11:30", null), "UNPAID"));
 
                 // CANCELLED bookings remain in history but do not block room schedules.
-                bookings.enqueue(markCancelled(withBilling(
-                                new Booking(
-                                                "20260055", findGuest("G001"), findRoom("109"),
-                                                "2026-07-31 09:00", null),
-                                600.00, "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                                "20260055", findGuest("G001"), findRoom("109"),
+                                "2026-07-31 09:00", null), "UNPAID")));
 
-                bookings.enqueue(markCancelled(withBilling(
-                                new Booking(
-                                                "20260056", findGuest("G002"), findRoom("208"),
-                                                "2026-07-31 09:15", null),
-                                1050.00, "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                                "20260056", findGuest("G002"), findRoom("208"),
+                                "2026-07-31 09:15", null), "UNPAID")));
 
-                bookings.enqueue(markCancelled(withBilling(
-                                new Booking(
-                                                "20260057", findGuest("G003"), findRoom("306"),
-                                                "2026-07-31 09:30", null),
-                                1500.00, "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                                "20260057", findGuest("G003"), findRoom("306"),
+                                "2026-07-31 09:30", null), "UNPAID")));
 
-                bookings.enqueue(markCancelled(withBilling(
-                                new Booking(
-                                                "20260058", findGuest("G004"), findRoom("110"),
-                                                "2026-07-31 09:45", null),
-                                600.00, "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                                "20260058", findGuest("G004"), findRoom("110"),
+                                "2026-07-31 09:45", null), "UNPAID")));
 
-                bookings.enqueue(markCancelled(withBilling(
-                                new Booking(
-                                                "20260059", findGuest("G005"), findRoom("210"),
-                                                "2026-07-31 10:00", null),
-                                1050.00, "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                                "20260059", findGuest("G005"), findRoom("210"),
+                                "2026-07-31 10:00", null), "UNPAID")));
 
-                bookings.enqueue(markCancelled(withBilling(
-                                new Booking(
-                                                "20260060", findGuest("G006"), findRoom("308"),
-                                                "2026-07-31 10:15", null),
-                                1500.00, "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                                "20260060", findGuest("G006"), findRoom("308"),
+                                "2026-07-31 10:15", null), "UNPAID")));
 
                 // Add planned stay dates and recalculate each booking amount.
                 applySampleSchedules(bookings);
@@ -557,10 +513,13 @@ public class BookingDAO {
         }
 
         /**
-         * Sets amount + payment on a freshly built CONFIRMED booking before storing.
+         * Sets the payment status for a sample Booking.
+         * The amount is calculated from the Room rate and stay duration.
          */
-        private Booking withBilling(Booking booking, double amount, String paymentStatus) {
-                booking.setAmount(amount);
+        private Booking withPaymentStatus(
+                        Booking booking,
+                        String paymentStatus) {
+
                 booking.setPaymentStatus(paymentStatus);
                 return booking;
         }

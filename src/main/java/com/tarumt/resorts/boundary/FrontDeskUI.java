@@ -112,7 +112,25 @@ public class FrontDeskUI {
                 booking.getCheckOutTime() == null ? "-" : booking.getCheckOutTime());
         System.out.printf("  Booking Status  : %s%n", booking.getStatus());
         System.out.println("  ----------------- Billing -----------------");
-        System.out.printf("  Total Amount    : RM %,.2f%n", booking.getAmount());
+        // Show the original room charge before membership discount.
+        System.out.printf(
+                "  Gross Amount    : RM %,.2f%n",
+                booking.getAmount());
+
+        // Show the membership discount percentage applied when booking was created.
+        System.out.printf(
+                "  Discount Rate   : %.0f%%%n",
+                booking.getDiscountRate() * 100);
+
+        // Show the amount deducted from the original room charge.
+        System.out.printf(
+                "  Discount Amount : RM %,.2f%n",
+                booking.getDiscountAmount());
+
+        // This is the actual amount that the guest must pay.
+        System.out.printf(
+                "  Amount Payable  : RM %,.2f%n",
+                booking.getFinalAmount());
         System.out.printf("  Payment Status  : %s%n", booking.getPaymentStatus());
     }
 
@@ -174,7 +192,10 @@ public class FrontDeskUI {
         System.out.println("Available rooms now: " + available.length);
     }
 
-    /** Renders a Room[] as a Room No / Room Type / Occupancy table (all shown VACANT). */
+    /**
+     * Renders a Room[] as a Room No / Room Type / Occupancy table (all shown
+     * VACANT).
+     */
     private void printRoomTable(Room[] rooms) {
         String border = "+----------+------------+-------------+";
         System.out.println(border);
@@ -290,7 +311,10 @@ public class FrontDeskUI {
         System.out.println("Total " + roomType + " room(s): " + control.countRoomsByType(roomType));
     }
 
-    /** Lists the actual rooms of the given type that are free for the night of {@code date}. */
+    /**
+     * Lists the actual rooms of the given type that are free for the night of
+     * {@code date}.
+     */
     private void showRoomsForDay(java.time.LocalDate date, String roomType) {
         Room[] free = control.getAvailableRoomsForRange(date, date.plusDays(1), roomType);
         printReportHeader("ROOMS AVAILABLE ON " + date + " (" + date.getDayOfWeek() + ")",
@@ -488,12 +512,18 @@ public class FrontDeskUI {
             System.out.println("5. Cancelled");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
-                case "1": return "ALL";
-                case "2": return "ACTIVE";
-                case "3": return "CHECKED_OUT";
-                case "4": return "CONFIRMED";
-                case "5": return "CANCELLED";
-                default: System.out.println("Invalid status filter. Please try again.");
+                case "1":
+                    return "ALL";
+                case "2":
+                    return "ACTIVE";
+                case "3":
+                    return "CHECKED_OUT";
+                case "4":
+                    return "CONFIRMED";
+                case "5":
+                    return "CANCELLED";
+                default:
+                    System.out.println("Invalid status filter. Please try again.");
             }
         }
     }
@@ -507,11 +537,16 @@ public class FrontDeskUI {
             System.out.println("4. Suite");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
-                case "1": return "ALL";
-                case "2": return "Standard";
-                case "3": return "Deluxe";
-                case "4": return "Suite";
-                default: System.out.println("Invalid room type filter. Please try again.");
+                case "1":
+                    return "ALL";
+                case "2":
+                    return "Standard";
+                case "3":
+                    return "Deluxe";
+                case "4":
+                    return "Suite";
+                default:
+                    System.out.println("Invalid room type filter. Please try again.");
             }
         }
     }
@@ -524,10 +559,14 @@ public class FrontDeskUI {
             System.out.println("3. All");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
-                case "1": return "UNPAID";
-                case "2": return "PAID";
-                case "3": return "ALL";
-                default: System.out.println("Invalid payment filter. Please try again.");
+                case "1":
+                    return "UNPAID";
+                case "2":
+                    return "PAID";
+                case "3":
+                    return "ALL";
+                default:
+                    System.out.println("Invalid payment filter. Please try again.");
             }
         }
     }
@@ -559,8 +598,7 @@ public class FrontDeskUI {
         System.out.println("+" + "-".repeat(contentWidth + 2) + "+");
     }
 
-    private static final String BOOKING_BORDER =
-            "+------------+----------+----------------------+----------+"
+    private static final String BOOKING_BORDER = "+------------+----------+----------------------+----------+"
             + "------------+------------------+--------------+";
 
     private void printBookingTable(Booking[] bookings) {
@@ -588,8 +626,7 @@ public class FrontDeskUI {
         System.out.println("Total records displayed: " + bookings.length);
     }
 
-    private static final String BILLING_BORDER =
-            "+------------+----------------------+----------+------------+"
+    private static final String BILLING_BORDER = "+------------+----------------------+----------+------------+"
             + "--------------+--------------+";
 
     private void printBillingTable(Booking[] bookings) {

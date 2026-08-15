@@ -30,7 +30,14 @@ public class Booking {
     private String checkInTime;
     private String checkOutTime; // set by Front-Desk on check-out
     private String status; // "ACTIVE", "CHECKED_OUT"
-    private double amount; // total bill for the stay (RM)
+    // Gross room charge before membership discount.
+    private double amount;
+
+    // Membership pricing values locked when the Booking is created.
+    private double discountRate;
+    private double discountAmount;
+    private double finalAmount;
+
     private String paymentStatus; // "PAID", "UNPAID"
 
     public Booking() {
@@ -100,13 +107,6 @@ public class Booking {
         this.status = checkInTime == null ? "CONFIRMED" : "ACTIVE";
     }
 
-    public Booking(String confirmationNumber, Guest guest, Room room, String checkInTime,
-            double amount, String paymentStatus) {
-        this(confirmationNumber, guest, room, checkInTime);
-        this.amount = amount;
-        this.paymentStatus = paymentStatus;
-    }
-
     public LocalDate getScheduledCheckInDate() {
         return scheduledCheckInDate;
     }
@@ -144,6 +144,8 @@ public class Booking {
         this.amount = room == null
                 ? 0.0
                 : room.getDailyRate() * stayDurationDays;
+        // Recalculate membership pricing after the gross amount changes.
+        applyMembershipDiscount();
     }
 
     public int getStayDurationDays() {
@@ -210,8 +212,41 @@ public class Booking {
         return amount;
     }
 
-    public void setAmount(double amount) {
-        this.amount = amount;
+    /**
+     * Calculates and stores the membership pricing for this Booking.
+     * The gross amount remains unchanged for Loyalty points calculation.
+     */
+    private void applyMembershipDiscount() {
+
+        MembershipTier membershipTier = guest == null
+                || guest.getMembershipTier() == null
+                        ? MembershipTier.NONE
+                        : guest.getMembershipTier();
+
+        discountRate = membershipTier.getRoomDiscountRate();
+
+        discountAmount = roundMoney(amount * discountRate);
+
+        finalAmount = roundMoney(amount - discountAmount);
+    }
+
+    /**
+     * Rounds a monetary value to two decimal places.
+     */
+    private double roundMoney(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    public double getDiscountRate() {
+        return discountRate;
+    }
+
+    public double getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public double getFinalAmount() {
+        return finalAmount;
     }
 
     public String getPaymentStatus() {
