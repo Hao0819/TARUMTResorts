@@ -225,6 +225,21 @@ public class VIPAllocationControl {
     }
 
     /**
+     * Finds ANY VIP request (WAITING, ASSIGNED, or CANCELLED) by Request
+     * ID, searching the full history rather than only the live priority
+     * queue. Used by the Search feature so a request stays findable
+     * after it has already been allocated or cancelled.
+     */
+    public VIPAllocationRequest findRequestById(String requestId) {
+        if (requestId == null || requestId.trim().isEmpty()) {
+            return null;
+        }
+        return requestHistory.searchByKey(
+                requestId.trim(),
+                request -> request.getRequestId());
+    }
+
+    /**
      * Updates the room type / schedule of one WAITING request. The
      * request's position in the priority queue does not need to change,
      * since re-ordering only ever depends on the guest's membership
@@ -373,6 +388,49 @@ public class VIPAllocationControl {
     }
 
     /**
+     * Checks whether at least one room of the requested type is free for
+     * the full requested stay period [checkInDate, checkInDate +
+     * stayDurationDays). Public so the boundary layer can drive a
+     * calendar view (one call per candidate day) as well as validate the
+     * final chosen date, exactly like
+     * WalkInRegistrationControl.hasAvailableRoomForSchedule().
+     */
+    public boolean hasAvailableRoomForSchedule(
+            String roomType,
+            LocalDate requestedCheckInDate,
+            int stayDurationDays) {
+
+        if (roomType == null || roomType.trim().isEmpty()
+                || requestedCheckInDate == null
+                || requestedCheckInDate.isBefore(LocalDate.now())
+                || stayDurationDays <= 0) {
+            return false;
+        }
+
+        LocalDate requestedCheckOutDate = requestedCheckInDate.plusDays(stayDurationDays);
+        boolean immediateCheckIn = requestedCheckInDate.equals(LocalDate.now());
+
+        Iterator<Room> roomIterator = roomList.getIterator();
+        while (roomIterator.hasNext()) {
+            Room candidateRoom = roomIterator.next();
+
+            boolean roomTypeMatches = candidateRoom.getRoomType()
+                    .equalsIgnoreCase(roomType.trim());
+
+            boolean operationallyReady = !immediateCheckIn
+                    || (candidateRoom.isAvailable() && isReadyForAllocation(candidateRoom));
+
+            boolean scheduleAvailable = isRoomAvailableForSchedule(
+                    candidateRoom, requestedCheckInDate, requestedCheckOutDate);
+
+            if (roomTypeMatches && operationallyReady && scheduleAvailable) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Allocates a room to the guest currently at the front of the
      * priority queue (highest tier, earliest among ties). A room
      * qualifies only when its type matches AND it has no overlapping
@@ -465,6 +523,29 @@ public class VIPAllocationControl {
     }
 
     /**
+     * Returns every guest holding a priority membership tier (PLATINUM,
+     * DIAMOND, ELITE) - the only guests eligible to register a VIP
+     * allocation request. Used to show a guest directory before
+     * registration, so staff can see which Guest IDs are valid.
+     */
+    public Guest[] getPriorityTierGuests() {
+        int total = guestList.getNumberOfEntries();
+        Guest[] temp = new Guest[total];
+        int count = 0;
+        for (int i = 0; i < total; i++) {
+            Guest g = guestList.getEntry(i);
+            if (g.getMembershipTier().isPriorityTier()) {
+                temp[count++] = g;
+            }
+        }
+        Guest[] result = new Guest[count];
+        for (int i = 0; i < count; i++) {
+            result[i] = temp[i];
+        }
+        return result;
+    }
+
+    /**
      * Report support: filters request history by membership tier and
      * status. "ALL" matches everything for either filter.
      */
@@ -533,6 +614,32 @@ public class VIPAllocationControl {
         int index = 0;
         while (iterator.hasNext()) {
             result[index++] = iterator.next();
+        }
+        return result;
+    }
+    
+    public VIPAllocationRequest[] getRequestsByGuestId(String guestId) {
+        if (guestId == null || guestId.trim().isEmpty()) {
+            return new VIPAllocationRequest[0];
+        }
+        String targetGuestId = guestId.trim();
+
+        VIPAllocationRequest[] all = getAllRequestHistory();
+        int matchCount = 0;
+        for (VIPAllocationRequest r : all) {
+            if (r.getGuest() != null && r.getGuest().getGuestId() != null
+                    && r.getGuest().getGuestId().equalsIgnoreCase(targetGuestId)) {
+                matchCount++;
+            }
+        }
+
+        VIPAllocationRequest[] result = new VIPAllocationRequest[matchCount];
+        int index = 0;
+        for (VIPAllocationRequest r : all) {
+            if (r.getGuest() != null && r.getGuest().getGuestId() != null
+                    && r.getGuest().getGuestId().equalsIgnoreCase(targetGuestId)) {
+                result[index++] = r;
+            }
         }
         return result;
     }
