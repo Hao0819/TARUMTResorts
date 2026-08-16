@@ -7,6 +7,7 @@ package com.tarumt.resorts.boundary;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.control.LoyaltyRewardsControl;
 import com.tarumt.resorts.control.LoyaltyRewardsControl.AutomaticProcessingResult;
+import com.tarumt.resorts.control.LoyaltyRewardsControl.ProcessedBookingResult;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.LoyaltyAccount;
@@ -75,6 +76,9 @@ public class LoyaltyRewardsUI {
                 System.out.println(
                         automaticProcessing.getPointsAwarded()
                         + " points awarded");
+
+                displayAutomaticProcessingDetails(
+                        automaticProcessing.getProcessedItems());
             }
 
             LocalDateTime currentTime =
@@ -110,7 +114,7 @@ public class LoyaltyRewardsUI {
             switch (choice) {
                 case 1 -> findLoyaltyMember();
                 case 2 -> createLoyaltyAccount();
-                case 3 -> addPointsFromCompletedStay();
+                case 3 -> viewCompletedStayPointProcessing();
                 case 4 -> redemptionManagement();
                 case 5 -> displayTierAndPointsReport();
                 case 6 -> updateLoyaltyAccountStatus();
@@ -145,6 +149,45 @@ private void displayAllLoyaltyAccounts() {
     public void processCompletedBookingsForLoyalty() {
 
         loyaltyControl.processCompletedBookingsForLoyalty();
+    }
+
+    /** Formats each item returned by the Loyalty automatic scanner. */
+    private void displayAutomaticProcessingDetails(
+            ListQueueInterface<ProcessedBookingResult> processedItems) {
+
+        if (processedItems == null || processedItems.isEmpty()) {
+            return;
+        }
+
+        // ADT method called: getIterator()
+        Iterator<ProcessedBookingResult> iterator =
+                processedItems.getIterator();
+
+        while (iterator.hasNext()) {
+            ProcessedBookingResult item = iterator.next();
+            System.out.println(
+                    "------------------------------------------------");
+            System.out.println("Loyalty ID     : "
+                    + item.getLoyaltyId());
+            System.out.println("Booking        : "
+                    + item.getBookingId());
+            System.out.println("Previous points: "
+                    + item.getPreviousPoints());
+            System.out.println("Points earned  : "
+                    + item.getPointsEarned());
+            System.out.println("New points     : "
+                    + item.getNewPoints());
+            System.out.println("Previous tier  : "
+                    + item.getPreviousTier());
+            System.out.println("New tier       : "
+                    + item.getNewTier());
+            System.out.println("EARN batch ID  : "
+                    + item.getEarnBatchId());
+            System.out.println("Transaction time: "
+                    + formatDateTime(item.getTransactionTime()));
+            System.out.println("Expiry time    : "
+                    + formatDateTime(item.getExpiryTime()));
+        }
     }
 
    private void findLoyaltyMember() {
@@ -751,247 +794,96 @@ int selectedOption = readChoice();
         displayAccountDetails(newAccount);
     }
 
-    /**
-     * Adds loyalty points after a completed stay.
-     */
-    private void addPointsFromCompletedStay() {
+    /** Displays completed-stay Loyalty processing without awarding points. */
+    private void viewCompletedStayPointProcessing() {
 
         System.out.println();
         System.out.println(
-        "+------------------------------------------------+");
+                "+------------------------------------------------+");
         System.out.println(
-        "|        ADD POINTS FROM COMPLETED STAY          |");
+                "|      VIEW COMPLETED-STAY POINT PROCESSING       |");
         System.out.println(
-        "+------------------------------------------------+");
-
-        System.out.print("Enter Loyalty ID: ");
-        String loyaltyId =
-        scanner.nextLine().trim();
-
-        if (loyaltyId.isEmpty()) {
-            System.out.println(
-            "Loyalty ID cannot be empty.");
-            return;
-        }
-
-        LoyaltyAccount account =
-        loyaltyControl.findMemberByLoyaltyId(
-        loyaltyId);
-
-        if (account == null) {
-            System.out.println(
-            "Loyalty member not found.");
-            return;
-        }
-
-        if (!account.isActive()) {
-            System.out.println(
-            "This loyalty account is inactive.");
-            return;
-        }
-
-        System.out.println();
-        System.out.println("Member found:");
-        System.out.println(
-        "Name            : "
-        + account.getMemberName());
-        System.out.println(
-        "Current Points  : "
-        + account.getPointsBalance());
-        System.out.println(
-        "Current Tier    : "
-        + account.getMembershipTier());
-
-        System.out.print(
-        "\nEnter completed Booking ID: ");
-
-        String bookingId =
-        scanner.nextLine().trim();
+                "+------------------------------------------------+");
+        System.out.print("Enter Booking confirmation number: ");
+        String bookingId = scanner.nextLine().trim();
 
         if (bookingId.isEmpty()) {
-            System.out.println(
-            "Booking ID cannot be empty.");
+            System.out.println("Booking confirmation number cannot be empty.");
             return;
         }
 
         Booking booking =
-        loyaltyControl.findBookingByConfirmationNumber(
-        bookingId);
+                loyaltyControl.findBookingByConfirmationNumber(bookingId);
 
         if (booking == null) {
-            System.out.println(
-            "Booking not found.");
+            System.out.println("Booking not found.");
             return;
         }
 
-        // Booking must contain valid Guest information
-        if (booking.getGuest() == null
-        || booking.getGuest().getGuestId() == null) {
+        Guest guest = booking.getGuest();
+        LoyaltyAccount account = guest == null
+                || guest.getGuestId() == null
+                        ? null
+                        : loyaltyControl.findMemberByGuestId(
+                                guest.getGuestId());
+        LoyaltyTransaction earnBatch =
+                loyaltyControl.findEarnTransactionByBookingId(bookingId);
 
+        System.out.println();
+        System.out.println("Booking Confirmation : "
+                + booking.getConfirmationNumber());
+        System.out.println("Guest ID            : "
+                + (guest == null ? "-" : guest.getGuestId()));
+        System.out.println("Guest Name          : "
+                + (guest == null ? "-" : guest.getName()));
+        System.out.println("Loyalty ID          : "
+                + (account == null ? "-" : account.getLoyaltyId()));
+        System.out.println("Booking Status      : "
+                + booking.getStatus());
+        System.out.println("Payment Status      : "
+                + booking.getPaymentStatus());
+        System.out.printf("Original Amount     : RM %.2f%n",
+                booking.getAmount());
+
+        if (guest == null || guest.getGuestId() == null) {
             System.out.println(
-            "Booking does not contain valid Guest information.");
+                    "Not eligible: the Booking has no valid Guest.");
             return;
         }
 
-        // Booking must belong to the Loyalty member
-        if (account.getGuestId() == null
-        || !account.getGuestId()
-        .equalsIgnoreCase(
-        booking.getGuest().getGuestId())) {
-
-            System.out.println(
-            "This booking belongs to a different Guest.");
-            return;
-        }
-
-        // Booking must already be checked out
         if (booking.getStatus() == null
-        || !booking.getStatus()
-        .equalsIgnoreCase("CHECKED_OUT")) {
-
+                || !booking.getStatus().equalsIgnoreCase("CHECKED_OUT")) {
             System.out.println(
-            "Loyalty points can only be awarded "
-            + "after the booking is CHECKED_OUT.");
+                    "Not eligible: Booking status must be CHECKED_OUT.");
             return;
         }
 
-        // Booking must already be paid
         if (booking.getPaymentStatus() == null
-        || !booking.getPaymentStatus()
-        .equalsIgnoreCase("PAID")) {
-
+                || !booking.getPaymentStatus().equalsIgnoreCase("PAID")) {
             System.out.println(
-            "Loyalty points cannot be awarded "
-            + "because this booking is not PAID.");
+                    "Not eligible: payment status must be PAID.");
             return;
         }
 
-        int points =
-        loyaltyControl.calculateRewardPoints(
-        booking);
-
-        System.out.println();
-        System.out.println("Booking found:");
-        System.out.println(
-        "Confirmation No : "
-        + booking.getConfirmationNumber());
-
-        System.out.println(
-        "Guest ID        : "
-        + booking.getGuest().getGuestId());
-
-        System.out.println(
-        "Status          : "
-        + booking.getStatus());
-
-        System.out.println(
-        "Payment Status  : "
-        + booking.getPaymentStatus());
-
-        double roomDiscountRate =
-        loyaltyControl.getRoomDiscountRate(
-                account.getMembershipTier());
-
-double discountAmount =
-        loyaltyControl.calculateRoomDiscountAmount(
-                booking);
-
-double payableAmount =
-        loyaltyControl.calculatePayableAmount(
-                booking);
-
-System.out.printf(
-        "Original Amount : RM %.2f%n",
-        booking.getAmount());
-
-System.out.printf(
-        "Room Discount   : %.0f%%%n",
-        roomDiscountRate * 100);
-
-System.out.printf(
-        "Discount Amount : RM %.2f%n",
-        discountAmount);
-
-System.out.printf(
-        "Payable Amount  : RM %.2f%n",
-        payableAmount);
-
-System.out.println(
-        "Points Earned   : "
-        + points);
-
-        if (loyaltyControl.hasBookingReceivedPoints(
-        bookingId)) {
-
+        if (earnBatch == null) {
+            System.out.println();
             System.out.println(
-            "This booking has already received loyalty points.");
+                    "No Loyalty points have been processed for this booking.");
             return;
         }
 
-        int previousPoints =
-        account.getPointsBalance();
-
-        String previousTier =
-        account.getMembershipTier().toString();
-
-        System.out.print(
-        "Confirm adding "
-        + points
-        + " points? (Y/N): ");
-
-        String confirmation =
-        scanner.nextLine().trim();
-
-        if (!confirmation.equalsIgnoreCase("Y")) {
-            System.out.println(
-            "Add-points operation cancelled.");
-            return;
-        }
-
-        boolean added =
-        loyaltyControl.addPointsFromCompletedStay(
-        loyaltyId,
-        bookingId);
-
-        if (!added) {
-            System.out.println(
-            "Unable to add loyalty points.");
-            return;
-        }
-
-        System.out.println();
-        System.out.println(
-        "Points added successfully.");
-        System.out.println(
-        "Previous Points : " + previousPoints);
-        System.out.println(
-        "Points Added    : " + points);
-        System.out.println(
-        "New Balance     : "
-        + account.getPointsBalance());
-        System.out.println(
-        "Previous Tier   : " + previousTier);
-        System.out.println(
-        "Current Tier    : "
-        + account.getMembershipTier());
-
-        LoyaltyTransaction newEarnBatch =
-                loyaltyControl.findEarnTransactionByBookingId(
-                        bookingId);
-
-        if (newEarnBatch != null) {
-            System.out.println(
-                    "EARN Batch ID   : "
-                    + newEarnBatch.getTransactionId());
-            System.out.println(
-                    "Earned Time     : "
-                    + formatDateTime(
-                            newEarnBatch.getTransactionTime()));
-            System.out.println(
-                    "Expiry Time     : "
-                    + formatDateTime(
-                            newEarnBatch.getExpiryTime()));
-        }
+        System.out.println("Points Earned       : "
+                + earnBatch.getPoints());
+        System.out.println("EARN Batch ID       : "
+                + earnBatch.getTransactionId());
+        System.out.println("Transaction Time    : "
+                + formatDateTime(earnBatch.getTransactionTime()));
+        System.out.println("Expiry Time         : "
+                + formatDateTime(earnBatch.getExpiryTime()));
+        System.out.println("Current Balance     : "
+                + (account == null ? "-" : account.getPointsBalance()));
+        System.out.println("Current Tier        : "
+                + (account == null ? "-" : account.getMembershipTier()));
     }
 
 
@@ -1703,7 +1595,7 @@ System.out.println(
 
         System.out.printf("| %-46s |%n", "1. Find Loyalty Member");
         System.out.printf("| %-46s |%n", "2. Create Loyalty Account");
-        System.out.printf("| %-46s |%n", "3. Add Points from Completed Stay");
+        System.out.printf("| %-46s |%n", "3. View Completed-Stay Point Processing");
         System.out.printf("| %-46s |%n", "4. Redeem Rewards");
         System.out.printf("| %-46s |%n", "5. Tier and Points Report");
         System.out.printf("| %-46s |%n", "6. Activate / Deactivate Account");

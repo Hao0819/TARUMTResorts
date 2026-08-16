@@ -124,6 +124,49 @@ public class LoyaltyDAO {
         addImportedEarnedPoints("L012", 23000,
                 seedTime.minusMonths(2).minusDays(6));
 
+        // Historical batches complete the qualifying totals represented by
+        // the shared Guest tiers. Real Booking EARN batches below remain part
+        // of the total wherever a completed paid Booking exists.
+        addImportedEarnedPoints("L008", 1200,
+                seedTime.minusMonths(7).minusDays(2));
+        addImportedEarnedPoints("L008", 2000,
+                seedTime.minusMonths(4).minusDays(5));
+
+        // L009: 3,000 + 4,100 imported + 400 real EARN = 7,500.
+        addImportedEarnedPoints("L009", 3000,
+                seedTime.minusMonths(8).minusDays(1));
+        addImportedEarnedPoints("L009", 4100,
+                seedTime.minusMonths(5).minusDays(4));
+
+        // L014 and L017 each receive 1,700 historical + 1,500 real EARN.
+        addImportedEarnedPoints("L014", 700,
+                seedTime.minusMonths(7).minusDays(3));
+        addImportedEarnedPoints("L014", 1000,
+                seedTime.minusMonths(4).minusDays(7));
+        addImportedEarnedPoints("L017", 700,
+                seedTime.minusMonths(6).minusDays(2));
+        addImportedEarnedPoints("L017", 1000,
+                seedTime.minusMonths(3).minusDays(8));
+
+        addImportedEarnedPoints("L015", 3000,
+                seedTime.minusMonths(8).minusDays(5));
+        addImportedEarnedPoints("L015", 4500,
+                seedTime.minusMonths(4).minusDays(9));
+        addImportedEarnedPoints("L018", 3000,
+                seedTime.minusMonths(7).minusDays(6));
+        addImportedEarnedPoints("L018", 4500,
+                seedTime.minusMonths(3).minusDays(10));
+        addImportedEarnedPoints("L019", 1200,
+                seedTime.minusMonths(6).minusDays(4));
+        addImportedEarnedPoints("L019", 2000,
+                seedTime.minusMonths(3).minusDays(11));
+
+        // L020: 2,500 + 3,500 imported + 1,500 real EARN = 7,500.
+        addImportedEarnedPoints("L020", 2500,
+                seedTime.minusMonths(8).minusDays(3));
+        addImportedEarnedPoints("L020", 3500,
+                seedTime.minusMonths(5).minusDays(12));
+
         // Demo clocks: one expires soon and one is already expired.
         addBookingEarnTransaction("L005", "20260007",
                 seedTime.minusYears(1).plusMinutes(4), seedTime);
@@ -150,6 +193,7 @@ public class LoyaltyDAO {
             return;
         }
 
+        // ADT method called: enqueue()
         loyaltyTransactions.enqueue(new LoyaltyTransaction(
                 generateInitialTransactionId(), loyaltyId, null,
                 TransactionType.ADJUST, points, verifiedEarnedTime,
@@ -189,6 +233,7 @@ public class LoyaltyDAO {
                 generateInitialTransactionId(), loyaltyId,
                 booking.getConfirmationNumber(), TransactionType.EARN,
                 earnedPoints, earnedTime, expiryTime);
+        // ADT method called: enqueue()
         loyaltyTransactions.enqueue(earnTransaction);
 
         // Close an already-expired demo batch while preserving full history.
