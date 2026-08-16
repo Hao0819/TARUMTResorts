@@ -35,6 +35,7 @@ public class LoyaltyDAO {
     private final ListQueueInterface<LoyaltyTransaction> loyaltyTransactions;
     private final ListQueueInterface<Guest> guests;
     private final ListQueueInterface<Booking> bookings;
+    private int sampleExpirySequence;
 
     /**
      * Creates the Loyalty sample collections from the shared Guest and
@@ -130,6 +131,11 @@ public class LoyaltyDAO {
                         points,
                         active
                 );
+
+        if (!active) {
+            account.setDeactivatedAt(
+                    LocalDateTime.now());
+        }
 
         loyaltyAccounts.enqueue(account);
     }
@@ -264,9 +270,33 @@ public class LoyaltyDAO {
     /**
      * Adds an opening-balance transaction.
      *
-     * ADJUST points represent existing points and do not expire.
+     * Opening points are divided into separate demo batches so one member can
+     * have points expiring at different times.
      */
     private void addOpeningBalance(
+            String loyaltyId,
+            int points) {
+
+        if (points <= 0) {
+            return;
+        }
+
+        int firstBatch = points / 2;
+        int secondBatch = points - firstBatch;
+
+        addOpeningBalanceBatch(
+                loyaltyId,
+                firstBatch);
+
+        addOpeningBalanceBatch(
+                loyaltyId,
+                secondBatch);
+    }
+
+    /**
+     * Adds one expiring opening-balance batch.
+     */
+    private void addOpeningBalanceBatch(
             String loyaltyId,
             int points) {
 
@@ -282,10 +312,26 @@ public class LoyaltyDAO {
                         TransactionType.ADJUST,
                         points,
                         OPENING_BALANCE_DATE,
-                        null
+                        nextSampleExpiryTime()
                 );
 
         loyaltyTransactions.enqueue(transaction);
+    }
+
+    /**
+     * Gives each seeded point batch a slightly different four-minute expiry.
+     * The stagger simulates points earned at different moments before startup.
+     */
+    private LocalDateTime nextSampleExpiryTime() {
+
+        LocalDateTime simulatedActivityTime =
+                LocalDateTime.now().minusSeconds(
+                        sampleExpirySequence * 3L);
+
+        sampleExpirySequence++;
+
+        return simulatedActivityTime.plusMinutes(
+                DEMO_EXPIRY_MINUTES);
     }
 
     /**
@@ -340,7 +386,7 @@ public class LoyaltyDAO {
 
         /*
          * If the member already had points before this booking, store the
-         * older portion as a non-expiring opening adjustment.
+         * older portion as separate opening point batches.
          */
         if (targetBalance > earnedPoints) {
 
@@ -357,9 +403,7 @@ public class LoyaltyDAO {
                         TransactionType.EARN,
                         earnedPoints,
                         earnDate,
-                        LocalDateTime.now()
-                                .plusMinutes(
-                                        DEMO_EXPIRY_MINUTES)
+                        nextSampleExpiryTime()
                 );
 
         /*
