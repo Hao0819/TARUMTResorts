@@ -50,7 +50,7 @@ public class HousekeepingControl {
     };
 
     // --- Added: auto-transition timer support ---
-    private static final long AUTO_INSPECT_DELAY_SECONDS = 60; // 1 minute
+    private static final long AUTO_INSPECT_DELAY_SECONDS = 10; // 1 minute
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -179,11 +179,11 @@ public class HousekeepingControl {
         if (newStatus == null || !isValidStatus(newStatus)) {
             return false;
         }
-        if (newStatus.equalsIgnoreCase("DIRTY")) {
-            return true;
-        }
         RoomStatusLog current = getCurrentStatus(roomNumber);
         if (current == null) {
+            // No history yet — the very first status ever logged for a
+            // room must be DIRTY (a room enters the system needing a
+            // clean before it can be marked CLEANING/INSPECTED/READY).
             return newStatus.equalsIgnoreCase("DIRTY");
         }
         int currentIndex = indexOfStatus(current.getStatus());
@@ -193,10 +193,58 @@ public class HousekeepingControl {
         if (currentIndex == -1 || newIndex == -1) {
             return false;
         }
-        if (currentIndex == STATUS_SEQUENCE.length - 1 && newStatus.equalsIgnoreCase("DIRTY")) {
+        // Fix: a room that is ALREADY DIRTY cannot be marked DIRTY again
+        // — that is not a real transition (previously this returned true
+        // unconditionally for any "DIRTY" target, which incorrectly
+        // allowed DIRTY -> DIRTY).
+        if (currentIndex == 0 && newIndex == 0) {
+            return false;
+        }
+        // Front-Desk checkout integration rule: a checkout must always be
+        // able to mark a room DIRTY, regardless of its previous
+        // housekeeping status (e.g. a guest checking out of a room that
+        // Housekeeping had only just marked CLEANING/INSPECTED/READY).
+        // This direct jump-to-DIRTY is allowed from any state EXCEPT
+        // DIRTY itself (handled above), so the Room object and the
+        // housekeeping status log never fall out of sync.
+        if (newIndex == 0) {
             return true;
         }
         return newIndex == currentIndex + 1;
+    }
+
+    /**
+     * Added: exposes whether a room currently has a guest inside
+     * (the inverse of Room.isAvailable()), so the Housekeeping boundary
+     * can show occupancy alongside cleaning status. This is what makes
+     * a room showing "READY" while a guest is inside understandable —
+     * READY only ever records the room's last cleaning outcome, not
+     * whether it has since been occupied.
+     */
+    public boolean isRoomOccupied(String roomNumber) {
+        Room room = findRoomByNumber(roomNumber);
+        return room != null && !room.isAvailable();
+    }
+
+    /**
+     * Added: returns the next status in the DIRTY -> CLEANING ->
+     * INSPECTED -> READY cycle for a room, given its CURRENT status
+     * (or null/"UNKNOWN" if it has no history yet, in which case the
+     * only legal next status is DIRTY). READY's "next" is DIRTY, since
+     * that is where a fresh cleaning cycle starts again after checkout.
+     * Used by the boundary's y/n/d prompt so staff never have to type
+     * the status name themselves.
+     */
+    public String getNextStatusInSequence(String roomNumber) {
+        RoomStatusLog current = getCurrentStatus(roomNumber);
+        if (current == null) {
+            return "DIRTY";
+        }
+        int currentIndex = indexOfStatus(current.getStatus());
+        if (currentIndex == -1 || currentIndex == STATUS_SEQUENCE.length - 1) {
+            return "DIRTY";
+        }
+        return STATUS_SEQUENCE[currentIndex + 1];
     }
 
     private int indexOfStatus(String status) {
@@ -618,3 +666,9 @@ public class HousekeepingControl {
         return count;
     }
 }
+
+
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
