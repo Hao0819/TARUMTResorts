@@ -4,12 +4,14 @@
  */
 package com.tarumt.resorts.entity;
 
+import java.time.LocalDateTime;
+
 /**
  * LoyaltyAccount.java
  *
  * Represents a guest's loyalty account.
- * Stores the loyalty ID, guest information, points balance,
- * and account status.
+ * Stores the loyalty ID, guest information, redeemable points balance,
+ * tier-qualifying points, account status, and deactivation time.
  *
  * The membership tier is stored in the associated Guest object
  * to avoid duplicating tier information.
@@ -21,13 +23,16 @@ public class LoyaltyAccount {
     private String loyaltyId;
     private Guest guest;
     private int pointsBalance;
+    private int tierQualifyingPoints;
     private boolean active;
+    private LocalDateTime deactivatedAt;
 
     /**
      * Default constructor.
      */
     public LoyaltyAccount() {
         this.pointsBalance = 0;
+        this.tierQualifyingPoints = 0;
         this.active = true;
     }
 
@@ -53,6 +58,7 @@ public class LoyaltyAccount {
         this.loyaltyId = loyaltyId;
         this.guest = guest;
         this.pointsBalance = pointsBalance;
+        this.tierQualifyingPoints = pointsBalance;
         this.active = active;
     }
 
@@ -94,12 +100,37 @@ public class LoyaltyAccount {
         this.pointsBalance = pointsBalance;
     }
 
+    public int getTierQualifyingPoints() {
+        return tierQualifyingPoints;
+    }
+
+    public void setTierQualifyingPoints(
+            int tierQualifyingPoints) {
+
+        if (tierQualifyingPoints < 0) {
+            throw new IllegalArgumentException(
+                    "Tier qualifying points cannot be negative.");
+        }
+
+        this.tierQualifyingPoints = tierQualifyingPoints;
+    }
+
     public boolean isActive() {
         return active;
     }
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public LocalDateTime getDeactivatedAt() {
+        return deactivatedAt;
+    }
+
+    public void setDeactivatedAt(
+            LocalDateTime deactivatedAt) {
+
+        this.deactivatedAt = deactivatedAt;
     }
 
     /**

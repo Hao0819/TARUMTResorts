@@ -16,8 +16,8 @@ import java.time.LocalDateTime;
  * EXPIRE - points removed after expiry
  * ADJUST - opening-balance or audited adjustment points
  *
- * EARN and ADJUST transactions can contain remaining usable points.
- * Only EARN transactions have an expiry time.
+ * EARN and ADJUST transactions represent separate usable point batches.
+ * Each batch may have its own expiry time and remaining-point balance.
  */
 public class LoyaltyTransaction {
 
@@ -55,7 +55,7 @@ public class LoyaltyTransaction {
      * @param transactionType transaction type
      * @param points transaction point amount
      * @param transactionDate transaction date
-     * @param expiryTime expiry date and time for EARN points
+     * @param expiryTime expiry time for this usable point batch
      */
     public LoyaltyTransaction(
             String transactionId,
@@ -82,13 +82,6 @@ public class LoyaltyTransaction {
 
             throw new IllegalArgumentException(
                     "An earning transaction requires a booking ID.");
-        }
-
-        if (transactionType == TransactionType.EARN
-                && expiryTime == null) {
-
-            throw new IllegalArgumentException(
-                    "Earned points require an expiry time.");
         }
 
         this.transactionId = transactionId;
@@ -200,7 +193,7 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Removes all remaining usable points from this transaction.
+     * Removes all unused points from this expired batch.
      *
      * @return number of points expired
      */
@@ -213,15 +206,12 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Checks whether the remaining EARN points have expired.
-     *
-     * @param currentTime current date and time
-     * @return true when the expiry time has been reached or passed
+     * Checks whether this usable point batch has expired.
      */
     public boolean isExpiredAt(
             LocalDateTime currentTime) {
 
-        if (transactionType != TransactionType.EARN
+        if (!isUsablePointBatch()
                 || expiryTime == null
                 || remainingPoints <= 0
                 || currentTime == null) {
@@ -233,18 +223,14 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Checks whether remaining EARN points expire within an inclusive
-     * date-time range.
-     *
-     * @param startTime beginning of the expiry window
-     * @param endTime end of the expiry window
-     * @return true if expiryTime is between startTime and endTime
+     * Checks whether this usable point batch expires inside an inclusive
+     * date-time window.
      */
     public boolean isExpiringBetween(
             LocalDateTime startTime,
             LocalDateTime endTime) {
 
-        if (transactionType != TransactionType.EARN
+        if (!isUsablePointBatch()
                 || expiryTime == null
                 || remainingPoints <= 0
                 || startTime == null
@@ -256,6 +242,12 @@ public class LoyaltyTransaction {
 
         return !expiryTime.isBefore(startTime)
                 && !expiryTime.isAfter(endTime);
+    }
+
+    private boolean isUsablePointBatch() {
+
+        return transactionType == TransactionType.EARN
+                || transactionType == TransactionType.ADJUST;
     }
 
     @Override
