@@ -63,7 +63,7 @@ public class HouseKeepingUI {
 
         System.out.println();
         System.out.println(border);
-        printCentered("AVAILABLE ROOMS", contentWidth);
+        printCentered("ROOM LIST", contentWidth);
         System.out.println(border);
         System.out.printf("| %-10s | %-10s | %-16s |%n", "Room", "Type", "Status");
         System.out.println(border);
@@ -98,7 +98,7 @@ public class HouseKeepingUI {
 
         System.out.println();
         System.out.println(border);
-        printCentered("AVAILABLE ROOMS", contentWidth);
+        printCentered("ROOM LIST", contentWidth);
         System.out.println(border);
         System.out.printf("| %-10s | %-10s |%n", "Room", "Type");
         System.out.println(border);
@@ -157,6 +157,63 @@ public class HouseKeepingUI {
         } while (choice != 0);
     }
 
+    /**
+     * Fix for the "Enter status" step: instead of making staff type the
+     * whole status word, this shows the room's CURRENT status and asks
+     * for a single letter:
+     *   y = advance to the next status in the cycle
+     *   n = cancel, back to the Housekeeping menu
+     *   d = jump directly to DIRTY (checkout / early termination) —
+     *       only offered when the room is NOT already DIRTY, since
+     *       DIRTY -> DIRTY is not a real change (see
+     *       HousekeepingControl.isValidNextStatus()).
+     *
+     * A room already at DIRTY only ever offers (y/n), because its next
+     * step is CLEANING and "d" would be a no-op. A room at READY only
+     * ever offers (y/n) too, because READY's next step IS DIRTY, so a
+     * separate "d" option would just duplicate "y".
+     *
+     * Returns the chosen status ("" if the user cancelled with n).
+     */
+    private String promptNextStatus(String roomNumber) {
+        RoomStatusLog current = control.getCurrentStatus(roomNumber);
+        String currentStatus = (current != null) ? current.getStatus() : "UNKNOWN (no history yet)";
+        String nextStatus = control.getNextStatusInSequence(roomNumber);
+        boolean isCurrentlyDirty = current != null && current.getStatus().equalsIgnoreCase("DIRTY");
+        // "d" (direct jump to DIRTY) only makes sense when the room isn't
+        // already DIRTY, and only when it isn't already about to become
+        // DIRTY anyway via "y" (i.e. current isn't READY/UNKNOWN either).
+        boolean offerDirectDirty = current != null
+                && !isCurrentlyDirty
+                && !nextStatus.equalsIgnoreCase("DIRTY");
+
+        System.out.println();
+        System.out.println("Current status: " + currentStatus);
+        while (true) {
+            if (offerDirectDirty) {
+                System.out.print("Change to " + nextStatus + "? (y = yes / n = cancel / d = jump directly to DIRTY): ");
+            } else {
+                System.out.print("Change to " + nextStatus + "? (y = yes / n = cancel): ");
+            }
+            String choice = sc.nextLine().trim().toLowerCase();
+            switch (choice) {
+                case "y":
+                    return nextStatus;
+                case "n":
+                    return "";
+                case "d":
+                    if (offerDirectDirty) {
+                        return "DIRTY";
+                    }
+                    System.out.println("'d' isn't available for this room's current status. Please try again.");
+                    break;
+                default:
+                    System.out.println("Invalid input. Please enter y, n"
+                            + (offerDirectDirty ? ", or d." : "."));
+            }
+        }
+    }
+
     private void logStatusChange() {
         // Added: show all rooms + current status first, so staff know
         // which room numbers exist before being asked to type one.
@@ -164,22 +221,22 @@ public class HouseKeepingUI {
 
         String roomNumber;
         while (true) {
-            System.out.print("Enter room number: ");
-            roomNumber = sc.nextLine();
+            System.out.print("Enter room number (or 0 to cancel): ");
+            roomNumber = sc.nextLine().trim();
+            if (roomNumber.equals("0")) {
+                System.out.println("Cancelled. Returning to Housekeeping menu...");
+                return;
+            }
             if (control.isValidRoomNumber(roomNumber)) {
                 break;
             }
             System.out.println("Room number not found in the system. Please try again.");
         }
 
-        String status;
-        while (true) {
-            System.out.print("Enter status (DIRTY, CLEANING, INSPECTED, READY): ");
-            status = sc.nextLine();
-            if (control.isValidNextStatus(roomNumber, status)) {
-                break;
-            }
-            System.out.println("Invalid status. Please try again.");
+        String status = promptNextStatus(roomNumber);
+        if (status.isEmpty()) {
+            System.out.println("Cancelled. Returning to Housekeeping menu...");
+            return;
         }
 
         String timestamp = java.time.LocalDateTime.now()
@@ -218,9 +275,15 @@ public class HouseKeepingUI {
         // here would give the answer away before the lookup).
         printRoomsBasicTable();
 
-        System.out.print("Enter room number: ");
-        String roomNumber = sc.nextLine();
+        System.out.print("Enter room number (or 0 to cancel): ");
+        String roomNumber = sc.nextLine().trim();
+        if (roomNumber.equals("0")) {
+            System.out.println("Cancelled. Returning to Housekeeping menu...");
+            return;
+        }
 
+        // Occupied column removed per request — this report only needs to
+        // show the room's housekeeping status, not occupancy.
         String border = "+------------+------------+------------------+------------------+";
         int contentWidth = border.length() - 4;
 
@@ -312,8 +375,12 @@ public class HouseKeepingUI {
         // view the full history of.
         printAllRoomsTable();
 
-        System.out.print("Enter room number: ");
-        String roomNumber = sc.nextLine();
+        System.out.print("Enter room number (or 0 to cancel): ");
+        String roomNumber = sc.nextLine().trim();
+        if (roomNumber.equals("0")) {
+            System.out.println("Cancelled. Returning to Housekeeping menu...");
+            return;
+        }
 
         String border = "+------------+------------------+";
         int contentWidth = border.length() - 4;
@@ -349,35 +416,81 @@ public class HouseKeepingUI {
         System.out.println("Total entries: " + total);
     }
 
+    /**
+     * Small menu table used by reportByStatus() and reportAverageDuration()
+     * so staff pick a filter with a short keyword/number instead of typing
+     * the whole status word. "0" is always the back/cancel option.
+     */
+    private void printFilterMenuTable(String title, String[] keys, String[] labels) {
+        String border = "+------+------------------+";
+        int contentWidth = border.length() - 4;
+        System.out.println();
+        System.out.println(border);
+        printCentered(title, contentWidth);
+        System.out.println(border);
+        System.out.printf("| %-4s | %-16s |%n", "Key", "Option");
+        System.out.println(border);
+        for (int i = 0; i < keys.length; i++) {
+            System.out.printf("| %-4.4s | %-16.16s |%n", keys[i], labels[i]);
+        }
+        System.out.printf("| %-4.4s | %-16.16s |%n", "0", "Back");
+        System.out.println(border);
+    }
+
     private void reportByStatus() {
+        printFilterMenuTable("FILTER BY STATUS", new String[]{"D", "C", "I", "R"},
+                new String[]{"DIRTY", "CLEANING", "INSPECTED", "READY"});
+
         String statusFilter;
         while (true) {
-            System.out.print("Enter status to filter by (DIRTY, CLEANING, INSPECTED, READY): ");
-            statusFilter = sc.nextLine();
+            System.out.print("Enter status keyword (D/C/I/R, or 0 to cancel): ");
+            String input = sc.nextLine().trim().toUpperCase();
+            if (input.equals("0")) {
+                System.out.println("Cancelled. Returning to Housekeeping menu...");
+                return;
+            }
+            statusFilter = switch (input) {
+                case "D" -> "DIRTY";
+                case "C" -> "CLEANING";
+                case "I" -> "INSPECTED";
+                case "R" -> "READY";
+                default -> input; // allow the full word too, still validated below
+            };
             if (control.isValidStatus(statusFilter)) {
                 break;
             }
-            System.out.println("Invalid status entered. Please enter one of: DIRTY, CLEANING, INSPECTED, READY.");
+            System.out.println("Invalid choice. Please enter D, C, I, R, or 0 to cancel.");
         }
+
+        printFilterMenuTable("FILTER BY ROOM TYPE", new String[]{"S", "D", "U", "A"},
+                new String[]{"Standard", "Deluxe", "Suite", "ALL"});
 
         String roomTypeFilter;
         while (true) {
-            System.out.print("Filter by room type (Standard/Deluxe/Suite), or press Enter for ALL: ");
-            String roomTypeInput = sc.nextLine().trim();
-            if (roomTypeInput.isEmpty()) {
-                roomTypeFilter = "ALL";
+            System.out.print("Enter room type keyword (S/D/U/A, or 0 to cancel): ");
+            String input = sc.nextLine().trim().toUpperCase();
+            if (input.equals("0")) {
+                System.out.println("Cancelled. Returning to Housekeeping menu...");
+                return;
+            }
+            switch (input) {
+                case "S" -> roomTypeFilter = "Standard";
+                case "D" -> roomTypeFilter = "Deluxe";
+                case "U" -> roomTypeFilter = "Suite";
+                case "A", "" -> roomTypeFilter = "ALL";
+                default -> roomTypeFilter = input; // allow the full word too
+            }
+            if (roomTypeFilter.equalsIgnoreCase("ALL") || control.isValidRoomType(roomTypeFilter)) {
                 break;
             }
-            if (control.isValidRoomType(roomTypeInput)) {
-                roomTypeFilter = roomTypeInput;
-                break;
-            }
-            System.out.println("Invalid room type entered. Please enter Standard, Deluxe, Suite, or press Enter for ALL.");
+            System.out.println("Invalid choice. Please enter S, D, U, A, or 0 to cancel.");
         }
 
         ListQueueInterface<RoomStatusLog> filtered =
                 control.getRoomsByCurrentStatus(statusFilter.toUpperCase(), roomTypeFilter);
 
+        // Occupied column removed per request — this report only needs to
+        // show housekeeping status, not occupancy.
         String border = "+------------+------------+------------------+------------------+";
         int contentWidth = border.length() - 4;
 
@@ -419,36 +532,49 @@ public class HouseKeepingUI {
      * ever return "No data available for this filter."
      */
     private void reportAverageDuration() {
+        printFilterMenuTable("FILTER BY STAGE", new String[]{"D", "I", "A"},
+                new String[]{"DIRTY", "INSPECTED", "ALL"});
+
         String stageFilter;
         while (true) {
-            System.out.print("Filter by stage (DIRTY/INSPECTED), or press Enter for ALL: ");
-            String stageInput = sc.nextLine().trim();
-            if (stageInput.isEmpty()) {
-                stageFilter = "ALL";
+            System.out.print("Enter stage keyword (D/I/A, or 0 to cancel): ");
+            String input = sc.nextLine().trim().toUpperCase();
+            if (input.equals("0")) {
+                System.out.println("Cancelled. Returning to Housekeeping menu...");
+                return;
+            }
+            switch (input) {
+                case "D" -> stageFilter = "DIRTY";
+                case "I" -> stageFilter = "INSPECTED";
+                case "A", "" -> stageFilter = "ALL";
+                default -> stageFilter = input; // allow the full word too
+            }
+            if (stageFilter.equalsIgnoreCase("ALL")
+                    || stageFilter.equalsIgnoreCase("DIRTY")
+                    || stageFilter.equalsIgnoreCase("INSPECTED")) {
                 break;
             }
-            if (stageInput.equalsIgnoreCase("DIRTY")
-                    || stageInput.equalsIgnoreCase("INSPECTED")) {
-                stageFilter = stageInput;
-                break;
-            }
-            System.out.println("Invalid stage entered. Please enter DIRTY, INSPECTED, or press Enter for ALL.");
+            System.out.println("Invalid choice. Please enter D, I, A, or 0 to cancel.");
         }
 
         ListQueueInterface<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
 
-        String border = "+----------------------+------------------+";
+        // Title shortened to "AVG TIME PER STAGE" per request — the
+        // border below is kept at its wider size from the earlier fix
+        // (was needed to stop the old longer title being truncated) but
+        // works fine as extra padding around the shorter title too.
+        String border = "+---------------------------+------------------+";
         int contentWidth = border.length() - 4;
 
         System.out.println();
         System.out.println(border);
-        printCentered("TARUMT RESORTS - AVG TIME PER CLEANING STAGE", contentWidth);
+        printCentered("AVG TIME PER STAGE", contentWidth);
         System.out.println(border);
         printCentered("Generated at: " + java.time.LocalDateTime.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMM dd, yyyy hh:mm a")), contentWidth);
         printCentered("Filter: Stage = " + (stageFilter.equalsIgnoreCase("ALL") ? "ALL" : stageFilter.toUpperCase()), contentWidth);
         System.out.println(border);
-        System.out.printf("| %-20s | %-16s |%n", "Stage", "Avg (min)");
+        System.out.printf("| %-25s | %-16s |%n", "Stage", "Avg (min)");
         System.out.println(border);
 
         int total = report.getNumberOfEntries();
@@ -457,7 +583,7 @@ public class HouseKeepingUI {
         } else {
             for (int i = 0; i < total; i++) {
                 StageDuration sd = report.getEntry(i);
-                System.out.printf("| %-20.20s | %-16d |%n", sd.getStageName(), sd.getAverageMinutes());
+                System.out.printf("| %-25.25s | %-16d |%n", sd.getStageName(), sd.getAverageMinutes());
             }
         }
         System.out.println(border);
@@ -476,10 +602,16 @@ public class HouseKeepingUI {
     private void generateSummaryReport() {
         String thickBorder = "=".repeat(90);
         String thinBorder = "-".repeat(90);
+        // Closed box border for the main table (was previously just bare
+        // "col | col | col" printf lines with no left/right edge, which
+        // is why the table looked "open"/unclosed on screen).
+        // Occupied column removed per request, so its segment is dropped too.
+        String tableBorder = "+" + "-".repeat(12) + "+" + "-".repeat(12) + "+" + "-".repeat(18)
+                + "+" + "-".repeat(23) + "+" + "-".repeat(18) + "+";
 
         System.out.println();
         System.out.println(thickBorder);
-        printCenteredPlain("TUNKU ABDUL RAHMAN UNIVERSITY OF MANAGEMENT AND TECHNOLOGY", 90);
+        printCenteredPlain("TARUMT RESORTS", 90);
         printCenteredPlain("HOUSEKEEPING & TASK LOG MODULE SUBSYSTEM", 90);
         System.out.println();
         printCenteredPlain("SUMMARY OF HOUSEKEEPING REPORT", 90);
@@ -488,11 +620,11 @@ public class HouseKeepingUI {
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         System.out.println(thickBorder);
         System.out.println();
-        System.out.println("TUNKU ABDUL RAHMAN UNIVERSITY OF MANAGEMENT AND TECHNOLOGY HIGHLY CONFIDENTIAL DOCUMENT");
-        System.out.println();
 
         // --- Main table: Room (type) joined with RoomStatusLog (status,
-        // history count, last updated) — the two classes combined. ---
+        // history count, last updated) — the two classes combined. Also
+        // Occupied column removed per request — only status/type/count
+        // are shown here now. ---
         ListQueueInterface<Room> allRooms = control.getAllRooms();
         int totalRooms = allRooms.getNumberOfEntries();
 
@@ -500,9 +632,11 @@ public class HouseKeepingUI {
         int[] statusCounts = new int[statusNames.length];
         int totalLogEntries = 0;
 
-        System.out.printf("%-10s | %-10s | %-16s | %-21s | %-16s%n",
+        // Occupied column removed per request.
+        System.out.println(tableBorder);
+        System.out.printf("| %-10s | %-10s | %-16s | %-21s | %-16s |%n",
                 "Room No.", "Type", "Current Status", "Total Status Changes", "Last Updated");
-        System.out.println(thinBorder);
+        System.out.println(tableBorder);
 
         for (int i = 0; i < totalRooms; i++) {
             Room room = allRooms.getEntry(i);
@@ -513,7 +647,7 @@ public class HouseKeepingUI {
             String status = (current != null) ? current.getStatus() : "UNKNOWN";
             String lastUpdated = (current != null) ? current.getTimestamp() : "-";
 
-            System.out.printf("%-10.10s | %-10.10s | %-16.16s | %-21d | %-16.16s%n",
+            System.out.printf("| %-10.10s | %-10.10s | %-16.16s | %-21d | %-16.16s |%n",
                     room.getRoomNumber(), room.getRoomType(), status, logCount, lastUpdated);
 
             for (int s = 0; s < statusNames.length; s++) {
@@ -523,7 +657,7 @@ public class HouseKeepingUI {
             }
         }
 
-        System.out.println(thinBorder);
+        System.out.println(tableBorder);
         System.out.println("Total Number of Rooms: " + totalRooms);
         System.out.println("Total Number of Status Log Entries: " + totalLogEntries);
         System.out.println();
@@ -544,7 +678,7 @@ public class HouseKeepingUI {
             stageLabels[i] = sd.getStageName();
             stageValues[i] = (int) sd.getAverageMinutes();
         }
-        printBarChart("Avg Time per Cleaning Stage (min)", stageLabels, stageValues);
+        printBarChart("Avg Time per Stage (min)", stageLabels, stageValues);
 
         // --- Insight lines: room with fewest / most logged status
         // changes, mirroring the sample report's closing "fewest / most"
@@ -589,19 +723,45 @@ public class HouseKeepingUI {
     }
 
     /**
-     * Renders a simple ASCII vertical bar chart: a numbered y-axis
-     * scaled to the largest value (max height 10 rows, matching the
-     * sample report's y-axis), one column per label, an x-axis line,
-     * and the labels beneath. Handles an all-zero dataset without
-     * dividing by zero.
+     * Renders a simple ASCII vertical bar chart: a numbered y-axis, one
+     * column per label, an x-axis line, the labels beneath, and the
+     * exact value of every column printed underneath its label.
+     * Handles an all-zero dataset without dividing by zero.
      *
-     * Fix: each column is now a fixed COLUMN_WIDTH (12 chars) with the
-     * bar/label CENTERED inside it, instead of a plain 7-char printf
-     * field. The old version truncated and ran together longer labels
-     * like "CLEANING" (8 chars) and "INSPECTED" (9 chars) since they
-     * didn't fit in 7 characters with no gap between columns.
+     * Fix (round 3 — issue found from screenshot testing):
+     *
+     *   "INSPECTED is 9 but the graph shows it at 79" — this was NOT a
+     *   calculation bug. With DIRTY=1582 and INSPECTED=9, the chart has
+     *   to compress a 1582-unit range down into 20 display rows, so
+     *   INSPECTED's bar correctly rounds up to the smallest possible
+     *   bar — 1 row tall. The problem was that the row it landed on was
+     *   LABELLED "79" (the y-axis scale value for that row), which
+     *   reads exactly like it's claiming INSPECTED = 79. The axis
+     *   number was never meant to be read as "this bar's value" — it's
+     *   just a ruler marking — but nothing on screen said so.
+     *
+     *   Fix: the TRUE value of each bar is now printed directly at the
+     *   TOP of that bar itself (replacing the top "***" with the real
+     *   number, e.g. "9"), instead of only appearing once in small text
+     *   underneath the whole chart. Every bar is now self-labelled with
+     *   its own real number at a glance, so it can never be read
+     *   against the y-axis ruler by mistake. The "(9)" summary line
+     *   underneath each column is kept as well for a second, unambiguous
+     *   confirmation of the exact figure.
+     *
+     *   Also carried over from the previous fix: charts that already
+     *   fit within CHART_MAX_DISPLAY_ROWS are drawn UNSCALED (1 row =
+     *   1 unit, no rounding at all), and the row-number column width is
+     *   calculated from the largest real value so wide numbers (e.g.
+     *   1582) never break alignment with the axis/labels beneath.
+     *
+     * Each data column is a fixed COLUMN_WIDTH (12 chars) with the
+     * bar/label/value CENTERED inside it, so longer labels like
+     * "CLEANING" (8 chars) and "INSPECTED" (9 chars) still line up
+     * cleanly with a gap between columns.
      */
     private static final int CHART_COLUMN_WIDTH = 12;
+    private static final int CHART_MAX_DISPLAY_ROWS = 20;
 
     private void printBarChart(String title, String[] labels, int[] values) {
         System.out.println();
@@ -621,28 +781,65 @@ public class HouseKeepingUI {
             System.out.println("(No data to chart.)");
             return;
         }
-        int chartHeight = Math.min(10, maxValue);
 
-        for (int row = chartHeight; row >= 1; row--) {
-            StringBuilder line = new StringBuilder(String.format("%2d |", row));
+        // Only scale/compress when the real range is taller than what
+        // can be displayed. Otherwise draw it 1:1 so no two values can
+        // ever be rounded onto the same row.
+        boolean scaled = maxValue > CHART_MAX_DISPLAY_ROWS;
+        int chartRows = scaled ? CHART_MAX_DISPLAY_ROWS : maxValue;
+
+        // Row-number column width, sized to the largest real value so
+        // wide numbers (e.g. 1582) never overflow it and break the
+        // alignment of the rows/axis/labels beneath.
+        int numWidth = Math.max(2, String.valueOf(maxValue).length());
+        String rowFormat = "%" + numWidth + "d |";
+        String axisPrefix = " ".repeat(numWidth + 1) + "+";
+        String labelPrefix = " ".repeat(numWidth + 2);
+
+        for (int row = chartRows; row >= 1; row--) {
+            int rowValue = scaled
+                    ? (int) Math.round((double) row / chartRows * maxValue)
+                    : row;
+            StringBuilder line = new StringBuilder(String.format(rowFormat, rowValue));
             for (int v : values) {
-                int barLevel = (int) Math.ceil((double) v / maxValue * chartHeight);
-                line.append(centerInField(barLevel >= row ? "***" : "", CHART_COLUMN_WIDTH));
+                int barLevel = scaled
+                        ? (int) Math.ceil((double) v / maxValue * chartRows)
+                        : v;
+                String cell;
+                if (barLevel == row) {
+                    // Top of this bar: print its TRUE value here, right
+                    // on the bar itself, so it's never mistaken for the
+                    // y-axis ruler number sitting on the same line.
+                    cell = String.valueOf(v);
+                } else if (barLevel > row) {
+                    cell = "***";
+                } else {
+                    cell = "";
+                }
+                line.append(centerInField(cell, CHART_COLUMN_WIDTH));
             }
             System.out.println(line);
         }
 
-        StringBuilder axis = new StringBuilder("   +");
+        StringBuilder axis = new StringBuilder(axisPrefix);
         for (int i = 0; i < values.length; i++) {
             axis.append("-".repeat(CHART_COLUMN_WIDTH));
         }
         System.out.println(axis);
 
-        StringBuilder labelLine = new StringBuilder("    ");
+        StringBuilder labelLine = new StringBuilder(labelPrefix);
         for (String label : labels) {
             labelLine.append(centerInField(label, CHART_COLUMN_WIDTH));
         }
         System.out.println(labelLine);
+
+        // Exact value of every column printed under its label too, as a
+        // second, unambiguous confirmation of the real figure.
+        StringBuilder valueLine = new StringBuilder(labelPrefix);
+        for (int v : values) {
+            valueLine.append(centerInField("(" + v + ")", CHART_COLUMN_WIDTH));
+        }
+        System.out.println(valueLine);
     }
 
     /** Centers text within a fixed-width field, padding with spaces on both sides. */
