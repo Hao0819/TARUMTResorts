@@ -97,6 +97,7 @@ public class LoyaltyRewardsUI {
                 case 6 -> updateLoyaltyAccountStatus();
                 case 7 -> displayExpiringPointsReport();
                 case 8 -> displayExpiringPointsAlerts();
+                case 9 -> displayPointTransactionHistory();
                 case 0 -> System.out.println(
                 "Returning to the main menu.");
                 default -> System.out.println(
@@ -954,6 +955,24 @@ System.out.println(
         System.out.println(
         "Current Tier    : "
         + account.getMembershipTier());
+
+        LoyaltyTransaction newEarnBatch =
+                loyaltyControl.findEarnTransactionByBookingId(
+                        bookingId);
+
+        if (newEarnBatch != null) {
+            System.out.println(
+                    "EARN Batch ID   : "
+                    + newEarnBatch.getTransactionId());
+            System.out.println(
+                    "Earned Time     : "
+                    + formatDateTime(
+                            newEarnBatch.getTransactionTime()));
+            System.out.println(
+                    "Expiry Time     : "
+                    + formatDateTime(
+                            newEarnBatch.getExpiryTime()));
+        }
     }
 
 
@@ -1489,6 +1508,73 @@ System.out.println(
                 ? "-"
                 : dateTime.format(DATE_TIME_FORMATTER);
     }
+
+    /** Displays a member's complete point ledger, not an expiry report. */
+    private void displayPointTransactionHistory() {
+
+        System.out.println();
+        System.out.println(
+                "+------------------------------------------------+");
+        System.out.println(
+                "|           POINT TRANSACTION HISTORY            |");
+        System.out.println(
+                "+------------------------------------------------+");
+        System.out.print("Enter Loyalty ID: ");
+        String loyaltyId = scanner.nextLine().trim();
+        LoyaltyAccount account =
+                loyaltyControl.findMemberByLoyaltyId(loyaltyId);
+
+        if (account == null) {
+            System.out.println("Loyalty member not found.");
+            return;
+        }
+
+        displayAccountDetails(account);
+
+        ListQueueInterface<LoyaltyTransaction> transactions =
+                loyaltyControl.getLoyaltyTransactions().filter(
+                        transaction -> transaction != null
+                        && transaction.getLoyaltyId() != null
+                        && transaction.getLoyaltyId()
+                                .equalsIgnoreCase(loyaltyId));
+
+        if (transactions.isEmpty()) {
+            System.out.println();
+            System.out.println("No point transactions for this member.");
+            return;
+        }
+
+        String border =
+                "+----------+------------+----------+----------+------------+---------------------+---------------------+";
+        System.out.println();
+        System.out.println(border);
+        System.out.printf(
+                "| %-8s | %-10s | %-8s | %8s | %10s | %-19s | %-19s |%n",
+                "Txn ID", "Booking", "Type", "Points", "Remaining",
+                "Transaction Time", "Expiry Time");
+        System.out.println(border);
+
+        Iterator<LoyaltyTransaction> iterator =
+                transactions.getIterator();
+
+        while (iterator.hasNext()) {
+            LoyaltyTransaction transaction = iterator.next();
+            System.out.printf(
+                    "| %-8s | %-10s | %-8s | %8d | %10d | %-19s | %-19s |%n",
+                    transaction.getTransactionId(),
+                    transaction.getBookingId() == null
+                            ? "-" : transaction.getBookingId(),
+                    transaction.getTransactionType(),
+                    transaction.getPoints(),
+                    transaction.getRemainingPoints(),
+                    formatDateTime(transaction.getTransactionTime()),
+                    formatDateTime(transaction.getExpiryTime()));
+        }
+
+        System.out.println(border);
+        System.out.println("Total transactions: "
+                + transactions.getNumberOfEntries());
+    }
     
     /**
      * Displays the details of one loyalty account.
@@ -1604,6 +1690,7 @@ System.out.println(
         System.out.printf("| %-46s |%n", "6. Activate / Deactivate Account");
         System.out.printf("| %-46s |%n", "7. Expiring Points Report");
         System.out.printf("| %-46s |%n", "8. Expiring Points Notifications");
+        System.out.printf("| %-46s |%n", "9. Point Transaction History");
         System.out.printf("| %-46s |%n", "0. Return to Main Menu");
 
         System.out.println(

@@ -38,6 +38,7 @@ public class LoyaltyTransaction {
     private int points;
     private int remainingPoints;
     private LocalDate transactionDate;
+    private LocalDateTime transactionTime;
     private LocalDateTime expiryTime;
 
     /**
@@ -64,6 +65,31 @@ public class LoyaltyTransaction {
             TransactionType transactionType,
             int points,
             LocalDate transactionDate,
+            LocalDateTime expiryTime) {
+
+        this(
+                transactionId,
+                loyaltyId,
+                bookingId,
+                transactionType,
+                points,
+                transactionDate == null
+                        ? LocalDateTime.now()
+                        : transactionDate.atStartOfDay(),
+                expiryTime);
+    }
+
+    /**
+     * Creates a transaction with its exact event time. This overload is
+     * additive so existing module calls using LocalDate remain compatible.
+     */
+    public LoyaltyTransaction(
+            String transactionId,
+            String loyaltyId,
+            String bookingId,
+            TransactionType transactionType,
+            int points,
+            LocalDateTime transactionTime,
             LocalDateTime expiryTime) {
 
         if (points <= 0) {
@@ -102,10 +128,13 @@ public class LoyaltyTransaction {
             this.remainingPoints = 0;
         }
 
+        this.transactionTime =
+                transactionTime == null
+                        ? LocalDateTime.now()
+                        : transactionTime;
+
         this.transactionDate =
-                transactionDate == null
-                        ? LocalDate.now()
-                        : transactionDate;
+                this.transactionTime.toLocalDate();
 
         this.expiryTime = expiryTime;
     }
@@ -160,6 +189,24 @@ public class LoyaltyTransaction {
             LocalDate transactionDate) {
 
         this.transactionDate = transactionDate;
+
+        if (transactionDate != null) {
+            transactionTime = transactionDate.atStartOfDay();
+        }
+    }
+
+    public LocalDateTime getTransactionTime() {
+        return transactionTime;
+    }
+
+    public void setTransactionTime(
+            LocalDateTime transactionTime) {
+
+        this.transactionTime = transactionTime;
+
+        if (transactionTime != null) {
+            transactionDate = transactionTime.toLocalDate();
+        }
     }
 
     public LocalDateTime getExpiryTime() {
@@ -264,14 +311,14 @@ public class LoyaltyTransaction {
                         : expiryTime.toString();
 
         return String.format(
-                "%-8s %-8s %-10s %-8s %8d %10d %-12s %-20s",
+                "%-8s %-8s %-10s %-8s %8d %10d %-20s %-20s",
                 transactionId,
                 loyaltyId,
                 displayedBookingId,
                 transactionType,
                 points,
                 remainingPoints,
-                transactionDate,
+                transactionTime,
                 displayedExpiryTime
         );
     }
