@@ -110,6 +110,8 @@ public class FrontDeskControl {
     /**
      * Checks a guest out: marks the booking CHECKED_OUT, records the check-out
      * time, and hands the room over to Housekeeping on the shared Room object.
+     * The bill was already settled at check-in (ACTIVE bookings are PAID), so
+     * check-out does not touch the payment status.
      *
      * The room becomes vacant (available) but is flagged DIRTY, so it is NOT
      * immediately allocatable: Walk-In/VIP allocation only accepts rooms whose
@@ -143,21 +145,6 @@ public class FrontDeskControl {
         return true;
     }
 
-    /**
-     * Mirrors the allocation readiness rule used by Walk-In/VIP: a vacant room
-     * can only be given to a new guest once Housekeeping has it READY (or it
-     * has never been logged, i.e. UNKNOWN).
-     */
-    public boolean isBookable(Room room) {
-        if (room == null || !room.isAvailable()) {
-            return false;
-        }
-        String cleaning = room.getCleaningStatus();
-        return cleaning == null
-                || cleaning.equalsIgnoreCase("READY")
-                || cleaning.equalsIgnoreCase("UNKNOWN");
-    }
-
     // =====================================================================
     // Availability query over the shared room collection.
     // =====================================================================
@@ -178,10 +165,18 @@ public class FrontDeskControl {
     }
 
     /**
-     * Returns the rooms currently available, optionally filtered by room type
-     * ("ALL" for every type). Self-implemented linear scan.
+     * Returns the rooms available RIGHT NOW, optionally filtered by room type
+     * ("ALL" for every type). A room qualifies when both hold:
+     *   1. it is vacant (occupancy flag available),
+     *   2. it has no CONFIRMED/ACTIVE booking overlapping today (not reserved
+     *      for a guest arriving today).
+     * Housekeeping cleaning status is intentionally NOT considered here - room
+     * readiness/cleaning is the Housekeeping module's concern, so Front-Desk
+     * reports physical availability only. Self-implemented linear scan.
      */
     public Room[] getAvailableRooms(String roomTypeFilter) {
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
         String type = (roomTypeFilter == null) ? "ALL" : roomTypeFilter.trim();
         int total = roomList.getNumberOfEntries();
 
@@ -190,7 +185,7 @@ public class FrontDeskControl {
         for (int i = 0; i < total; i++) {
             Room r = roomList.getEntry(i);
             boolean typeOk = type.equalsIgnoreCase("ALL") || type.equalsIgnoreCase(r.getRoomType());
-            if (r.isAvailable() && typeOk) {
+            if (typeOk && r.isAvailable() && !isRoomTakenInRange(r, today, tomorrow)) {
                 temp[count++] = r;
             }
         }
@@ -223,6 +218,27 @@ public class FrontDeskControl {
             }
         }
         return trim(temp, count);
+    }
+
+    /**
+     * True if at least one room of the given type (or "ALL") is free for a
+     * one-night stay starting on {@code date} - i.e. has no CONFIRMED/ACTIVE
+     * booking overlapping [date, date+1). Backs each day cell of the
+     * availability calendar; short-circuits on the first free room so drawing a
+     * month never allocates a result array.
+     */
+    public boolean hasAvailabilityOn(LocalDate date, String roomTypeFilter) {
+        String type = (roomTypeFilter == null || roomTypeFilter.trim().isEmpty()) ? "ALL" : roomTypeFilter.trim();
+        LocalDate next = date.plusDays(1);
+        int totalRooms = roomList.getNumberOfEntries();
+        for (int i = 0; i < totalRooms; i++) {
+            Room r = roomList.getEntry(i);
+            boolean typeOk = type.equalsIgnoreCase("ALL") || type.equalsIgnoreCase(r.getRoomType());
+            if (typeOk && !isRoomTakenInRange(r, date, next)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Total rooms of a given type (or "ALL"), so the UI can report "N of M free". */
@@ -342,8 +358,8 @@ public class FrontDeskControl {
 
     /**
      * Filters bookings by two criteria: payment status and room type.
-     * The special payment filter "OUTSTANDING" matches UNPAID or PARTIAL.
-     * Self-implemented linear scan.
+     * Payment is a two-state flow in this system - UNPAID (booking made) or
+     * PAID (settled at check-in). Self-implemented linear scan.
      */
     public Booking[] filterByPayment(String paymentFilter, String roomTypeFilter) {
         String pay = (paymentFilter == null) ? "ALL" : paymentFilter.trim();
@@ -355,14 +371,7 @@ public class FrontDeskControl {
         for (int i = 0; i < total; i++) {
             Booking b = bookingList.getEntry(i);
             String status = b.getPaymentStatus();
-            boolean payOk;
-            if (pay.equalsIgnoreCase("ALL")) {
-                payOk = true;
-            } else if (pay.equalsIgnoreCase("OUTSTANDING")) {
-                payOk = "UNPAID".equalsIgnoreCase(status) || "PARTIAL".equalsIgnoreCase(status);
-            } else {
-                payOk = pay.equalsIgnoreCase(status);
-            }
+            boolean payOk = pay.equalsIgnoreCase("ALL") || pay.equalsIgnoreCase(status);
             boolean typeOk = type.equalsIgnoreCase("ALL")
                     || type.equalsIgnoreCase(b.getRoom().getRoomType());
             if (payOk && typeOk) {
@@ -408,21 +417,56 @@ public class FrontDeskControl {
 
     /**
      * Checks a guest in: a CONFIRMED booking (booked but not yet arrived)
-     * becomes ACTIVE and gets its check-in time recorded. The bill is settled
-     * on arrival, so the payment status is marked PAID at check-in. Only
-     * CONFIRMED bookings can be checked in.
+     * becomes ACTIVE and gets its check-in time recorded. Only CONFIRMED
+     * bookings can be checked in, and never BEFORE the scheduled check-in date
+     * (a guest cannot arrive early). On success the room is marked occupied
+     * (not available) and, since the bill is settled on arrival, the payment
+     * status is marked PAID (CONFIRMED/UNPAID -> ACTIVE/PAID).
      *
-     * @return false if the booking is missing or not in CONFIRMED state
+     * @return false if the booking is missing, not CONFIRMED, or the arrival
+     *         date is before the scheduled check-in date
      */
     public boolean checkInBooking(String confirmationNumber, String checkInTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
         if (booking == null || !"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
             return false;
         }
+        // No early check-in: the arrival date must not precede the schedule.
+        if (isBeforeScheduledCheckIn(booking, parseDatePart(checkInTime))) {
+            return false;
+        }
         booking.setCheckInTime(checkInTime);
         booking.setStatus("ACTIVE");
         booking.setPaymentStatus("PAID"); // guest settles the bill on check-in
+        Room room = booking.getRoom();
+        if (room != null) {
+            room.setAvailable(false); // guest now occupies the room
+        }
         return true;
+    }
+
+    /**
+     * True if the guest would be checking in BEFORE the booking's scheduled
+     * check-in date. Bookings without a schedule (null) never count as early.
+     * Exposed so the UI can show a specific "too early" message.
+     */
+    public boolean isBeforeScheduledCheckIn(Booking booking, LocalDate arrivalDate) {
+        return booking != null
+                && booking.getScheduledCheckInDate() != null
+                && arrivalDate != null
+                && arrivalDate.isBefore(booking.getScheduledCheckInDate());
+    }
+
+    /** Extracts the date (yyyy-MM-dd) from a "yyyy-MM-dd HH:mm" string; null if unparseable. */
+    private LocalDate parseDatePart(String dateTime) {
+        if (dateTime == null || dateTime.trim().length() < 10) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(dateTime.trim().substring(0, 10));
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
     }
 
     // =====================================================================
@@ -437,8 +481,14 @@ public class FrontDeskControl {
     // =====================================================================
 
     /**
-     * Cancels a CONFIRMED booking: marks it CANCELLED (kept in the collection)
-     * and releases its reserved room.
+     * Cancels a CONFIRMED booking: marks it CANCELLED (kept in the collection).
+     *
+     * The room's occupancy flag is deliberately left untouched. A CONFIRMED
+     * booking may be for a FUTURE date on a room that is currently occupied by
+     * another ACTIVE guest; forcing the room to "available" here would wrongly
+     * free an in-house room. Because date-range availability ignores CANCELLED
+     * bookings, cancelling automatically frees the room for that period without
+     * changing the current occupancy flag.
      *
      * @return false if the booking is missing or not in CONFIRMED state
      */
@@ -448,11 +498,7 @@ public class FrontDeskControl {
             return false;
         }
         booking.setStatus("CANCELLED");          // soft-cancel: retained, not deleted
-        Room room = booking.getRoom();
-        if (room != null) {
-            room.setAvailable(true);             // reserved room released, bookable again
-        }
-        return true;
+        return true;                              // schedule auto-frees; occupancy untouched
     }
 
     // =====================================================================
@@ -521,79 +567,6 @@ public class FrontDeskControl {
     /** Null-safe, case-insensitive substring test for one field against the query. */
     private boolean fieldContains(String field, String query) {
         return field != null && field.toLowerCase().contains(query);
-    }
-
-    // =====================================================================
-    // Structured multi-field FILTER over bookings. Every criterion is
-    // optional: a blank text field (or "ALL" for the enumerated ones) is
-    // ignored, and all supplied criteria must match (AND). This narrows by
-    // specific fields, so the user does not have to eyeball a long keyword
-    // result. Distinct from the free-text SEARCH above. Self-implemented O(n).
-    //
-    // Fields: confirmation number, guest name, guest ID, membership tier,
-    // room type, and check-in date. To add another field, add one optional
-    // parameter and one more AND condition below.
-    // =====================================================================
-
-    /**
-     * @param confirmationNumber partial match on the confirmation number (blank = any)
-     * @param guestName          partial, case-insensitive match on the guest name (blank = any)
-     * @param guestId            partial match on the guest ID (blank = any)
-     * @param membershipTier     exact match on the guest tier, e.g. GOLD (blank/"ALL" = any)
-     * @param roomType           exact match on the room type, e.g. Deluxe (blank/"ALL" = any)
-     * @param checkInDate        substring match on the check-in time, e.g. "2026-07-17" (blank = any)
-     * @return every booking matching ALL supplied criteria
-     */
-    public Booking[] filterBookings(String confirmationNumber, String guestName, String guestId,
-            String membershipTier, String roomType, String checkInDate) {
-        String conf = norm(confirmationNumber);
-        String name = norm(guestName);
-        String gid = norm(guestId);
-        String tier = normFilter(membershipTier);
-        String type = normFilter(roomType);
-        String date = norm(checkInDate);
-
-        int total = bookingList.getNumberOfEntries();
-        Booking[] temp = new Booking[total];
-        int count = 0;
-        for (int i = 0; i < total; i++) {
-            Booking b = bookingList.getEntry(i);
-            Guest g = b.getGuest();
-            Room r = b.getRoom();
-
-            boolean confOk = conf.isEmpty()
-                    || (b.getConfirmationNumber() != null
-                        && b.getConfirmationNumber().toLowerCase().contains(conf));
-            boolean nameOk = name.isEmpty()
-                    || (g != null && g.getName() != null
-                        && g.getName().toLowerCase().contains(name));
-            boolean idOk = gid.isEmpty()
-                    || (g != null && g.getGuestId() != null
-                        && g.getGuestId().toLowerCase().contains(gid));
-            boolean tierOk = tier.equalsIgnoreCase("ALL")
-                    || (g != null && g.getMembershipTier() != null
-                        && String.valueOf(g.getMembershipTier()).equalsIgnoreCase(tier));
-            boolean typeOk = type.equalsIgnoreCase("ALL")
-                    || (r != null && r.getRoomType() != null
-                        && r.getRoomType().equalsIgnoreCase(type));
-            boolean dateOk = date.isEmpty()
-                    || (b.getCheckInTime() != null && b.getCheckInTime().toLowerCase().contains(date));
-
-            if (confOk && nameOk && idOk && tierOk && typeOk && dateOk) {
-                temp[count++] = b;
-            }
-        }
-        return trim(temp, count);
-    }
-
-    /** Trims to lower-case for a "contains" text criterion; null becomes "" (ignored). */
-    private String norm(String value) {
-        return value == null ? "" : value.trim().toLowerCase();
-    }
-
-    /** Normalizes an enumerated filter; null/blank becomes "ALL" (ignored). */
-    private String normFilter(String value) {
-        return (value == null || value.trim().isEmpty()) ? "ALL" : value.trim();
     }
 
     // =====================================================================
