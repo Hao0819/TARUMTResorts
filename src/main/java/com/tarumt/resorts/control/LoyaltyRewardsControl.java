@@ -16,6 +16,7 @@ import com.tarumt.resorts.entity.RewardPackage;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Iterator;
+import com.tarumt.resorts.entity.RedemptionRequest;
 
 /**
  * Handles the business logic for the Loyalty and Rewards Service.
@@ -32,6 +33,8 @@ public class LoyaltyRewardsControl {
     private ListQueueInterface<LoyaltyTransaction> loyaltyTransactions;
     private ListQueueInterface<Guest> guests;
     private ListQueueInterface<Booking> bookings;
+    private ListQueueInterface<RedemptionRequest> redemptionRequests;
+    private int nextRedemptionRequestNumber = 1;
 
     // -------------------------------------------------------------------------
     // CONSTRUCTORS
@@ -45,6 +48,7 @@ public class LoyaltyRewardsControl {
         loyaltyTransactions = new DoublyLinkedListQueue<>();
         guests = new DoublyLinkedListQueue<>();
         bookings = new DoublyLinkedListQueue<>();
+        redemptionRequests = new DoublyLinkedListQueue<>();
     }
 
     /**
@@ -81,6 +85,8 @@ public class LoyaltyRewardsControl {
                         ? new DoublyLinkedListQueue<>()
                         : bookings;
 
+        
+        redemptionRequests = new DoublyLinkedListQueue<>();
         recalculateAllTiers();
     }
 
@@ -108,7 +114,81 @@ public class LoyaltyRewardsControl {
     public ListQueueInterface<LoyaltyTransaction> getLoyaltyTransactions() {
         return loyaltyTransactions;
     }
+    
+    private String generateRedemptionRequestId() {
 
+    String requestId = String.format(
+            "R%03d",
+            nextRedemptionRequestNumber);
+
+    nextRedemptionRequestNumber++;
+
+    return requestId;
+}
+    
+    public RedemptionRequest submitRedemptionRequest(
+        String loyaltyId,
+        RewardPackage rewardPackage) {
+
+    if (loyaltyId == null
+            || loyaltyId.trim().isEmpty()
+            || rewardPackage == null) {
+
+        return null;
+    }
+
+    LoyaltyAccount account =
+            findMemberByLoyaltyId(loyaltyId.trim());
+
+    if (account == null || !account.isActive()) {
+        return null;
+    }
+
+    int points =
+            rewardPackage.getPointsRequired();
+
+    long pendingPoints = 0;
+
+    Iterator<RedemptionRequest> requestIterator =
+            redemptionRequests.getIterator();
+
+    while (requestIterator.hasNext()) {
+
+        RedemptionRequest pendingRequest =
+                requestIterator.next();
+
+        if (pendingRequest.getLoyaltyId()
+                .equalsIgnoreCase(
+                        account.getLoyaltyId())) {
+
+            pendingPoints +=
+                    pendingRequest.getPoints();
+        }
+    }
+
+    long availablePoints =
+            (long) account.getPointsBalance()
+            - pendingPoints;
+
+    if (points > availablePoints) {
+        return null;
+    }
+
+    RedemptionRequest request =
+            new RedemptionRequest(
+                    generateRedemptionRequestId(),
+                    account.getLoyaltyId(),
+                    rewardPackage,
+                    points,
+                    LocalDate.now());
+
+    if (!redemptionRequests.enqueue(request)) {
+        return null;
+    }
+
+    return request;
+}
+    
     // -------------------------------------------------------------------------
     // MEMBER AND GUEST SEARCH
     // -------------------------------------------------------------------------
@@ -407,24 +487,51 @@ public class LoyaltyRewardsControl {
         return transaction != null;
     }
 
-    /**
-     * Calculates Loyalty points from the booking amount.
-     *
-     * Current conversion: RM1 spent = 1 Loyalty point.
-     *
-     * @param booking booking to calculate
-     * @return calculated points
-     */
-    public int calculateRewardPoints(Booking booking) {
+   /**
+ * Calculates loyalty points using the ORIGINAL booking amount.
+ *
+ * Membership room discounts do not reduce the amount used
+ * for loyalty-point calculation.
+ *
+ * @param booking booking to calculate
+ * @return calculated loyalty points
+ */
+public int calculateRewardPoints(Booking booking) {
 
-        if (booking == null || booking.getAmount() <= 0) {
-            return 0;
-        }
-
-        return (int) Math.floor(
-                booking.getAmount() * POINTS_PER_RM
-        );
+    if (booking == null || booking.getAmount() <= 0) {
+        return 0;
     }
+
+    double originalBookingAmount =
+            booking.getAmount();
+
+    return (int) Math.floor(
+            originalBookingAmount * POINTS_PER_RM);
+}
+
+/**
+ * Calculates the amount the guest actually needs to pay
+ * after applying the Loyalty room discount.
+ *
+ * The original Booking amount is never modified.
+ *
+ * @param booking booking to calculate
+ * @return final payable amount after room discount
+ */
+public double getActualPaymentAmount(Booking booking) {
+
+    return calculatePayableAmount(booking);
+}
+
+/**
+ * Returns the room discount percentage for display.
+ *
+ * Example: 0.10 becomes 10.0.
+ */
+public double getRoomDiscountPercentage(MembershipTier tier) {
+
+    return getRoomDiscountRate(tier) * 100.0;
+}
 
     /**
      * Adds Loyalty points from an eligible completed stay.
@@ -788,6 +895,68 @@ public class LoyaltyRewardsControl {
             case ELITE -> "20% dining + VIP benefits";
         };
     }
+    
+    /**
+ * Returns the room discount rate for a membership tier.
+ *
+ * This is separate from personalized dining/promotional benefits.
+ *
+ * @param tier membership tier
+ * @return room discount rate as a decimal
+ */
+public double getRoomDiscountRate(MembershipTier tier) {
+
+    if (tier == null) {
+        return 0.0;
+    }
+
+    return switch (tier) {
+        case NONE -> 0.00;
+        case SILVER -> 0.05;
+        case GOLD -> 0.10;
+        case PLATINUM -> 0.15;
+        case DIAMOND -> 0.20;
+        case ELITE -> 0.25;
+    };
+}
+
+/**
+ * Calculates the room discount amount without modifying
+ * the original Booking amount.
+ */
+public double calculateRoomDiscountAmount(Booking booking) {
+
+    if (booking == null) {
+        return 0.0;
+    }
+
+    MembershipTier tier = MembershipTier.NONE;
+
+    if (booking.getGuest() != null
+            && booking.getGuest().getMembershipTier() != null) {
+
+        tier = booking.getGuest().getMembershipTier();
+    }
+
+    return booking.getAmount()
+            * getRoomDiscountRate(tier);
+}
+
+/**
+ * Calculates the actual amount the guest needs to pay
+ * after applying the membership room discount.
+ *
+ * Booking.amount remains the original amount.
+ */
+public double calculatePayableAmount(Booking booking) {
+
+    if (booking == null) {
+        return 0.0;
+    }
+
+    return booking.getAmount()
+            - calculateRoomDiscountAmount(booking);
+}
 
     // -------------------------------------------------------------------------
     // ACCOUNT STATUS MANAGEMENT
@@ -1112,4 +1281,81 @@ public class LoyaltyRewardsControl {
 
         return totalExpiredPoints;
     }
+    public ListQueueInterface<RedemptionRequest>
+        getPendingRedemptionRequests() {
+
+    return redemptionRequests;
+}
+        public boolean processNextRedemptionRequest() {
+
+    if (redemptionRequests == null
+            || redemptionRequests.isEmpty()) {
+
+        return false;
+    }
+
+    // View the first request without removing it.
+    RedemptionRequest nextRequest =
+            redemptionRequests.peek();
+
+    if (nextRequest == null) {
+        return false;
+    }
+
+    // Deduct the points using your existing redemption logic.
+    boolean redeemed =
+            redeemPoints(
+                    nextRequest.getLoyaltyId(),
+                    nextRequest.getPoints());
+
+    if (!redeemed) {
+        // Keep the request in the queue if processing fails.
+        return false;
+    }
+
+    // FIFO: remove the first request only after successful redemption.
+    redemptionRequests.dequeue();
+
+    return true;
+}
+        public boolean cancelRedemptionRequest(String requestId) {
+
+    if (requestId == null
+            || requestId.trim().isEmpty()) {
+
+        return false;
+    }
+
+    if (redemptionRequests == null
+            || redemptionRequests.isEmpty()) {
+
+        return false;
+    }
+
+    int originalSize =
+            redemptionRequests.getNumberOfEntries();
+
+    boolean cancelled = false;
+
+    for (int i = 0; i < originalSize; i++) {
+
+        RedemptionRequest currentRequest =
+                redemptionRequests.dequeue();
+
+        if (!cancelled
+                && currentRequest.getRequestId()
+                        .equalsIgnoreCase(requestId.trim())) {
+
+            // Skip this request so it is cancelled.
+            cancelled = true;
+
+        } else {
+
+            // Put all other requests back into the queue.
+            redemptionRequests.enqueue(currentRequest);
+        }
+    }
+
+    return cancelled;
+}
 }
