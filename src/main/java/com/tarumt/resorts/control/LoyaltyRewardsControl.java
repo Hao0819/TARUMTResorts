@@ -28,8 +28,7 @@ import com.tarumt.resorts.entity.RedemptionRequest;
 public class LoyaltyRewardsControl {
 
     private static final double POINTS_PER_RM = 1.0;
-    // Production policy: 12 months. The console demo uses four minutes.
-    private static final int DEMO_POINTS_EXPIRY_MINUTES = 4;
+    // Production policy: every EARN batch expires one year after it is earned.
     private static final int INACTIVE_TIER_GRACE_MINUTES = 10;
 
     private ListQueueInterface<LoyaltyAccount> loyaltyAccounts;
@@ -500,6 +499,21 @@ public class LoyaltyRewardsControl {
         return transaction != null;
     }
 
+    /** Returns the EARN batch created for a booking, or null when unprocessed. */
+    public LoyaltyTransaction findEarnTransactionByBookingId(
+            String bookingId) {
+
+        if (bookingId == null || bookingId.trim().isEmpty()) {
+            return null;
+        }
+
+        return loyaltyTransactions.searchByKey(
+                bookingId.trim(), transaction ->
+                        transaction.getTransactionType()
+                                == TransactionType.EARN
+                                ? transaction.getBookingId() : null);
+    }
+
    /**
  * Calculates loyalty points using the ORIGINAL booking amount.
  *
@@ -553,7 +567,8 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
      * be PAID, and must not have received points before.
      *
      * Each successful earn creates a separate point batch. The production
-     * policy is 12 months; this demo expires that batch after four minutes.
+     * policy is one year. Near-expiry demo records are created by the DAO by
+     * moving their earned time back, never by shortening this policy.
      *
      * @param loyaltyId Loyalty account ID
      * @param bookingId booking confirmation number
@@ -632,8 +647,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         }
 
         LocalDateTime batchExpiryTime =
-                earnedTime.plusMinutes(
-                        DEMO_POINTS_EXPIRY_MINUTES);
+                earnedTime.plusYears(1);
 
         LoyaltyTransaction earnTransaction =
                 new LoyaltyTransaction(
@@ -642,7 +656,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                         booking.getConfirmationNumber(),
                         TransactionType.EARN,
                         points,
-                        earnedTime.toLocalDate(),
+                        earnedTime,
                         batchExpiryTime
                 );
 
@@ -761,7 +775,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                         null,
                         TransactionType.REDEEM,
                         points,
-                        currentTime.toLocalDate(),
+                        currentTime,
                         null
                 );
 
@@ -1340,14 +1354,15 @@ public double calculatePayableAmount(Booking booking) {
                 continue;
             }
 
-            int actualDeduction =
-                    Math.min(
-                            expiredBatch.getRemainingPoints(),
-                            account.getPointsBalance());
+            int actualDeduction = expiredBatch.getRemainingPoints();
 
-            if (actualDeduction <= 0) {
-                expiredBatch.expireRemainingPoints();
-                continue;
+            if (account.getPointsBalance() < actualDeduction) {
+                throw new IllegalStateException(
+                        "Loyalty ledger mismatch for "
+                        + account.getLoyaltyId()
+                        + ": expired batch has " + actualDeduction
+                        + " points but account balance is "
+                        + account.getPointsBalance() + ".");
             }
 
             LoyaltyTransaction expiryTransaction =
@@ -1357,7 +1372,7 @@ public double calculatePayableAmount(Booking booking) {
                             null,
                             TransactionType.EXPIRE,
                             actualDeduction,
-                            currentTime.toLocalDate(),
+                            currentTime,
                             null
                     );
 
