@@ -344,14 +344,6 @@ public class LoyaltyRewardsControl {
             return null;
         }
 
-        /*
-         * A Guest without a LoyaltyAccount should normally have tier NONE.
-         * This prevents an existing tier from being silently overwritten.
-         */
-        if (guest.getMembershipTier() != MembershipTier.NONE) {
-            return null;
-        }
-
         LoyaltyAccount newAccount =
                 new LoyaltyAccount(
                         generateLoyaltyId(),
@@ -398,10 +390,16 @@ public class LoyaltyRewardsControl {
      * 1. create a Loyalty account for the Guest when needed, and
      * 2. award the completed-stay points.
      *
-     * This method is exposed as the Loyalty-side integration hook for the
-     * checkout/front-desk module.
+     * Front-Desk does not call this method. Loyalty invokes it when its menu
+     * opens and discovers changes through the shared Booking collection.
+     *
+     * @return counters used by the UI to display a concise automation summary
      */
-    public void processCompletedBookingsForLoyalty() {
+    public AutomaticProcessingResult processCompletedBookingsForLoyalty() {
+
+        int accountsCreated = 0;
+        int bookingsProcessed = 0;
+        int pointsAwarded = 0;
 
         Iterator<Booking> bookingIterator =
                 bookings.getIterator();
@@ -413,7 +411,9 @@ public class LoyaltyRewardsControl {
             if (booking == null
                     || booking.getGuest() == null
                     || booking.getGuest().getGuestId() == null
-                    || booking.getConfirmationNumber() == null) {
+                    || booking.getGuest().getGuestId().trim().isEmpty()
+                    || booking.getConfirmationNumber() == null
+                    || booking.getConfirmationNumber().trim().isEmpty()) {
 
                 continue;
             }
@@ -436,15 +436,67 @@ public class LoyaltyRewardsControl {
 
             if (account == null) {
                 account = createAccountForGuest(guestId);
+
+                if (account != null) {
+                    accountsCreated++;
+                }
             }
 
             if (account == null || !account.isActive()) {
                 continue;
             }
 
-            addPointsFromCompletedStay(
+            int bookingPoints = calculateRewardPoints(booking);
+
+            if (addPointsFromCompletedStay(
                     account.getLoyaltyId(),
-                    booking.getConfirmationNumber());
+                    booking.getConfirmationNumber())) {
+
+                bookingsProcessed++;
+                pointsAwarded = Math.addExact(
+                        pointsAwarded, bookingPoints);
+            }
+        }
+
+        return new AutomaticProcessingResult(
+                accountsCreated,
+                bookingsProcessed,
+                pointsAwarded);
+    }
+
+    /** Immutable counters for one scan of the shared Booking collection. */
+    public static final class AutomaticProcessingResult {
+
+        private final int accountsCreated;
+        private final int bookingsProcessed;
+        private final int pointsAwarded;
+
+        private AutomaticProcessingResult(
+                int accountsCreated,
+                int bookingsProcessed,
+                int pointsAwarded) {
+
+            this.accountsCreated = accountsCreated;
+            this.bookingsProcessed = bookingsProcessed;
+            this.pointsAwarded = pointsAwarded;
+        }
+
+        public int getAccountsCreated() {
+            return accountsCreated;
+        }
+
+        public int getBookingsProcessed() {
+            return bookingsProcessed;
+        }
+
+        public int getPointsAwarded() {
+            return pointsAwarded;
+        }
+
+        public boolean hasActivity() {
+            return accountsCreated > 0
+                    || bookingsProcessed > 0
+                    || pointsAwarded > 0;
         }
     }
 
