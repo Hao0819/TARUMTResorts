@@ -6,6 +6,7 @@ package com.tarumt.resorts.boundary;
 
 import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.control.LoyaltyRewardsControl;
+import com.tarumt.resorts.control.LoyaltyRewardsControl.AutomaticProcessingResult;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.LoyaltyAccount;
@@ -58,6 +59,24 @@ public class LoyaltyRewardsUI {
         int choice;
 
         do {
+            AutomaticProcessingResult automaticProcessing =
+                    loyaltyControl.processCompletedBookingsForLoyalty();
+
+            if (automaticProcessing.hasActivity()) {
+                System.out.println();
+                System.out.println(
+                        "Automatic Loyalty processing completed:");
+                System.out.println(
+                        automaticProcessing.getAccountsCreated()
+                        + " account(s) created");
+                System.out.println(
+                        automaticProcessing.getBookingsProcessed()
+                        + " completed booking(s) processed");
+                System.out.println(
+                        automaticProcessing.getPointsAwarded()
+                        + " points awarded");
+            }
+
             LocalDateTime currentTime =
             LocalDateTime.now();
 
@@ -120,8 +139,8 @@ private void displayAllLoyaltyAccounts() {
 }
     
     /**
-     * Triggers Loyalty processing for completed, paid bookings.
-     * This method is exposed for integration with the checkout/front-desk flow.
+     * Explicitly refreshes Loyalty from the shared Booking collection.
+     * Front-Desk does not call or hold a reference to this boundary.
      */
     public void processCompletedBookingsForLoyalty() {
 

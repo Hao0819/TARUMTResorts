@@ -102,7 +102,9 @@ public class LoyaltyDAO {
         LocalDateTime seedTime = LocalDateTime.now();
 
         // L002 must start at 4,800; booking 20260010 remains unprocessed.
-        addImportedEarnedPoints("L002", 4800,
+        addImportedEarnedPoints("L002", 1800,
+                seedTime.minusMonths(5).minusDays(2));
+        addImportedEarnedPoints("L002", 3000,
                 seedTime.minusMonths(3));
         addImportedEarnedPoints("L003", 7500,
                 seedTime.minusMonths(4));
