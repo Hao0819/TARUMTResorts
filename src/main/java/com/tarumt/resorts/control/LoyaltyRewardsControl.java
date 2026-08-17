@@ -400,6 +400,8 @@ public class LoyaltyRewardsControl {
         int accountsCreated = 0;
         int bookingsProcessed = 0;
         int pointsAwarded = 0;
+        ListQueueInterface<ProcessedBookingResult> processedItems =
+                new DoublyLinkedListQueue<>();
 
         Iterator<Booking> bookingIterator =
                 bookings.getIterator();
@@ -447,6 +449,7 @@ public class LoyaltyRewardsControl {
             }
 
             int bookingPoints = calculateRewardPoints(booking);
+            MembershipTier previousTier = account.getMembershipTier();
 
             if (addPointsFromCompletedStay(
                     account.getLoyaltyId(),
@@ -455,13 +458,35 @@ public class LoyaltyRewardsControl {
                 bookingsProcessed++;
                 pointsAwarded = Math.addExact(
                         pointsAwarded, bookingPoints);
+
+                LoyaltyTransaction earnBatch =
+                        findEarnTransactionByBookingId(
+                                booking.getConfirmationNumber());
+
+                if (earnBatch != null) {
+                    int newPoints = account.getPointsBalance();
+
+                    // ADT method called: enqueue()
+                    processedItems.enqueue(new ProcessedBookingResult(
+                            account.getLoyaltyId(),
+                            booking.getConfirmationNumber(),
+                            newPoints - bookingPoints,
+                            bookingPoints,
+                            newPoints,
+                            previousTier,
+                            account.getMembershipTier(),
+                            earnBatch.getTransactionId(),
+                            earnBatch.getTransactionTime(),
+                            earnBatch.getExpiryTime()));
+                }
             }
         }
 
         return new AutomaticProcessingResult(
                 accountsCreated,
                 bookingsProcessed,
-                pointsAwarded);
+                pointsAwarded,
+                processedItems);
     }
 
     /** Immutable counters for one scan of the shared Booking collection. */
@@ -470,15 +495,19 @@ public class LoyaltyRewardsControl {
         private final int accountsCreated;
         private final int bookingsProcessed;
         private final int pointsAwarded;
+        private final ListQueueInterface<ProcessedBookingResult>
+                processedItems;
 
         private AutomaticProcessingResult(
                 int accountsCreated,
                 int bookingsProcessed,
-                int pointsAwarded) {
+                int pointsAwarded,
+                ListQueueInterface<ProcessedBookingResult> processedItems) {
 
             this.accountsCreated = accountsCreated;
             this.bookingsProcessed = bookingsProcessed;
             this.pointsAwarded = pointsAwarded;
+            this.processedItems = processedItems;
         }
 
         public int getAccountsCreated() {
@@ -493,10 +522,95 @@ public class LoyaltyRewardsControl {
             return pointsAwarded;
         }
 
+        public ListQueueInterface<ProcessedBookingResult>
+                getProcessedItems() {
+
+            return processedItems;
+        }
+
         public boolean hasActivity() {
             return accountsCreated > 0
                     || bookingsProcessed > 0
                     || pointsAwarded > 0;
+        }
+    }
+
+    /** Read-only details for one booking processed during an automatic scan. */
+    public static final class ProcessedBookingResult {
+
+        private final String loyaltyId;
+        private final String bookingId;
+        private final int previousPoints;
+        private final int pointsEarned;
+        private final int newPoints;
+        private final MembershipTier previousTier;
+        private final MembershipTier newTier;
+        private final String earnBatchId;
+        private final LocalDateTime transactionTime;
+        private final LocalDateTime expiryTime;
+
+        private ProcessedBookingResult(
+                String loyaltyId,
+                String bookingId,
+                int previousPoints,
+                int pointsEarned,
+                int newPoints,
+                MembershipTier previousTier,
+                MembershipTier newTier,
+                String earnBatchId,
+                LocalDateTime transactionTime,
+                LocalDateTime expiryTime) {
+
+            this.loyaltyId = loyaltyId;
+            this.bookingId = bookingId;
+            this.previousPoints = previousPoints;
+            this.pointsEarned = pointsEarned;
+            this.newPoints = newPoints;
+            this.previousTier = previousTier;
+            this.newTier = newTier;
+            this.earnBatchId = earnBatchId;
+            this.transactionTime = transactionTime;
+            this.expiryTime = expiryTime;
+        }
+
+        public String getLoyaltyId() {
+            return loyaltyId;
+        }
+
+        public String getBookingId() {
+            return bookingId;
+        }
+
+        public int getPreviousPoints() {
+            return previousPoints;
+        }
+
+        public int getPointsEarned() {
+            return pointsEarned;
+        }
+
+        public int getNewPoints() {
+            return newPoints;
+        }
+
+        public MembershipTier getPreviousTier() {
+            return previousTier;
+        }
+
+        public MembershipTier getNewTier() {
+            return newTier;
+        }
+
+        public String getEarnBatchId() {
+            return earnBatchId;
+        }
+
+        public LocalDateTime getTransactionTime() {
+            return transactionTime;
+        }
+
+        public LocalDateTime getExpiryTime() {
+            return expiryTime;
         }
     }
 
