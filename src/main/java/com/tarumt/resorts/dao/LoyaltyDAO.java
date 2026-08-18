@@ -8,6 +8,8 @@ import com.tarumt.resorts.entity.LoyaltyAccount;
 import com.tarumt.resorts.entity.LoyaltyTransaction;
 import com.tarumt.resorts.entity.LoyaltyTransaction.TransactionType;
 import com.tarumt.resorts.entity.MembershipTier;
+import com.tarumt.resorts.entity.RewardPackage;
+import com.tarumt.resorts.util.LoyaltyClock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -85,130 +87,232 @@ public class LoyaltyDAO {
                 new LoyaltyAccount(loyaltyId, guest, 0, active);
 
         if (!active) {
-            account.setDeactivatedAt(LocalDateTime.now());
+            account.setDeactivatedAt(LoyaltyClock.now());
         }
 
         loyaltyAccounts.enqueue(account);
     }
 
-    /**
-     * Seeds real completed-booking EARN records and a few verified historical
-     * imports. ADJUST is not normal earning: here it means audited points
-     * migrated from a previous system. These imported earned points qualify
-     * for tier because their historical earned time is known.
-     */
+    /** Seeds every opening point batch from a real completed paid Booking. */
     private void initializeLoyaltyTransactions() {
 
-        LocalDateTime seedTime = LocalDateTime.now();
+        LocalDateTime seedTime = LoyaltyClock.now();
 
-        // L002 must start at 4,800; booking 20260010 remains unprocessed.
-        addImportedEarnedPoints("L002", 1800,
-                seedTime.minusMonths(5).minusDays(2));
-        addImportedEarnedPoints("L002", 3000,
-                seedTime.minusMonths(3));
-        addImportedEarnedPoints("L003", 7500,
-                seedTime.minusMonths(4));
-        addImportedEarnedPoints("L004", 12000,
-                seedTime.minusMonths(5));
-        addImportedEarnedPoints("L006", 23000,
-                seedTime.minusMonths(2));
-        // These shared Guests also appear in the VIP history. Their verified
-        // legacy earnings keep the Loyalty ledger and VIP priority tier in
-        // agreement instead of overwriting the shared Guest tier with NONE.
-        addImportedEarnedPoints("L005", 15000,
-                seedTime.minusMonths(2).minusDays(3));
-        addImportedEarnedPoints("L010", 12000,
-                seedTime.minusMonths(4).minusDays(2));
-        addImportedEarnedPoints("L011", 17500,
-                seedTime.minusMonths(3).minusDays(4));
-        addImportedEarnedPoints("L012", 23000,
-                seedTime.minusMonths(2).minusDays(6));
+        // IDs 20261001 onward are historical Loyalty stays in the same shared
+        // Booking collection. Booking 20260010 intentionally remains absent
+        // from the ledger so automatic processing still awards L002 200 points.
+        addHistoricalBookingEarnTransactions();
 
-        // Historical batches complete the qualifying totals represented by
-        // the shared Guest tiers. Real Booking EARN batches below remain part
-        // of the total wherever a completed paid Booking exists.
-        addImportedEarnedPoints("L008", 1200,
-                seedTime.minusMonths(7).minusDays(2));
-        addImportedEarnedPoints("L008", 2000,
-                seedTime.minusMonths(4).minusDays(5));
+        // Completed bookings use their actual checkout times.
+        addBookingEarnTransaction("L005", "20260007", null);
+        addBookingEarnTransaction("L007", "20260008", null);
+        addBookingEarnTransaction("L014", "20260009", null);
+        addBookingEarnTransaction("L009", "20260011", null);
+        addBookingEarnTransaction("L013", "20260012", null);
+        addBookingEarnTransaction("L017", "20260013", null);
+        addBookingEarnTransaction("L020", "20260014", null);
 
-        // L009: 3,000 + 4,100 imported + 400 real EARN = 7,500.
-        addImportedEarnedPoints("L009", 3000,
-                seedTime.minusMonths(8).minusDays(1));
-        addImportedEarnedPoints("L009", 4100,
-                seedTime.minusMonths(5).minusDays(4));
-
-        // L014 and L017 each receive 1,700 historical + 1,500 real EARN.
-        addImportedEarnedPoints("L014", 700,
-                seedTime.minusMonths(7).minusDays(3));
-        addImportedEarnedPoints("L014", 1000,
-                seedTime.minusMonths(4).minusDays(7));
-        addImportedEarnedPoints("L017", 700,
-                seedTime.minusMonths(6).minusDays(2));
-        addImportedEarnedPoints("L017", 1000,
-                seedTime.minusMonths(3).minusDays(8));
-
-        addImportedEarnedPoints("L015", 3000,
-                seedTime.minusMonths(8).minusDays(5));
-        addImportedEarnedPoints("L015", 4500,
-                seedTime.minusMonths(4).minusDays(9));
-        addImportedEarnedPoints("L018", 3000,
-                seedTime.minusMonths(7).minusDays(6));
-        addImportedEarnedPoints("L018", 4500,
-                seedTime.minusMonths(3).minusDays(10));
-        addImportedEarnedPoints("L019", 1200,
-                seedTime.minusMonths(6).minusDays(4));
-        addImportedEarnedPoints("L019", 2000,
-                seedTime.minusMonths(3).minusDays(11));
-
-        // L020: 2,500 + 3,500 imported + 1,500 real EARN = 7,500.
-        addImportedEarnedPoints("L020", 2500,
-                seedTime.minusMonths(8).minusDays(3));
-        addImportedEarnedPoints("L020", 3500,
-                seedTime.minusMonths(5).minusDays(12));
-
-        // Demo clocks: one expires soon and one is already expired.
-        addBookingEarnTransaction("L005", "20260007",
-                seedTime.minusYears(1).plusMinutes(4), seedTime);
-        addBookingEarnTransaction("L007", "20260008",
-                seedTime.minusYears(1).minusMinutes(1), seedTime);
-
-        // Normal batches use actual checkout time and expire one year later.
-        addBookingEarnTransaction("L014", "20260009", null, seedTime);
-        addBookingEarnTransaction("L009", "20260011", null, seedTime);
-        addBookingEarnTransaction("L013", "20260012", null, seedTime);
-        addBookingEarnTransaction("L017", "20260013", null, seedTime);
-        addBookingEarnTransaction("L020", "20260014", null, seedTime);
+        /*
+         * Completed demo redemptions give every tier meaningful performance
+         * data and cover every available reward. Each redemption consumes
+         * its member's actual point batches, so the ledger remains balanced.
+         */
+        LocalDateTime redemptionTime = seedTime.minusMinutes(30);
+        addHistoricalRedemption("L001", RewardPackage.BREAKFAST_SET,
+                redemptionTime.minusMinutes(4));
+        addHistoricalRedemption("L016", RewardPackage.LUNCH_SET,
+                redemptionTime.minusMinutes(2));
+        addHistoricalRedemption("L013", RewardPackage.BREAKFAST_SET,
+                redemptionTime);
+        addHistoricalRedemption("L008", RewardPackage.LUNCH_SET,
+                redemptionTime.plusMinutes(2));
+        addHistoricalRedemption("L003", RewardPackage.DINNER_SET,
+                redemptionTime.plusMinutes(4));
+        addHistoricalRedemption("L004", RewardPackage.BUFFET_VOUCHER,
+                redemptionTime.plusMinutes(6));
+        addHistoricalRedemption("L011", RewardPackage.BREAKFAST_SET,
+                redemptionTime.plusMinutes(8));
+        addHistoricalRedemption("L006", RewardPackage.BUFFET_VOUCHER,
+                redemptionTime.plusMinutes(10));
+        addHistoricalRedemption("L006", RewardPackage.BUFFET_VOUCHER,
+                redemptionTime.plusMinutes(12));
 
         deriveAccountsFromLedger(seedTime);
+        initializeAccountActivity(seedTime);
         validateLedgerBalances(seedTime);
     }
 
-    private void addImportedEarnedPoints(
-            String loyaltyId,
-            int points,
-            LocalDateTime verifiedEarnedTime) {
+    /** Derives inactivity activity and the next independent batch expiry. */
+    private void initializeAccountActivity(LocalDateTime seedTime) {
 
-        if (findAccountByLoyaltyId(loyaltyId) == null || points <= 0) {
+        Iterator<LoyaltyAccount> accountIterator =
+                loyaltyAccounts.getIterator();
+
+        while (accountIterator.hasNext()) {
+            LoyaltyAccount account = accountIterator.next();
+            LocalDateTime lastActivity = null;
+            LocalDateTime nextExpiry = null;
+            Iterator<LoyaltyTransaction> transactionIterator =
+                    loyaltyTransactions.getIterator();
+
+            while (transactionIterator.hasNext()) {
+                LoyaltyTransaction transaction = transactionIterator.next();
+
+                if (!account.getLoyaltyId().equalsIgnoreCase(
+                        transaction.getLoyaltyId())) {
+                    continue;
+                }
+
+                TransactionType type = transaction.getTransactionType();
+
+                if ((type == TransactionType.EARN
+                        || type == TransactionType.ADJUST
+                        || type == TransactionType.REDEEM)
+                        && (lastActivity == null
+                        || transaction.getTransactionTime()
+                                .isAfter(lastActivity))) {
+                    lastActivity = transaction.getTransactionTime();
+                }
+
+                if ((type == TransactionType.EARN
+                        || type == TransactionType.ADJUST)
+                        && transaction.getRemainingPoints() > 0
+                        && transaction.getExpiryTime() != null
+                        && seedTime.isBefore(transaction.getExpiryTime())
+                        && (nextExpiry == null
+                        || transaction.getExpiryTime()
+                                .isBefore(nextExpiry))) {
+                    nextExpiry = transaction.getExpiryTime();
+                }
+            }
+
+            account.setLastPointsActivityTime(
+                    lastActivity == null ? seedTime : lastActivity);
+            account.setPointsExpiryTime(nextExpiry);
+        }
+    }
+
+    /** Adds one completed historical redemption using FEFO point batches. */
+    private void addHistoricalRedemption(
+            String loyaltyId,
+            RewardPackage rewardPackage,
+            LocalDateTime redemptionTime) {
+
+        if (findAccountByLoyaltyId(loyaltyId) == null
+                || rewardPackage == null
+                || redemptionTime == null) {
             return;
         }
 
-        // ADT method called: enqueue()
-        loyaltyTransactions.enqueue(new LoyaltyTransaction(
-                generateInitialTransactionId(), loyaltyId, null,
-                TransactionType.ADJUST, points, verifiedEarnedTime,
-                verifiedEarnedTime.plusYears(1)));
+        ListQueueInterface<LoyaltyTransaction> usableBatches =
+                new DoublyLinkedListQueue<>();
+        int availablePoints = 0;
+        Iterator<LoyaltyTransaction> iterator =
+                loyaltyTransactions.getIterator();
+
+        while (iterator.hasNext()) {
+            LoyaltyTransaction transaction = iterator.next();
+            TransactionType type = transaction.getTransactionType();
+
+            if (!transaction.getLoyaltyId().equalsIgnoreCase(loyaltyId)
+                    || (type != TransactionType.EARN
+                    && type != TransactionType.ADJUST)
+                    || transaction.getRemainingPoints() <= 0
+                    || transaction.getTransactionTime().isAfter(
+                            redemptionTime)
+                    || transaction.getExpiryTime() == null
+                    || !redemptionTime.isBefore(
+                            transaction.getExpiryTime())) {
+                continue;
+            }
+
+            usableBatches.priorityEnqueue(
+                    transaction,
+                    (first, second) -> first.getExpiryTime()
+                            .compareTo(second.getExpiryTime()));
+            availablePoints = Math.addExact(
+                    availablePoints,
+                    transaction.getRemainingPoints());
+        }
+
+        int points = rewardPackage.getPointsRequired();
+
+        if (availablePoints < points) {
+            throw new IllegalStateException(
+                    "Insufficient demo points for " + loyaltyId
+                    + " to redeem " + rewardPackage.getRewardName() + ".");
+        }
+
+        int remainingToRedeem = points;
+        LocalDateTime firstBatchExpiry = null;
+        iterator = usableBatches.getIterator();
+
+        while (iterator.hasNext() && remainingToRedeem > 0) {
+            LoyaltyTransaction batch = iterator.next();
+            int deducted = batch.deductRemainingPoints(remainingToRedeem);
+
+            if (deducted > 0 && firstBatchExpiry == null) {
+                firstBatchExpiry = batch.getExpiryTime();
+            }
+
+            remainingToRedeem -= deducted;
+        }
+
+        LoyaltyTransaction redemption = new LoyaltyTransaction(
+                generateInitialTransactionId(),
+                loyaltyId,
+                null,
+                TransactionType.REDEEM,
+                points,
+                redemptionTime,
+                null);
+        redemption.setRewardPackage(rewardPackage);
+        redemption.recordRemovalResult(
+                availablePoints - points,
+                firstBatchExpiry);
+        loyaltyTransactions.enqueue(redemption);
+    }
+
+    /** Converts every shared historical Loyalty Booking into one EARN batch. */
+    private void addHistoricalBookingEarnTransactions() {
+
+        Iterator<Booking> iterator = bookings.getIterator();
+
+        while (iterator.hasNext()) {
+            Booking booking = iterator.next();
+
+            if (booking == null
+                    || booking.getConfirmationNumber() == null
+                    || !booking.getConfirmationNumber()
+                            .matches("^20261\\d{3}$")
+                    || booking.getGuest() == null) {
+                continue;
+            }
+
+            LoyaltyAccount account = loyaltyAccounts.searchByKey(
+                    booking.getGuest().getGuestId(),
+                    loyaltyAccount -> loyaltyAccount.getGuestId());
+
+            if (account == null
+                    || !addBookingEarnTransaction(
+                            account.getLoyaltyId(),
+                            booking.getConfirmationNumber(),
+                            null)) {
+                throw new IllegalStateException(
+                        "Unable to seed Loyalty EARN from Booking "
+                        + booking.getConfirmationNumber() + ".");
+            }
+        }
     }
 
     /**
-     * Adds one EARN batch for one real CHECKED_OUT and PAID booking. A demo
-     * earned time changes only the clock; expiry remains earnedTime + 1 year.
+     * Adds one EARN batch for one real CHECKED_OUT and PAID booking. The
+     * transaction expiry is three months after this batch's earned time.
      */
     private boolean addBookingEarnTransaction(
             String loyaltyId,
             String bookingId,
-            LocalDateTime demoEarnedTime,
-            LocalDateTime seedTime) {
+            LocalDateTime demoEarnedTime) {
 
         LoyaltyAccount account = findAccountByLoyaltyId(loyaltyId);
         Booking booking = findBookingById(bookingId);
@@ -227,7 +331,7 @@ public class LoyaltyDAO {
 
         LocalDateTime earnedTime = demoEarnedTime == null
                 ? readBookingEarnedTime(booking) : demoEarnedTime;
-        LocalDateTime expiryTime = earnedTime.plusYears(1);
+        LocalDateTime expiryTime = earnedTime.plusMonths(3);
 
         LoyaltyTransaction earnTransaction = new LoyaltyTransaction(
                 generateInitialTransactionId(), loyaltyId,
@@ -235,15 +339,6 @@ public class LoyaltyDAO {
                 earnedPoints, earnedTime, expiryTime);
         // ADT method called: enqueue()
         loyaltyTransactions.enqueue(earnTransaction);
-
-        // Close an already-expired demo batch while preserving full history.
-        if (!seedTime.isBefore(expiryTime)) {
-            int expiredPoints = earnTransaction.expireRemainingPoints();
-            loyaltyTransactions.enqueue(new LoyaltyTransaction(
-                    generateInitialTransactionId(), loyaltyId,
-                    booking.getConfirmationNumber(), TransactionType.EXPIRE,
-                    expiredPoints, seedTime, null));
-        }
 
         return true;
     }
