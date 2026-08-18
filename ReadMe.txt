@@ -293,33 +293,3 @@ The data includes WAITING, ASSIGNED, CONFIRMED, ACTIVE, CHECKED_OUT, CANCELLED,
 PAID, UNPAID, room availability, cleaning stages, and multiple membership tiers
 so the module functions and reports can be demonstrated immediately.
 
-
-======================================================================
-PROJECT LIMITATIONS
-======================================================================
-
-- Data is stored in memory and resets after application exit.
-- The application is console-based.
-- Short timing values are used for selected expiry and Housekeeping demos.
-- Standard booking allocation intentionally uses strict FIFO head-of-line
-  blocking.
-- Runtime EARN batches use the normal one-year expiry policy.
-
-
-======================================================================
-BUILD STATUS
-======================================================================
-
-Latest verification:
-
-- Maven clean compile: BUILD SUCCESS
-- Integrated main menu startup: successful
-- Walk-In, VIP, Housekeeping, Front-Desk, and Loyalty menus connected
-- Loyalty automatic completed-stay processing: successful
-- L002 SILVER-to-GOLD demonstration: successful
-- Duplicate EARN prevention: successful
-
-
-======================================================================
-END OF TUTOR README
-======================================================================
