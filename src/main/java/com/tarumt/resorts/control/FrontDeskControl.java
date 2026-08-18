@@ -3,6 +3,7 @@ package com.tarumt.resorts.control;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
+import com.tarumt.resorts.entity.LoyaltyAccount;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import java.time.LocalDate;
 import com.tarumt.resorts.dao.BookingDAO;
@@ -32,6 +33,11 @@ public class FrontDeskControl {
     // check-out also writes a DIRTY entry into Housekeeping's status log so
     // their View/reports reflect the handover — not just the Room field.
     private HousekeepingControl housekeeping;
+
+    // Optional shared Loyalty accounts (owned by the Loyalty module). When wired
+    // in by Main, Front-Desk can show and search each booking guest's loyalty ID
+    // and current points. Left null in standalone mode.
+    private ListQueueInterface<LoyaltyAccount> loyaltyAccounts;
 
     /**
      * Standalone constructor - loads hard-coded sample data so the module
@@ -68,6 +74,49 @@ public class FrontDeskControl {
      */
     public void setHousekeepingControl(HousekeepingControl housekeeping) {
         this.housekeeping = housekeeping;
+    }
+
+    /**
+     * Wires in the shared Loyalty accounts so Front-Desk can display and search
+     * a booking guest's loyalty ID and current points. Optional: when left null
+     * (standalone mode), loyalty lookups return null and the UI shows "-".
+     */
+    public void setLoyaltyAccounts(ListQueueInterface<LoyaltyAccount> loyaltyAccounts) {
+        this.loyaltyAccounts = loyaltyAccounts;
+    }
+
+    /**
+     * Finds the loyalty account belonging to a booking's guest (matched by guest
+     * ID), or null if loyalty data isn't wired in or the guest has no account.
+     * Self-implemented linear scan.
+     */
+    public LoyaltyAccount getLoyaltyAccountFor(Booking booking) {
+        if (loyaltyAccounts == null || booking == null || booking.getGuest() == null) {
+            return null;
+        }
+        String guestId = booking.getGuest().getGuestId();
+        if (guestId == null) {
+            return null;
+        }
+        for (int i = 0; i < loyaltyAccounts.getNumberOfEntries(); i++) {
+            LoyaltyAccount account = loyaltyAccounts.getEntry(i);
+            if (guestId.equalsIgnoreCase(account.getGuestId())) {
+                return account;
+            }
+        }
+        return null;
+    }
+
+    /** The booking guest's loyalty ID, or "-" when there is no linked account. */
+    public String getLoyaltyIdFor(Booking booking) {
+        LoyaltyAccount account = getLoyaltyAccountFor(booking);
+        return (account == null || account.getLoyaltyId() == null) ? "-" : account.getLoyaltyId();
+    }
+
+    /** The booking guest's current points as text, or "-" when there is no account. */
+    public String getLoyaltyPointsFor(Booking booking) {
+        LoyaltyAccount account = getLoyaltyAccountFor(booking);
+        return account == null ? "-" : String.valueOf(account.getPointsBalance());
     }
 
     // =====================================================================
@@ -551,12 +600,15 @@ public class FrontDeskControl {
     private boolean matchesAnyField(Booking b, String query) {
         Guest g = b.getGuest();
         Room r = b.getRoom();
+        LoyaltyAccount la = getLoyaltyAccountFor(b);
         return fieldContains(b.getConfirmationNumber(), query)
                 || (g != null && (fieldContains(g.getName(), query)
                         || fieldContains(g.getGuestId(), query)
                         || fieldContains(String.valueOf(g.getMembershipTier()), query)))
                 || (r != null && (fieldContains(r.getRoomNumber(), query)
                         || fieldContains(r.getRoomType(), query)))
+                || (la != null && (fieldContains(la.getLoyaltyId(), query)
+                        || fieldContains(String.valueOf(la.getPointsBalance()), query)))
                 || fieldContains(b.getStatus(), query)
                 || fieldContains(b.getPaymentStatus(), query)
                 || fieldContains(b.getCheckInTime(), query)

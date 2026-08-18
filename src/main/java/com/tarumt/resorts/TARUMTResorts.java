@@ -95,6 +95,11 @@ public class TARUMTResorts {
                 // in Housekeeping's status log, keeping both modules in sync.
                 frontDeskControl.setHousekeepingControl(housekeepingControl);
 
+                // Give Front-Desk read access to the shared Loyalty accounts so
+                // search results and booking details can show each guest's
+                // loyalty ID and current points.
+                frontDeskControl.setLoyaltyAccounts(sharedLoyaltyAccounts);
+
                 // Create the Loyalty control using the shared system data.
                 LoyaltyRewardsControl loyaltyControl =
                                 new LoyaltyRewardsControl(
