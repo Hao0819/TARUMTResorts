@@ -298,9 +298,9 @@ public class BookingDAO {
                 // the Front-Desk demonstrate Check-in and Cancel on their own, without
                 // first running the Walk-In module. The 5-argument constructor is used
                 // with a null check-in time, so each one is CONFIRMED. Confirmation
-                // numbers continue after the records above (20260015-20260034); Walk-In's
-                // counter (bookingList size + 1) resumes after these, so runtime bookings
-                // never collide. Rooms are ones NOT occupied by the ACTIVE bookings above.
+                // These records use confirmation numbers 20260015-20260034.
+                // Additional seeded records below continue through 20260060,
+                // so runtime Walk-In bookings resume from 20260061.
                 bookings.enqueue(withPaymentStatus(new Booking("20260015", findGuest("G012"), findRoom("101"),
                                 "2026-07-20 10:00", null), "UNPAID"));
                 bookings.enqueue(withPaymentStatus(new Booking("20260016", findGuest("G013"), findRoom("102"),
@@ -419,8 +419,8 @@ public class BookingDAO {
                                                 "2026-08-20 10:30"),
                                 "PAID"));
 
-                // CONFIRMED bookings for the additional available rooms.
-                // These bookings complete the fully-booked period from 10-12 August.
+                // These bookings complete the fully booked nights from
+                // 24-26 August, with check-out on 27 August.
 
                 bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260040", findGuest("G026"), findRoom("109"),

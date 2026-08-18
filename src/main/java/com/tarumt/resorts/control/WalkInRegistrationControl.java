@@ -23,8 +23,8 @@ import java.time.LocalDate;
 public class WalkInRegistrationControl {
 
     // Active registrations processed using strict FIFO behaviour.
-    private ListQueueInterface<WalkInRegistration> registrationQueue =
-            new DoublyLinkedListQueue<>(); // ADT collection declaration
+    private ListQueueInterface<WalkInRegistration> registrationQueue = new DoublyLinkedListQueue<>(); // ADT collection
+                                                                                                      // declaration
 
     // Complete registration records used for searching and reporting.
     private ListQueueInterface<WalkInRegistration> registrationHistory; // ADT collection declaration
@@ -391,7 +391,8 @@ public class WalkInRegistrationControl {
 
         String targetGuestId = guestId.trim();
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call:
+                                                                                             // getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -630,6 +631,17 @@ public class WalkInRegistrationControl {
         if (stayDurationDays < 1 || stayDurationDays > 30) {
             throw new IllegalArgumentException(
                     "Stay duration must be between 1 and 30 nights.");
+        }
+
+        // Validate room availability again at the Control layer.
+        boolean roomAvailable = hasAvailableRoomForSchedule(
+                requestedRoomType,
+                requestedCheckInDate,
+                stayDurationDays);
+
+        if (!roomAvailable) {
+            throw new IllegalArgumentException(
+                    "No room is available for the complete requested stay.");
         }
 
         Guest guest = findOrCreateGuest(
@@ -894,7 +906,8 @@ public class WalkInRegistrationControl {
 
         WalkInRegistration latestRegistration = null;
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call:
+                                                                                             // getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -955,7 +968,8 @@ public class WalkInRegistrationControl {
         int matchingRecordCount = 0;
 
         // First traversal: count matching records.
-        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
+        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator(); // ADT method call:
+                                                                                        // getIterator()
 
         while (countIterator.hasNext()) {
             WalkInRegistration registration = countIterator.next();
@@ -969,7 +983,8 @@ public class WalkInRegistrationControl {
         WalkInRegistration[] matchingRegistrations = new WalkInRegistration[matchingRecordCount];
 
         // Second traversal: store matching record references.
-        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
+        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator(); // ADT method call:
+                                                                                        // getIterator()
 
         int arrayIndex = 0;
 
@@ -1098,6 +1113,34 @@ public class WalkInRegistrationControl {
         return registrations;
     }
 
+    /**
+     * Returns the daily rate of the specified room type
+     * from the shared Room ADT collection.
+     */
+    public double getDailyRateByRoomType(String roomType) {
+
+        if (roomType == null || roomType.trim().isEmpty()) {
+            return 0.0;
+        }
+
+        // Traverse the shared Room collection from front to rear.
+        Iterator<Room> roomIterator = roomList.getIterator(); // ADT method call: getIterator()
+
+        while (roomIterator.hasNext()) {
+            Room currentRoom = roomIterator.next();
+
+            boolean roomTypeMatches = currentRoom.getRoomType()
+                    .equalsIgnoreCase(roomType.trim());
+
+            if (roomTypeMatches) {
+                return currentRoom.getDailyRate();
+            }
+        }
+
+        // Return zero when the requested room type does not exist.
+        return 0.0;
+    }
+
     // count all rooms belonging to one room type , not check availability
     public int countTotalRoomsByType(String roomType) {
         if (roomType == null || roomType.trim().isEmpty()) {
@@ -1190,7 +1233,7 @@ public class WalkInRegistrationControl {
                 .isBefore(LocalDate.now());
     }
 
-    // Returns how many guests are currently waiting in the queue.
+   // Returns the number of active booking requests in the waiting queue.
     public int getWaitingCount() {
         return registrationQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
     }
