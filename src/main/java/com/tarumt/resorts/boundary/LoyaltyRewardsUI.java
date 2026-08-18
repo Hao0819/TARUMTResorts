@@ -884,13 +884,17 @@ int selectedOption = readChoice();
      */
     private void displayTierAndPointsReport() {
 
+        String border =
+                "+------------------------------------------------+";
+        String title = "TIER AND POINTS REPORT";
+        int leftPadding = (46 - title.length()) / 2;
+
         System.out.println();
-        System.out.println(
-        "+------------------------------------------------+");
-        System.out.println(
-        "|             TIER AND POINTS REPORT              |");
-        System.out.println(
-        "+------------------------------------------------+");
+        System.out.println(border);
+        System.out.printf(
+                "| %-46s |%n",
+                " ".repeat(leftPadding) + title);
+        System.out.println(border);
 
         System.out.println("Membership Tier:");
         System.out.println("0. All Tiers");
