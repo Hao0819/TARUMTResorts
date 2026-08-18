@@ -26,6 +26,8 @@ public class LoyaltyAccount {
     private int tierQualifyingPoints;
     private boolean active;
     private LocalDateTime deactivatedAt;
+    private LocalDateTime lastPointsActivityTime;
+    private LocalDateTime pointsExpiryTime;
 
     /**
      * Default constructor.
@@ -131,6 +133,24 @@ public class LoyaltyAccount {
             LocalDateTime deactivatedAt) {
 
         this.deactivatedAt = deactivatedAt;
+    }
+
+    public LocalDateTime getLastPointsActivityTime() {
+        return lastPointsActivityTime;
+    }
+
+    public void setLastPointsActivityTime(
+            LocalDateTime lastPointsActivityTime) {
+        this.lastPointsActivityTime = lastPointsActivityTime;
+    }
+
+    public LocalDateTime getPointsExpiryTime() {
+        return pointsExpiryTime;
+    }
+
+    public void setPointsExpiryTime(
+            LocalDateTime pointsExpiryTime) {
+        this.pointsExpiryTime = pointsExpiryTime;
     }
 
     /**

@@ -213,6 +213,21 @@ public class Booking {
     }
 
     /**
+     * Loads the verified gross amount of a historical booking.
+     * Normal new bookings continue to calculate this value from room rate and
+     * stay duration through {@link #setSchedule(LocalDate, int)}.
+     */
+    public void setHistoricalAmount(double amount) {
+        if (amount < 0.0) {
+            throw new IllegalArgumentException(
+                    "Historical booking amount cannot be negative.");
+        }
+
+        this.amount = amount;
+        applyMembershipDiscount();
+    }
+
+    /**
      * Calculates and stores the membership pricing for this Booking.
      * The gross amount remains unchanged for Loyalty points calculation.
      */

@@ -4,6 +4,7 @@
  */
 package com.tarumt.resorts.entity;
 
+import com.tarumt.resorts.util.LoyaltyClock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -37,6 +38,8 @@ public class LoyaltyTransaction {
     private TransactionType transactionType;
     private int points;
     private int remainingPoints;
+    private int historyRemainingPoints;
+    private RewardPackage rewardPackage;
     private LocalDate transactionDate;
     private LocalDateTime transactionTime;
     private LocalDateTime expiryTime;
@@ -74,7 +77,7 @@ public class LoyaltyTransaction {
                 transactionType,
                 points,
                 transactionDate == null
-                        ? LocalDateTime.now()
+                        ? LoyaltyClock.now()
                         : transactionDate.atStartOfDay(),
                 expiryTime);
     }
@@ -124,13 +127,15 @@ public class LoyaltyTransaction {
                 || transactionType == TransactionType.ADJUST) {
 
             this.remainingPoints = points;
+            this.historyRemainingPoints = points;
         } else {
             this.remainingPoints = 0;
+            this.historyRemainingPoints = 0;
         }
 
         this.transactionTime =
                 transactionTime == null
-                        ? LocalDateTime.now()
+                        ? LoyaltyClock.now()
                         : transactionTime;
 
         this.transactionDate =
@@ -179,6 +184,54 @@ public class LoyaltyTransaction {
 
     public int getRemainingPoints() {
         return remainingPoints;
+    }
+
+    /**
+     * Returns the remaining value recorded for transaction-history display.
+     * Unlike a point batch's live remainingPoints, this value is not changed
+     * when a later redemption consumes that batch.
+     */
+    public int getHistoryRemainingPoints() {
+        return historyRemainingPoints;
+    }
+
+    public RewardPackage getRewardPackage() {
+        return rewardPackage;
+    }
+
+    /** Associates a redeemed reward with its ledger transaction. */
+    public void setRewardPackage(RewardPackage rewardPackage) {
+
+        if (transactionType != TransactionType.REDEEM
+                && rewardPackage != null) {
+            throw new IllegalStateException(
+                    "Only REDEEM transactions can contain a reward.");
+        }
+
+        this.rewardPackage = rewardPackage;
+    }
+
+    /**
+     * Records the account balance after a REDEEM or EXPIRE transaction and
+     * the expiry time of the point batch that was removed.
+     */
+    public void recordRemovalResult(
+            int balanceAfterTransaction,
+            LocalDateTime sourceBatchExpiryTime) {
+
+        if (transactionType != TransactionType.REDEEM
+                && transactionType != TransactionType.EXPIRE) {
+            throw new IllegalStateException(
+                    "Only REDEEM or EXPIRE can record a removal result.");
+        }
+
+        if (balanceAfterTransaction < 0) {
+            throw new IllegalArgumentException(
+                    "Balance after transaction cannot be negative.");
+        }
+
+        historyRemainingPoints = balanceAfterTransaction;
+        expiryTime = sourceBatchExpiryTime;
     }
 
     public LocalDate getTransactionDate() {

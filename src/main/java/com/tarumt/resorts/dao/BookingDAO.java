@@ -6,6 +6,8 @@ import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 
 /**
@@ -24,6 +26,9 @@ import java.util.Iterator;
  * @author Keng Ting
  */
 public class BookingDAO {
+
+        private static final DateTimeFormatter BOOKING_TIME_FORMAT =
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
         private ListQueueInterface<Guest> guests;
         private ListQueueInterface<Room> rooms;
@@ -509,7 +514,137 @@ public class BookingDAO {
 
                 // Add planned stay dates and recalculate each booking amount.
                 applySampleSchedules(bookings);
+                addHistoricalLoyaltyBookings(bookings);
                 return bookings;
+        }
+
+        /**
+         * Adds verified historical stays used by the Loyalty opening ledger.
+         * Every point batch therefore references a real shared Booking rather
+         * than an unlinked ADJUST transaction.
+         */
+        private void addHistoricalLoyaltyBookings(
+                        ListQueueInterface<Booking> bookings) {
+
+                int[] nextBookingNumber = {1001};
+
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G001", 500, 36);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G016", 800, 34);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G002", 1800, 55);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G002", 3000, 20);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G003", 7500, 48);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G004", 12000, 42);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G006", 23000, 18);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G005", 15000, 33);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G010", 12000, 46);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G011", 17500, 29);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G012", 23000, 24);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G008", 1200, 53);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G008", 2000, 22);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G009", 3000, 51);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G009", 4100, 27);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G014", 700, 49);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G014", 1000, 21);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G017", 700, 47);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G017", 1000, 19);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G015", 3000, 54);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G015", 4500, 26);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G018", 3000, 52);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G018", 4500, 25);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G019", 1200, 45);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G019", 2000, 17);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G020", 2500, 50);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G020", 3500, 23);
+        }
+
+        /** Splits one verified total into several independently dated stays. */
+        private void addHistoricalEarnedPoints(
+                        ListQueueInterface<Booking> bookings,
+                        int[] nextBookingNumber,
+                        String guestId,
+                        int totalPoints,
+                        int latestStayDaysAgo) {
+
+                if (totalPoints >= 2000) {
+                        int first = totalPoints * 40 / 100;
+                        int second = totalPoints * 30 / 100;
+                        int third = totalPoints - first - second;
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, first, latestStayDaysAgo + 28);
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, second, latestStayDaysAgo + 14);
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, third, latestStayDaysAgo);
+                } else {
+                        int first = totalPoints / 2;
+                        int second = totalPoints - first;
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, first, latestStayDaysAgo + 14);
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, second, latestStayDaysAgo);
+                }
+        }
+
+        /** Creates one real PAID and CHECKED_OUT historical Booking. */
+        private void addHistoricalLoyaltyBooking(
+                        ListQueueInterface<Booking> bookings,
+                        int[] nextBookingNumber,
+                        String guestId,
+                        int points,
+                        int stayDaysAgo) {
+
+                LocalDateTime checkOutTime = LocalDateTime.now()
+                                .minusDays(stayDaysAgo)
+                                .withHour(11)
+                                .withMinute(0)
+                                .withSecond(0)
+                                .withNano(0);
+                LocalDate checkInDate = checkOutTime.toLocalDate().minusDays(1);
+                String confirmationNumber = String.format(
+                                "%04d%04d",
+                                checkOutTime.getYear(),
+                                nextBookingNumber[0]++);
+                Booking booking = new Booking(
+                                confirmationNumber,
+                                findGuest(guestId),
+                                findRoom("101"),
+                                checkInDate.atTime(14, 0)
+                                                .format(BOOKING_TIME_FORMAT));
+
+                booking.setSchedule(checkInDate, 1);
+                booking.setHistoricalAmount(points);
+                booking.setPaymentStatus("PAID");
+                booking.setStatus("CHECKED_OUT");
+                booking.setCheckOutTime(
+                                checkOutTime.format(BOOKING_TIME_FORMAT));
+                bookings.enqueue(booking);
         }
 
         /**
