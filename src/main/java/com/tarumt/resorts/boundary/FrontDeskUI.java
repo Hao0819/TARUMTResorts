@@ -464,6 +464,18 @@ public class FrontDeskUI {
             return;
         }
 
+        // Added: the room must still be Housekeeping-READY right now, not
+        // just at the moment it was originally allocated. Gives a specific
+        // message instead of letting this fall through to the generic
+        // "CHECK-IN FAILED" notice below.
+        if (!control.isBookingRoomReadyForCheckIn(booking)) {
+            printNotice("ROOM NOT READY",
+                    "Room " + booking.getRoom().getRoomNumber()
+                            + " is currently " + booking.getRoom().getCleaningStatus() + ".",
+                    "Housekeeping must bring this room to READY before the guest can check in.");
+            return;
+        }
+
         String checkInTime = java.time.LocalDateTime.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 

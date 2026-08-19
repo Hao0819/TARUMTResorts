@@ -472,8 +472,22 @@ public class FrontDeskControl {
      * (not available) and, since the bill is settled on arrival, the payment
      * status is marked PAID (CONFIRMED/UNPAID -> ACTIVE/PAID).
      *
-     * @return false if the booking is missing, not CONFIRMED, or the arrival
-     *         date is before the scheduled check-in date
+     * Added: also re-checks Housekeeping readiness at the moment of actual
+     * arrival, not just at allocation time. Walk-In/VIP only validate a
+     * room's cleaning status when the booking is created AND only for a
+     * same-day request (see WalkInRegistrationControl.isReadyForAllocation()
+     * / VIPAllocationControl.isReadyForAllocation()) - a room booked well in
+     * advance is never re-checked before the guest actually shows up days or
+     * weeks later. Without this check, a room that Housekeeping re-logged as
+     * DIRTY/CLEANING/INSPECTED after allocation (e.g. a supervisor's manual
+     * "d" jump-to-DIRTY) could still be checked into. Re-validating here, on
+     * the shared Room object's own cleaningStatus field, closes that gap
+     * without requiring Front-Desk to depend on the optional Housekeeping
+     * control reference.
+     *
+     * @return false if the booking is missing, not CONFIRMED, the arrival
+     *         date is before the scheduled check-in date, or the room is not
+     *         currently Housekeeping-READY (nor UNKNOWN/never logged)
      */
     public boolean checkInBooking(String confirmationNumber, String checkInTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
@@ -482,6 +496,11 @@ public class FrontDeskControl {
         }
         // No early check-in: the arrival date must not precede the schedule.
         if (isBeforeScheduledCheckIn(booking, parseDatePart(checkInTime))) {
+            return false;
+        }
+        // Added: the room must still be Housekeeping-ready right now - not
+        // just at the moment the booking was originally allocated.
+        if (!isRoomReadyForCheckIn(booking.getRoom())) {
             return false;
         }
         booking.setCheckInTime(checkInTime);
@@ -504,6 +523,38 @@ public class FrontDeskControl {
                 && booking.getScheduledCheckInDate() != null
                 && arrivalDate != null
                 && arrivalDate.isBefore(booking.getScheduledCheckInDate());
+    }
+
+    /**
+     * Added: true when a room is Housekeeping-READY, or has never been
+     * logged at all (cleaningStatus null/"UNKNOWN"). Mirrors
+     * WalkInRegistrationControl.isReadyForAllocation() /
+     * VIPAllocationControl.isReadyForAllocation() exactly, so all three
+     * modules agree on what "ready for a guest" means. Reads the shared
+     * Room object's own field directly rather than calling into
+     * HousekeepingControl, so this works even when Housekeeping isn't wired
+     * in (standalone Front-Desk mode) - it simply falls back to whatever the
+     * Room's own cleaningStatus already says (default "UNKNOWN").
+     */
+    private boolean isRoomReadyForCheckIn(Room room) {
+        if (room == null) {
+            return false;
+        }
+        String cleaningStatus = room.getCleaningStatus();
+        return cleaningStatus == null
+                || cleaningStatus.equalsIgnoreCase("READY")
+                || cleaningStatus.equalsIgnoreCase("UNKNOWN");
+    }
+
+    /**
+     * Public, null-safe wrapper around {@link #isRoomReadyForCheckIn(Room)}
+     * so the boundary layer can show a specific "room not ready" message
+     * instead of a generic check-in failure, the same way
+     * {@link #isBeforeScheduledCheckIn(Booking, LocalDate)} is exposed for
+     * the early-arrival case.
+     */
+    public boolean isBookingRoomReadyForCheckIn(Booking booking) {
+        return booking != null && isRoomReadyForCheckIn(booking.getRoom());
     }
 
     /** Extracts the date (yyyy-MM-dd) from a "yyyy-MM-dd HH:mm" string; null if unparseable. */

@@ -50,7 +50,11 @@ public class HousekeepingControl {
     };
 
     // --- Added: auto-transition timer support ---
-    private static final long AUTO_INSPECT_DELAY_SECONDS = 10; // 1 minute
+    // Fixed: this was previously set to 10 (seconds) while the comment
+    // above, this field's own inline comment, and ReadMe.txt all describe
+    // the delay as "one minute" - the constant now actually matches the
+    // documented/specified behaviour.
+    private static final long AUTO_INSPECT_DELAY_SECONDS = 60; // 1 minute
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
