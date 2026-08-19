@@ -24,8 +24,7 @@ import java.time.LocalDate;
 public class WalkInRegistrationControl {
 
     // Active registrations processed using strict FIFO behaviour.
-    private ListQueueInterface<WalkInRegistration> registrationQueue = new DoublyLinkedListQueue<>(); // ADT collection
-                                                                                                      // declaration
+    private ListQueueInterface<WalkInRegistration> registrationQueue = new DoublyLinkedListQueue<>(); // ADT collection declaration
 
     // Complete registration records used for searching and reporting.
     private ListQueueInterface<WalkInRegistration> registrationHistory; // ADT collection declaration
@@ -361,8 +360,7 @@ public class WalkInRegistrationControl {
 
         String targetGuestId = guestId.trim();
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call:
-                                                                                             // getIterator()
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -814,8 +812,7 @@ public class WalkInRegistrationControl {
 
         WalkInRegistration latestRegistration = null;
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call:
-                                                                                             // getIterator()
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -865,8 +862,7 @@ public class WalkInRegistrationControl {
         int matchingRecordCount = 0;
 
         // First traversal: count matching records.
-        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator(); // ADT method call:
-                                                                                        // getIterator()
+        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
 
         while (countIterator.hasNext()) {
             WalkInRegistration registration = countIterator.next();
@@ -880,8 +876,7 @@ public class WalkInRegistrationControl {
         WalkInRegistration[] matchingRegistrations = new WalkInRegistration[matchingRecordCount];
 
         // Second traversal: store matching record references.
-        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator(); // ADT method call:
-                                                                                        // getIterator()
+        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
 
         int arrayIndex = 0;
 
