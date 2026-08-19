@@ -52,7 +52,7 @@ public class HouseKeepingUI {
      * Uses control.getAllRooms() (a copy of the shared room list) and
      * control.getCurrentStatus() per room, so it always reflects the
      * latest logged status — including anything auto-logged by the
-     * background CLEANING -> INSPECTED timer.
+     * background DIRTY -> CLEANING -> INSPECTED -> READY timers.
      */
     private void printAllRoomsTable() {
         ListQueueInterface<Room> allRooms = control.getAllRooms();
@@ -524,20 +524,28 @@ public class HouseKeepingUI {
     /**
      * Report 2: average time per cleaning stage.
      *
-     * Added: CLEANING removed from the selectable filter options.
-     * Since HousekeepingControl now auto-logs INSPECTED at a fixed
-     * delay (scheduleAutoInspect()), CLEANING duration is no longer a
-     * real, staff-timed measurement — the control layer excludes it
-     * from the calculation, so offering it here as a filter would only
-     * ever return "No data available for this filter."
+     * Added: INSPECTED stays removed from the selectable filter options —
+     * HousekeepingControl still auto-logs READY at a fixed delay
+     * (scheduleAutoReady()) whenever a room isn't sent back for rework at
+     * that checkpoint, so INSPECTED's duration usually isn't a real,
+     * staff-timed measurement, and the control layer excludes it from the
+     * calculation.
+     *
+     * CLEANING is back as a filter option. Even though CLEANING -> INSPECTED
+     * is also auto-logged (scheduleAutoInspect()), a supervisor can now
+     * roll back a failed INSPECTED check, sending the room back to
+     * CLEANING for real rework before it's manually re-inspected — so
+     * CLEANING's duration can genuinely run longer than the fixed delay
+     * and is worth reporting again (see HousekeepingControl's Javadoc for
+     * the full explanation).
      */
     private void reportAverageDuration() {
-        printFilterMenuTable("FILTER BY STAGE", new String[]{"D", "I", "A"},
-                new String[]{"DIRTY", "INSPECTED", "ALL"});
+        printFilterMenuTable("FILTER BY STAGE", new String[]{"D", "C", "A"},
+                new String[]{"DIRTY", "CLEANING", "ALL"});
 
         String stageFilter;
         while (true) {
-            System.out.print("Enter stage keyword (D/I/A, or 0 to cancel): ");
+            System.out.print("Enter stage keyword (D/C/A, or 0 to cancel): ");
             String input = sc.nextLine().trim().toUpperCase();
             if (input.equals("0")) {
                 System.out.println("Cancelled. Returning to Housekeeping menu...");
@@ -545,16 +553,16 @@ public class HouseKeepingUI {
             }
             switch (input) {
                 case "D" -> stageFilter = "DIRTY";
-                case "I" -> stageFilter = "INSPECTED";
+                case "C" -> stageFilter = "CLEANING";
                 case "A", "" -> stageFilter = "ALL";
                 default -> stageFilter = input; // allow the full word too
             }
             if (stageFilter.equalsIgnoreCase("ALL")
                     || stageFilter.equalsIgnoreCase("DIRTY")
-                    || stageFilter.equalsIgnoreCase("INSPECTED")) {
+                    || stageFilter.equalsIgnoreCase("CLEANING")) {
                 break;
             }
-            System.out.println("Invalid choice. Please enter D, I, A, or 0 to cancel.");
+            System.out.println("Invalid choice. Please enter D, C, A, or 0 to cancel.");
         }
 
         ListQueueInterface<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
