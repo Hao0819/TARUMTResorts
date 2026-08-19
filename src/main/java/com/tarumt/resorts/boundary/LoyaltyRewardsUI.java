@@ -766,6 +766,7 @@ int selectedOption = readChoice();
                 "| %-57s |%n",
                 " ".repeat(leftPadding) + title);
         System.out.println(outerBorder);
+        displayCompletedStayBookingList();
         System.out.print("Enter Booking confirmation number: ");
         String bookingId = scanner.nextLine().trim();
 
@@ -865,6 +866,56 @@ int selectedOption = readChoice();
                 "Current Tier",
                 account == null ? "-" : account.getMembershipTier());
         System.out.println(columnBorder);
+    }
+
+    /** Displays completed Booking confirmation numbers before lookup input. */
+    private void displayCompletedStayBookingList() {
+
+        ListQueueInterface<Booking> completedBookings =
+                loyaltyControl.getCompletedStayBookingsForDisplay();
+
+        System.out.println();
+        System.out.println("COMPLETED-STAY BOOKING LIST");
+
+        if (completedBookings == null || completedBookings.isEmpty()) {
+            System.out.println("No completed-stay bookings available.");
+            System.out.println();
+            return;
+        }
+
+        String border =
+                "+------------+----------+------------------------+-------------+---------+----------+--------------+";
+        System.out.println(border);
+        System.out.printf(
+                "| %-10s | %-8s | %-22s | %-11s | %-7s | %8s | %-12s |%n",
+                "Booking", "Guest ID", "Guest Name", "Status",
+                "Payment", "Amount", "Point Status");
+        System.out.println(border);
+
+        Iterator<Booking> iterator = completedBookings.getIterator();
+
+        while (iterator.hasNext()) {
+            Booking booking = iterator.next();
+            Guest guest = booking.getGuest();
+            boolean processed =
+                    loyaltyControl.findEarnTransactionByBookingId(
+                            booking.getConfirmationNumber()) != null;
+
+            System.out.printf(
+                    "| %-10.10s | %-8.8s | %-22.22s | %-11.11s | %-7.7s | %8.2f | %-12.12s |%n",
+                    booking.getConfirmationNumber(),
+                    guest == null ? "-" : guest.getGuestId(),
+                    guest == null ? "-" : guest.getName(),
+                    booking.getStatus(),
+                    booking.getPaymentStatus(),
+                    booking.getAmount(),
+                    processed ? "PROCESSED" : "PENDING");
+        }
+
+        System.out.println(border);
+        System.out.println("Total completed stays: "
+                + completedBookings.getNumberOfEntries());
+        System.out.println();
     }
 
     /** Prints one aligned label/value row for completed-stay processing. */
