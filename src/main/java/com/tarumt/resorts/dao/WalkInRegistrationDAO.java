@@ -18,6 +18,7 @@ import java.time.LocalDate;
  */
 public class WalkInRegistrationDAO {
 
+        /** Builds and returns the hard-coded sample Walk-In registration history, linked to the shared Guests. */
         public ListQueueInterface<WalkInRegistration> getAllRegistrations(
                         ListQueueInterface<Guest> sharedGuests) {
 
@@ -146,11 +147,11 @@ public class WalkInRegistrationDAO {
 
         }
 
+        // Finds a shared Guest by exact Guest ID, so each sample registration links to a real Guest.
         private Guest findGuestById(
                         ListQueueInterface<Guest> guests,
                         String guestId) {
 
-                // Search the linked entries directly using Guest ID as the key.
                 return guests.searchByKey(
                                 guestId,
                                 guest -> guest.getGuestId());
