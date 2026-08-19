@@ -9,6 +9,7 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
+import com.tarumt.resorts.util.RoomScheduleAvailability;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
@@ -700,7 +701,7 @@ public class WalkInRegistrationControl {
             LocalDate requestedCheckInDate,
             LocalDate requestedCheckOutDate) {
 
-        return com.tarumt.resorts.util.RoomScheduleAvailability.isAvailable(
+        return RoomScheduleAvailability.isAvailable(
                 bookingList,
                 room,
                 requestedCheckInDate,
