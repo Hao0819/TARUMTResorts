@@ -82,7 +82,7 @@ public class TARUMTResorts {
                 HousekeepingControl housekeepingControl = new HousekeepingControl(
                                 sharedRooms,
                                 sharedStatusLogs);
-                                
+
                 // Front-Desk receives the SAME shared references, so it can see
                 // bookings created at runtime by Walk-In, and its check-out
                 // updates the same Room objects Walk-In/Housekeeping query.
