@@ -280,6 +280,22 @@ public class LoyaltyRewardsControl {
         );
     }
 
+    /**
+     * Returns operational completed stays for the Loyalty lookup table.
+     * Historical seed bookings (20261xxx) are already represented in the
+     * opening ledger and are omitted to keep the selection table concise.
+     */
+    public ListQueueInterface<Booking> getCompletedStayBookingsForDisplay() {
+
+        return bookings.filter(booking ->
+                booking != null
+                && booking.getStatus() != null
+                && booking.getStatus().equalsIgnoreCase("CHECKED_OUT")
+                && booking.getConfirmationNumber() != null
+                && !booking.getConfirmationNumber()
+                        .matches("^20261\\d{3}$"));
+    }
+
     // -------------------------------------------------------------------------
     // ACCOUNT CREATION
     // -------------------------------------------------------------------------
