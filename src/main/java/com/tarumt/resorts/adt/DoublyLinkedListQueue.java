@@ -50,12 +50,14 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         }
     }
 
+    // Creates an empty queue.
     public DoublyLinkedListQueue() {
         front = null;
         rear = null;
         numberOfEntries = 0;
     }
 
+    // Adds newEntry as a new rear node. O(1).
     @Override
     public boolean enqueue(T newEntry) {
 
@@ -84,6 +86,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return true;
     }
 
+    // Removes and returns the front node's entry. O(1).
     @Override
     public T dequeue() {
 
@@ -114,6 +117,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return removedData;
     }
 
+    // Returns the front entry without removing it. O(1).
     @Override
     public T peek() {
         if (isEmpty()) {
@@ -122,6 +126,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return front.data;
     }
 
+    // Returns the entry at the given position, walking from whichever end (front/rear) is nearer.
     @Override
     public T getEntry(int position) {
 
@@ -155,6 +160,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return currentNode.data;
     }
 
+    // Linear search for an entry equal to anEntry. O(n).
     @Override
     public boolean contains(T anEntry) {
 
@@ -199,16 +205,19 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         };
     }
 
+    // Returns the current entry count. O(1).
     @Override
     public int getNumberOfEntries() {
         return numberOfEntries;
     }
 
+    // True if the queue holds no entries. O(1).
     @Override
     public boolean isEmpty() {
         return numberOfEntries == 0;
     }
 
+    // True if the queue cannot accept more entries; always false for this unbounded linked structure.
     @Override
     public boolean isFull() {
         // Linked implementation - queue is only "full" if memory runs out.
@@ -217,6 +226,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return false;
     }
 
+    // Removes every entry, leaving the queue empty. O(1) reference reset.
     @Override
     public void clear() {
         front = null;
@@ -225,6 +235,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
     }
 
     // ===== Stack-like behaviour (added by: Housekeeping module owner) =====
+    // Removes and returns the rear node's entry, for undo/rollback. O(1).
     @Override
     public T removeLast() {
 
@@ -255,6 +266,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return removedData;
     }
 
+    // Returns the rear entry without removing it, to preview before a rollback. O(1).
     @Override
     public T peekLast() {
         if (isEmpty()) {
@@ -265,6 +277,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
 
     // ===== Key-based search behaviour (added by: Front-Desk module owner) =====
 
+    // Finds the first entry whose extracted key equals the given key (case-insensitive). O(n).
     @Override
     public T searchByKey(String key, KeyExtractor<T> extractor) {
         if (key == null || extractor == null) {
