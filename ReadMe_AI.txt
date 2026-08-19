@@ -260,6 +260,22 @@ Date range:
 The system uses [check-in date, check-out date). A check-in on 14 August for
 3 nights occupies 14, 15, and 16 August and checks out on 17 August.
 
+Housekeeping turnaround buffer (Walk-In only so far):
+
+WalkInRegistrationControl additionally blocks the room's schedule for one
+extra day past the existing booking's check-out date, so a new stay cannot
+be scheduled to check in on the same calendar day another guest checks out.
+This reserves guaranteed time for Housekeeping to complete the
+DIRTY -> CLEANING -> INSPECTED -> READY cycle before the next guest arrives.
+The rule lives in the shared static helper
+com.tarumt.resorts.util.RoomScheduleAvailability.isAvailable(...), used by
+WalkInRegistrationControl.isRoomAvailableForSchedule(). VIPAllocationControl
+and FrontDeskControl still use their own local copies of the overlap check
+WITHOUT this buffer, so as of this writing Walk-In and VIP/Front-Desk can
+disagree about whether a room is bookable on its previous guest's check-out
+day. Each owner should switch their private overlap method to delegate to
+RoomScheduleAvailability.isAvailable(...) so all three modules agree.
+
 Strict FIFO allocation:
 
 1. peek() the front request.
@@ -754,16 +770,36 @@ Loyalty:
    Housekeeping auto-inspection and Loyalty near-expiry data use short demo
    timing. Normal Loyalty EARN batches use a one-year policy.
 
-7. Discount consistency must be resolved before final demo
-   MembershipTier/Booking currently uses:
+7. Discount consistency (resolved)
+   MembershipTier is now the single source for room discount rates:
    NONE 0%, SILVER 5%, GOLD 8%, PLATINUM 10%, DIAMOND 15%, ELITE 20%.
 
-   LoyaltyRewardsControl currently separately calculates:
-   NONE 0%, SILVER 5%, GOLD 10%, PLATINUM 15%, DIAMOND 20%, ELITE 25%.
+   LoyaltyRewardsControl.getRoomDiscountRate() delegates directly to
+   MembershipTier.getRoomDiscountRate() instead of keeping its own table, so
+   Booking.finalAmount and the Loyalty payment preview always agree.
 
-   Booking finalAmount and Loyalty payment preview can therefore disagree.
-   The team should choose one shared rate table and use MembershipTier as the
-   single source before the final demo.
+8. Front-Desk check-in does not verify Housekeeping cleaning status
+   FrontDeskControl.checkInBooking() checks only that the Booking is
+   CONFIRMED and not arriving early - it never checks Room.getCleaningStatus().
+   A guest can therefore be checked into (ACTIVE) a room whose Housekeeping
+   status is still DIRTY, if the room became dirty after allocation, or if a
+   future-dated booking's target date arrives before Housekeeping actually
+   finishes cleaning it. Walk-In/VIP only check cleaning status at allocation
+   time, and only for a same-day request. Not yet fixed - the fix belongs in
+   FrontDeskControl.checkInBooking(), owned by the Front-Desk module.
+
+9. Room/date overlap rule not yet consistent across all three allocation
+   paths (open team task)
+   WalkInRegistrationControl now delegates its schedule-overlap check to the
+   shared util.RoomScheduleAvailability.isAvailable(...), which also adds a
+   1-day Housekeeping turnaround buffer past each booking's check-out date
+   (see the Walk-In "Housekeeping turnaround buffer" note above).
+   VIPAllocationControl.isRoomAvailableForSchedule() and
+   FrontDeskControl.isRoomTakenInRange() still keep their own local copies of
+   the same rule WITHOUT the buffer. Until each owner switches their private
+   method to call RoomScheduleAvailability.isAvailable(...) instead, Walk-In
+   can disagree with VIP/Front-Desk about whether a room is bookable on its
+   previous guest's check-out day.
 
 
 ======================================================================
