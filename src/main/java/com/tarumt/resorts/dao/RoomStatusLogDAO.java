@@ -24,7 +24,12 @@ import com.tarumt.resorts.adt.ListQueueInterface;
  * only ever becomes occupied (isAvailable = false in RoomDAO) through
  * Walk-In/VIP allocation, and allocation only accepts a room whose
  * cleaning status is READY or UNKNOWN (see
- * FrontDeskControl.isBookable()). So every room RoomDAO marks as
+ * WalkInRegistrationControl.isReadyForAllocation() and
+ * VIPAllocationControl.isReadyForAllocation() — both private methods with
+ * identical logic; FrontDeskControl.isRoomReadyForCheckIn() re-applies the
+ * same rule again at actual check-in time, in case the room's status
+ * changed after allocation but before the guest arrived). So every room
+ * RoomDAO marks as
  * occupied (103, 106, 111, 115, 202, 205, 209, 213, 302, 303, 307) MUST
  * end its history here at READY — it was clean when the guest checked
  * in, and check-in never changes the housekeeping status. A room ending
@@ -61,7 +66,8 @@ public class RoomStatusLogDAO {
         logs.enqueue(new RoomStatusLog("103", "CLEANING", "2026-07-19 07:50"));
         logs.enqueue(new RoomStatusLog("103", "INSPECTED", "2026-07-19 08:00"));
         logs.enqueue(new RoomStatusLog("103", "READY", "2026-07-19 08:10"));
-        // Room 104 (Standard) — ends DIRTY
+        // Room 104 (Standard) — ends DIRTY (has a CHECKED_OUT booking in
+        // BookingDAO; nobody has cleaned it yet since the guest left)
         logs.enqueue(new RoomStatusLog("104", "DIRTY", "2026-07-19 08:20"));
         // Room 105 (Standard) — ends DIRTY (has a CHECKED_OUT booking in
         // BookingDAO; nobody has cleaned it yet since the guest left)
@@ -171,7 +177,8 @@ public class RoomStatusLogDAO {
         logs.enqueue(new RoomStatusLog("303", "CLEANING", "2026-07-19 20:30"));
         logs.enqueue(new RoomStatusLog("303", "INSPECTED", "2026-07-19 20:40"));
         logs.enqueue(new RoomStatusLog("303", "READY", "2026-07-19 20:50"));
-        // Room 304 (Suite) — ends DIRTY
+        // Room 304 (Suite) — ends DIRTY (has a CHECKED_OUT booking in
+        // BookingDAO; nobody has cleaned it yet since the guest left)
         logs.enqueue(new RoomStatusLog("304", "DIRTY", "2026-07-19 21:00"));
         // Room 305 (Suite) — ends DIRTY (has a CHECKED_OUT booking in
         // BookingDAO; nobody has cleaned it yet since the guest left)
