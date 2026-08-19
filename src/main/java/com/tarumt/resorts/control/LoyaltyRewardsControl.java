@@ -1223,14 +1223,7 @@ public double getRoomDiscountRate(MembershipTier tier) {
         return 0.0;
     }
 
-    return switch (tier) {
-        case NONE -> 0.00;
-        case SILVER -> 0.05;
-        case GOLD -> 0.10;
-        case PLATINUM -> 0.15;
-        case DIAMOND -> 0.20;
-        case ELITE -> 0.25;
-    };
+    return tier.getRoomDiscountRate();
 }
 
 /**
