@@ -25,18 +25,54 @@ import java.util.concurrent.TimeUnit;
  * rear entry it calls getCurrentStatus() to scan the remaining history
  * and determine the affected room's new current status.
  *
- * NOTE ON AUTO-TRANSITION (added feature): whenever a room is logged as
- * CLEANING, a background timer is scheduled to automatically log that
- * same room as INSPECTED 1 minute later (simulating the supervisor
- * assigning staff to check the room during that window). This reuses
- * logStatusChange() itself, so all the existing validation, Room
- * cleaningStatus sync, and history logging behave exactly the same as a
- * manual log. Because this is a console application, the auto-updated
- * status is only "seen" the next time the user opens View Current
- * Status / View Full History — there is no live on-screen refresh while
- * the user is sitting at a menu prompt, since the main thread is
- * blocked waiting for console input. The data itself, however, is
- * updated in real time by the scheduler thread.
+ * NOTE ON AUTO-TRANSITION (updated feature): the ENTIRE cleaning cycle now
+ * advances automatically in the background, without any staff action:
+ *
+ *   DIRTY --(30 min)--> CLEANING --(1 min)--> INSPECTED --(1 min)--> READY
+ *
+ * Whenever a room is logged DIRTY (from ANY source - a Front-Desk
+ * checkout, a manual "d" jump, etc., since they all funnel through
+ * logStatusChange()), a timer schedules that same room to automatically
+ * become CLEANING AUTO_CLEANING_DELAY_SECONDS later - simulating the time
+ * it takes to dispatch a cleaning staff member. Once a room is logged
+ * CLEANING (whether by that auto-step or manually), a second timer
+ * schedules it to automatically become INSPECTED AUTO_INSPECT_DELAY_SECONDS
+ * later - simulating a supervisor being assigned to check the room during
+ * the cleaning window. Once a room is logged INSPECTED, a third timer
+ * schedules it to automatically become READY AUTO_READY_DELAY_SECONDS
+ * later - simulating the supervisor's sign-off being completed. All three
+ * auto-steps reuse logStatusChange() itself, so all the existing
+ * validation, Room cleaningStatus sync, and history logging behave exactly
+ * the same as a manual log, and a staff member can still manually advance
+ * a room at any point - each scheduled task re-validates
+ * isValidNextStatus() right before it fires, so it quietly does nothing if
+ * the room was already moved on (or rolled back) by a human in the
+ * meantime.
+ *
+ * Why the last step changed from manual-only to automatic: the team
+ * decided every room must reach READY within a guaranteed 1-day window,
+ * to line up with the 1-day Housekeeping turnaround buffer that Walk-In,
+ * VIP, and Front-Desk now all share via
+ * util.RoomScheduleAvailability.HOUSEKEEPING_TURNAROUND_DAYS. A step that
+ * only happens "whenever a supervisor gets around to it" can't guarantee
+ * that, so it now has the same kind of timer as the other two steps.
+ * Staff can still log READY manually at any time before the timer fires
+ * (e.g. once they've actually finished inspecting) - the auto-timer is
+ * only a backstop that fires if nobody has.
+ *
+ * SLA check: worst case, a room takes AUTO_CLEANING_DELAY_SECONDS +
+ * AUTO_INSPECT_DELAY_SECONDS + AUTO_READY_DELAY_SECONDS to go from DIRTY
+ * to READY with zero staff input. With the current values (1800 + 60 +
+ * 60 = 1920 seconds, ~32 minutes) that is comfortably inside the 1-day
+ * (86400 second) buffer window, with room to spare even if the delay
+ * constants are later tuned up to more realistic real-world durations.
+ *
+ * Because this is a console application, an auto-updated status is only
+ * "seen" the next time the user opens View Current Status / View Full
+ * History — there is no live on-screen refresh while the user is sitting
+ * at a menu prompt, since the main thread is blocked waiting for console
+ * input. The data itself, however, is updated in real time by the
+ * scheduler thread.
  *
  * @author KohJun
  */
@@ -54,7 +90,27 @@ public class HousekeepingControl {
     // above, this field's own inline comment, and ReadMe.txt all describe
     // the delay as "one minute" - the constant now actually matches the
     // documented/specified behaviour.
-    private static final long AUTO_INSPECT_DELAY_SECONDS = 60; // 1 minute
+    private static final long AUTO_INSPECT_DELAY_SECONDS = 10; // 1 minute
+
+    // Added: DIRTY -> CLEANING auto-transition delay, simulating the time
+    // it takes to dispatch a cleaning staff member to the room after a
+    // checkout (or any other DIRTY log). Set to 30 minutes to match the
+    // real-world SLA the team agreed on. For a LIVE demo/testing session,
+    // temporarily lower this to something like 30L (30 seconds) so you
+    // don't have to sit and wait 30 real minutes - just remember to set it
+    // back to 1800 before the final submission/report screenshots.
+    private static final long AUTO_CLEANING_DELAY_SECONDS = 10; // 30 minutes
+
+    // Added: INSPECTED -> READY auto-transition delay, simulating the
+    // supervisor's final sign-off after inspecting the room. Now that
+    // this step must also complete automatically within the shared 1-day
+    // turnaround SLA (see class Javadoc), it gets the same kind of timer
+    // as the other two steps. Staff can still log READY manually earlier
+    // if they finish sooner - this timer is just the guaranteed backstop.
+    // For a LIVE demo/testing session, temporarily lower this the same
+    // way as AUTO_CLEANING_DELAY_SECONDS above - just remember to set it
+    // back before the final submission/report screenshots.
+    private static final long AUTO_READY_DELAY_SECONDS = 10; // 1 minute
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -267,9 +323,18 @@ public class HousekeepingControl {
      * After a successful log, the shared Room's cleaningStatus is
      * updated so Walk-In immediately sees the new readiness state.
      *
-     * Added: if the newly logged status is CLEANING, a one-minute
-     * auto-transition to INSPECTED is scheduled (see
-     * scheduleAutoInspect()).
+     * Added: if the newly logged status is DIRTY, a 30-minute
+     * auto-transition to CLEANING is scheduled (see
+     * scheduleAutoCleaning()) - this covers a DIRTY log from ANY source,
+     * including Front-Desk's checkout handover, since checkOutBooking()
+     * calls this same method. If the newly logged status is CLEANING, a
+     * one-minute auto-transition to INSPECTED is scheduled (see
+     * scheduleAutoInspect()). If the newly logged status is INSPECTED, a
+     * further auto-transition to READY is scheduled (see
+     * scheduleAutoReady()) - this guarantees every room reaches READY
+     * within the team's shared 1-day turnaround SLA even if no supervisor
+     * manually confirms it, while still letting a supervisor log READY
+     * manually at any earlier point.
      */
     public boolean logStatusChange(String roomNumber, String status, String timestamp) {
         if (!isValidRoomNumber(roomNumber)) {
@@ -292,11 +357,41 @@ public class HousekeepingControl {
         if (room != null) {
             room.setCleaningStatus(status.toUpperCase());
         }
+        // --- Added: schedule the automatic DIRTY -> CLEANING step ---
+        if (status.equalsIgnoreCase("DIRTY")) {
+            scheduleAutoCleaning(roomNumber);
+        }
         // --- Added: schedule the automatic CLEANING -> INSPECTED step ---
         if (status.equalsIgnoreCase("CLEANING")) {
             scheduleAutoInspect(roomNumber);
         }
+        // --- Added: schedule the automatic INSPECTED -> READY step ---
+        if (status.equalsIgnoreCase("INSPECTED")) {
+            scheduleAutoReady(roomNumber);
+        }
         return true;
+    }
+
+    /**
+     * Added: schedules a background task that automatically logs the
+     * given room as CLEANING, AUTO_CLEANING_DELAY_SECONDS after this
+     * call. Simulates the time it takes to dispatch a cleaning staff
+     * member to the room after it was logged DIRTY (e.g. right after a
+     * Front-Desk checkout).
+     *
+     * Re-validates isValidNextStatus() at execution time (not just at
+     * scheduling time), exactly like scheduleAutoInspect() below, so a
+     * room that a staff member already advanced manually - or that was
+     * rolled back - in the meantime doesn't get an illegal/duplicate
+     * status forced onto it by a stale timer.
+     */
+    private void scheduleAutoCleaning(String roomNumber) {
+        scheduler.schedule(() -> {
+            if (isValidNextStatus(roomNumber, "CLEANING")) {
+                String autoTimestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
+                logStatusChange(roomNumber, "CLEANING", autoTimestamp);
+            }
+        }, AUTO_CLEANING_DELAY_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
@@ -317,6 +412,28 @@ public class HousekeepingControl {
                 logStatusChange(roomNumber, "INSPECTED", autoTimestamp);
             }
         }, AUTO_INSPECT_DELAY_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Added: schedules a background task that automatically logs the
+     * given room as READY, AUTO_READY_DELAY_SECONDS after this call.
+     * Simulates the supervisor's final sign-off after inspecting the
+     * room, guaranteeing the room reaches READY within the team's shared
+     * 1-day turnaround SLA even if no one manually confirms it.
+     *
+     * Re-validates isValidNextStatus() at execution time (not just at
+     * scheduling time), exactly like the other two auto-steps above, so
+     * a room a supervisor already manually marked READY (or otherwise
+     * changed) in the meantime doesn't get a duplicate/illegal status
+     * forced onto it by a stale timer.
+     */
+    private void scheduleAutoReady(String roomNumber) {
+        scheduler.schedule(() -> {
+            if (isValidNextStatus(roomNumber, "READY")) {
+                String autoTimestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
+                logStatusChange(roomNumber, "READY", autoTimestamp);
+            }
+        }, AUTO_READY_DELAY_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
@@ -432,15 +549,30 @@ public class HousekeepingControl {
      * time, not actual cleaning-stage duration, so READY is
      * intentionally excluded from this average.
      *
-     * CLEANING is also excluded: since scheduleAutoInspect() now logs
-     * INSPECTED automatically at a fixed delay
-     * (AUTO_INSPECT_DELAY_SECONDS) rather than whenever staff actually
-     * finish, that gap no longer reflects real cleaning time — it would
-     * always average out to a fixed constant regardless of true
-     * performance.
+     * INSPECTED is excluded: scheduleAutoReady() logs READY automatically
+     * at a fixed delay (AUTO_READY_DELAY_SECONDS) after INSPECTED, so
+     * that gap no longer reflects real work time — it would always
+     * average out to a fixed constant regardless of true performance,
+     * unless staff happen to manually beat the timer every single time.
      *
-     * Only DIRTY (time waiting before cleaning starts) remains a
-     * genuine, staff/queue-driven duration in this report.
+     * CLEANING is INCLUDED again (previously excluded for the same
+     * "fixed auto-timer" reason as INSPECTED above, back when the cycle
+     * only ever moved forward). It is restored because CLEANING can now
+     * genuinely take longer than the fixed AUTO_INSPECT_DELAY_SECONDS:
+     * if a supervisor inspects the room (status INSPECTED) and finds it
+     * is NOT actually clean, they roll back that INSPECTED entry
+     * (rollbackLastChange()), which drops the room back to CLEANING with
+     * no active timer (see the class Javadoc's rollback note). Staff
+     * then has to actually re-clean the room before manually logging
+     * INSPECTED a second time. That second, later INSPECTED entry is
+     * what this method measures the gap against — so a room that needed
+     * rework now correctly shows a longer CLEANING duration than a room
+     * that passed inspection on the first try, instead of both always
+     * reporting the same fixed constant.
+     *
+     * DIRTY (time waiting before cleaning starts) remains a genuine,
+     * staff/queue-driven duration for the same reason it always was —
+     * staff can manually start cleaning before the timer fires.
      *
      * Malformed timestamps or accidental negative/zero gaps are skipped
      * rather than corrupting the average or crashing the report.
@@ -481,13 +613,17 @@ public class HousekeepingControl {
                     // cleaning stage — excluded by design (see above).
                     continue;
                 }
-                if (stage.equalsIgnoreCase("CLEANING")) {
-                    // Added: CLEANING -> INSPECTED is now auto-logged by
-                    // scheduleAutoInspect() at a FIXED delay
-                    // (AUTO_INSPECT_DELAY_SECONDS), not a real staff-timed
-                    // duration. Averaging a fixed constant would be
-                    // meaningless/misleading, so this stage is excluded
-                    // the same way READY is.
+                // Note: CLEANING is intentionally NOT skipped here anymore
+                // (see the Javadoc above) — a rework loop via rollback can
+                // make its duration genuinely longer than the fixed
+                // auto-timer, so it's real, reportable data again.
+                if (stage.equalsIgnoreCase("INSPECTED")) {
+                    // Added: INSPECTED -> READY is auto-logged by
+                    // scheduleAutoReady() at a FIXED delay
+                    // (AUTO_READY_DELAY_SECONDS) whenever nothing sends
+                    // the room back for rework at this checkpoint, so
+                    // this stage stays excluded — same reasoning as
+                    // READY above, see the Javadoc for the full picture.
                     continue;
                 }
                 if (!stageFilter.equalsIgnoreCase("ALL") && !stage.equalsIgnoreCase(stageFilter)) {

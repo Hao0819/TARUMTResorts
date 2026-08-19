@@ -91,7 +91,8 @@ public class TARUMTResorts {
                                 sharedGuests,
                                 sharedRooms);
 
-                // Let a Front-Desk check-out also log the freed room as DIRTY
+                // Let a Front-Des
+                // k check-out also log the freed room as DIRTY
                 // in Housekeeping's status log, keeping both modules in sync.
                 frontDeskControl.setHousekeepingControl(housekeepingControl);
 
