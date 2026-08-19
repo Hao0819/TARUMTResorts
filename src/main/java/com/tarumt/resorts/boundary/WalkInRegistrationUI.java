@@ -1038,7 +1038,6 @@ public class WalkInRegistrationUI {
                         System.out.println(statusFilterBorder);
 
                         System.out.print("Enter filter option: ");
-                        System.out.print("Enter choice: ");
 
                         String choice = sc.nextLine().trim();
 
@@ -1302,6 +1301,30 @@ public class WalkInRegistrationUI {
                                                         + highestRoomTypeCount
                                                         + " requests)");
 
+                        // Conversion rate measures how effectively resolved requests turn
+                        // into a Booking versus being lost to cancellation. WAITING
+                        // requests are excluded since they have not been resolved either
+                        // way yet.
+                        int resolvedCount = statusCounts[1] + statusCounts[2];
+
+                        if (resolvedCount == 0) {
+                                System.out.println(
+                                                "Conversion rate: no resolved requests yet "
+                                                                + "in this filter ("
+                                                                + statusCounts[0]
+                                                                + " still waiting).");
+                        } else {
+                                double conversionRate = statusCounts[1] * 100.0 / resolvedCount;
+
+                                System.out.printf(
+                                                "Conversion rate: %.1f%% assigned (%d of %d resolved requests); "
+                                                                + "%d still waiting.%n",
+                                                conversionRate,
+                                                statusCounts[1],
+                                                resolvedCount,
+                                                statusCounts[0]);
+                        }
+
                         String endLabel = "END OF REPORT";
 
                         int endLeftPadding = (contentWidth - endLabel.length()) / 2;
@@ -1331,6 +1354,7 @@ public class WalkInRegistrationUI {
 
                 int[] requestCounts = new int[roomTypes.length];
                 int[] roomsAvailableTonightCounts = new int[roomTypes.length];
+                int[] roomCounts = new int[roomTypes.length];
 
                 int totalRegistrationRequests = control.getAllRegistrationHistory().length;
 
@@ -1412,6 +1436,7 @@ public class WalkInRegistrationUI {
 
                         requestCounts[roomTypeIndex] = requestCount;
                         roomsAvailableTonightCounts[roomTypeIndex] = roomsAvailableTonight;
+                        roomCounts[roomTypeIndex] = roomCount;
 
                         totalRooms += roomCount;
 
@@ -1440,6 +1465,8 @@ public class WalkInRegistrationUI {
                                 "Total rooms: " + totalRooms);
 
                 System.out.println(border);
+
+                displayDemandPressure(roomTypes, requestCounts, roomCounts);
 
                 displaySideBySideBarCharts(
                                 "TOTAL REQUESTS BY ROOM TYPE",
@@ -1561,6 +1588,70 @@ public class WalkInRegistrationUI {
                                 " ".repeat(endRightPadding));
 
                 System.out.println(border);
+        }
+
+        /**
+         * Shows how much cumulative historical demand each room type has
+         * attracted relative to how many rooms of that type exist, as a
+         * requests-per-room ratio. This is a long-run capacity-planning
+         * signal (e.g. "should we convert some Standard rooms to Suites?"),
+         * not a live availability check - that is what "Rooms Available
+         * Tonight" in the main table already answers.
+         */
+        private void displayDemandPressure(
+                        String[] roomTypes,
+                        int[] requestCounts,
+                        int[] roomCounts) {
+
+                System.out.println();
+                System.out.println("DEMAND PRESSURE (requests recorded per room, all-time)");
+                System.out.println();
+
+                double[] pressureRatios = new double[roomTypes.length];
+
+                for (int roomTypeIndex = 0; roomTypeIndex < roomTypes.length; roomTypeIndex++) {
+
+                        int roomCount = roomCounts[roomTypeIndex];
+
+                        pressureRatios[roomTypeIndex] = roomCount == 0
+                                        ? 0.0
+                                        : requestCounts[roomTypeIndex] * 1.0 / roomCount;
+
+                        System.out.printf(
+                                        "  %-10s : %3d requests / %2d rooms = %5.2fx%n",
+                                        roomTypes[roomTypeIndex],
+                                        requestCounts[roomTypeIndex],
+                                        roomCount,
+                                        pressureRatios[roomTypeIndex]);
+                }
+
+                int highestPressureIndex = 0;
+                int lowestPressureIndex = 0;
+
+                for (int roomTypeIndex = 1; roomTypeIndex < pressureRatios.length; roomTypeIndex++) {
+
+                        if (pressureRatios[roomTypeIndex] > pressureRatios[highestPressureIndex]) {
+                                highestPressureIndex = roomTypeIndex;
+                        }
+
+                        if (pressureRatios[roomTypeIndex] < pressureRatios[lowestPressureIndex]) {
+                                lowestPressureIndex = roomTypeIndex;
+                        }
+                }
+
+                System.out.println();
+
+                System.out.printf(
+                                "Highest demand pressure: %s (%.2fx requests per room) "
+                                                + "- consider adding more %s rooms.%n",
+                                roomTypes[highestPressureIndex],
+                                pressureRatios[highestPressureIndex],
+                                roomTypes[highestPressureIndex]);
+
+                System.out.printf(
+                                "Lowest demand pressure: %s (%.2fx requests per room).%n",
+                                roomTypes[lowestPressureIndex],
+                                pressureRatios[lowestPressureIndex]);
         }
 
         /**

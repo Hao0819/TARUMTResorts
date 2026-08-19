@@ -689,58 +689,22 @@ public class WalkInRegistrationControl {
 
     /**
      * Checks whether a room has no CONFIRMED or ACTIVE booking that
-     * overlaps the requested stay period.
+     * overlaps the requested stay period, including the shared Housekeeping
+     * turnaround buffer reserved after each existing booking's scheduled
+     * check-out date. Delegates to RoomScheduleAvailability, the single
+     * shared source for this rule, so Walk-In, VIP, and Front-Desk all
+     * agree on the same room/date combinations.
      */
     private boolean isRoomAvailableForSchedule(
             Room room,
             LocalDate requestedCheckInDate,
             LocalDate requestedCheckOutDate) {
 
-        if (room == null
-                || requestedCheckInDate == null
-                || requestedCheckOutDate == null
-                || !requestedCheckInDate.isBefore(requestedCheckOutDate)) {
-
-            return false;
-        }
-
-        Iterator<Booking> bookingIterator = bookingList.getIterator(); // ADT method call: getIterator()
-
-        while (bookingIterator.hasNext()) {
-            Booking existingBooking = bookingIterator.next();
-
-            boolean sameRoom = existingBooking.getRoom() != null
-                    && existingBooking.getRoom()
-                            .getRoomNumber()
-                            .equalsIgnoreCase(
-                                    room.getRoomNumber());
-
-            boolean blocksSchedule = "CONFIRMED".equalsIgnoreCase(
-                    existingBooking.getStatus())
-                    || "ACTIVE".equalsIgnoreCase(
-                            existingBooking.getStatus());
-
-            LocalDate existingCheckInDate = existingBooking.getScheduledCheckInDate();
-
-            LocalDate existingCheckOutDate = existingBooking.getScheduledCheckOutDate();
-
-            if (sameRoom
-                    && blocksSchedule
-                    && existingCheckInDate != null
-                    && existingCheckOutDate != null) {
-
-                boolean datesOverlap = requestedCheckInDate.isBefore(
-                        existingCheckOutDate)
-                        && requestedCheckOutDate.isAfter(
-                                existingCheckInDate);
-
-                if (datesOverlap) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        return com.tarumt.resorts.util.RoomScheduleAvailability.isAvailable(
+                bookingList,
+                room,
+                requestedCheckInDate,
+                requestedCheckOutDate);
     }
 
     /**
