@@ -53,14 +53,13 @@ public class FrontDeskUI {
             System.out.println(menuBorder);
 
             System.out.printf("| %-64s |%n", "1. Search bookings (keyword; incl. confirmation no)");
-            System.out.printf("| %-64s |%n", "2. Filter bookings (multi-field: name/ID/tier/type/date)");
-            System.out.printf("| %-64s |%n", "3. Check room availability (now)");
-            System.out.printf("| %-64s |%n", "4. Check availability by date range");
-            System.out.printf("| %-64s |%n", "5. Check in guest");
-            System.out.printf("| %-64s |%n", "6. Check out guest");
-            System.out.printf("| %-64s |%n", "7. Cancel booking");
-            System.out.printf("| %-64s |%n", "8. Booking / Occupancy Report");
-            System.out.printf("| %-64s |%n", "9. Billing Summary Report");
+            System.out.printf("| %-64s |%n", "2. Check room availability (now)");
+            System.out.printf("| %-64s |%n", "3. Room availability calendar (by month)");
+            System.out.printf("| %-64s |%n", "4. Check in guest");
+            System.out.printf("| %-64s |%n", "5. Check out guest");
+            System.out.printf("| %-64s |%n", "6. Cancel booking");
+            System.out.printf("| %-64s |%n", "7. Booking / Occupancy Report");
+            System.out.printf("| %-64s |%n", "8. Billing Summary Report");
             System.out.printf("| %-64s |%n", "0. Back to main menu");
 
             System.out.println(menuBorder);
@@ -76,14 +75,13 @@ public class FrontDeskUI {
 
             switch (choice) {
                 case 1 -> searchBookings();
-                case 2 -> filterBookings();
-                case 3 -> checkAvailability();
-                case 4 -> checkAvailabilityByDate();
-                case 5 -> checkInGuest();
-                case 6 -> checkOutGuest();
-                case 7 -> cancelBooking();
-                case 8 -> displayOccupancyReport();
-                case 9 -> displayBillingReport();
+                case 2 -> checkAvailability();
+                case 3 -> checkAvailabilityByDate();
+                case 4 -> checkInGuest();
+                case 5 -> checkOutGuest();
+                case 6 -> cancelBooking();
+                case 7 -> displayOccupancyReport();
+                case 8 -> displayBillingReport();
                 case 0 -> System.out.println("Returning to main menu...");
                 default -> System.out.println("Invalid choice.");
             }
@@ -96,19 +94,43 @@ public class FrontDeskUI {
      * a front-desk agent needs when answering a billing enquiry.
      */
     private void printBookingDetails(Booking booking) {
-        printReportHeader("BOOKING & BILLING DETAILS", null, null);
+        printBookingDetails(booking, "BOOKING & BILLING DETAILS");
+    }
+
+    /** Same detail card, with a caller-supplied title (e.g. a success banner). */
+    private void printBookingDetails(Booking booking, String title) {
+        printReportHeader(title, null, null);
         System.out.printf("  Confirmation No : %s%n", booking.getConfirmationNumber());
         System.out.printf("  Guest ID        : %s%n", booking.getGuest().getGuestId());
         System.out.printf("  Guest Name      : %s%n", booking.getGuest().getName());
         System.out.printf("  Membership Tier : %s%n", booking.getGuest().getMembershipTier());
         System.out.printf("  Room            : %s (%s)%n",
                 booking.getRoom().getRoomNumber(), booking.getRoom().getRoomType());
-        System.out.printf("  Check-In        : %s%n", booking.getCheckInTime());
+        System.out.printf("  Check-In        : %s%n",
+                booking.getCheckInTime() == null ? "-" : booking.getCheckInTime());
         System.out.printf("  Check-Out       : %s%n",
                 booking.getCheckOutTime() == null ? "-" : booking.getCheckOutTime());
         System.out.printf("  Booking Status  : %s%n", booking.getStatus());
         System.out.println("  ----------------- Billing -----------------");
-        System.out.printf("  Total Amount    : RM %,.2f%n", booking.getAmount());
+        // Show the original room charge before membership discount.
+        System.out.printf(
+                "  Gross Amount    : RM %,.2f%n",
+                booking.getAmount());
+
+        // Show the membership discount percentage applied when booking was created.
+        System.out.printf(
+                "  Discount Rate   : %.0f%%%n",
+                booking.getDiscountRate() * 100);
+
+        // Show the amount deducted from the original room charge.
+        System.out.printf(
+                "  Discount Amount : RM %,.2f%n",
+                booking.getDiscountAmount());
+
+        // This is the actual amount that the guest must pay.
+        System.out.printf(
+                "  Amount Payable  : RM %,.2f%n",
+                booking.getFinalAmount());
         System.out.printf("  Payment Status  : %s%n", booking.getPaymentStatus());
     }
 
@@ -156,45 +178,6 @@ public class FrontDeskUI {
     }
 
     // =====================================================================
-    // Structured multi-field filter: narrow by specific fields (AND).
-    // =====================================================================
-
-    private void filterBookings() {
-        System.out.println("\nFilter bookings - leave a field blank to ignore it (all conditions AND).");
-        System.out.print("  Confirmation number contains : ");
-        String conf = sc.nextLine().trim();
-        System.out.print("  Guest name contains          : ");
-        String name = sc.nextLine().trim();
-        System.out.print("  Guest ID contains            : ");
-        String gid = sc.nextLine().trim();
-        System.out.print("  Membership tier (NONE/SILVER/GOLD/PLATINUM/DIAMOND/ELITE): ");
-        String tier = sc.nextLine().trim();
-        System.out.print("  Room type (Standard/Deluxe/Suite): ");
-        String type = sc.nextLine().trim();
-        System.out.print("  Check-in date (e.g. 2026-07-17): ");
-        String date = sc.nextLine().trim();
-
-        Booking[] results = control.filterBookings(conf, name, gid, tier, type, date);
-        printReportHeader("FILTER RESULTS", buildCriteriaLine(conf, name, gid, tier, type, date), null);
-        printBookingTable(results);
-    }
-
-    /** Builds a one-line summary of which filter criteria were actually supplied. */
-    private String buildCriteriaLine(String conf, String name, String gid,
-            String tier, String type, String date) {
-        StringBuilder sb = new StringBuilder("Filters: ");
-        int len = sb.length();
-        if (!conf.isEmpty()) sb.append("ConfNo~").append(conf).append("  ");
-        if (!name.isEmpty()) sb.append("Name~").append(name).append("  ");
-        if (!gid.isEmpty()) sb.append("GuestID~").append(gid).append("  ");
-        if (!tier.isEmpty()) sb.append("Tier=").append(tier).append("  ");
-        if (!type.isEmpty()) sb.append("RoomType=").append(type).append("  ");
-        if (!date.isEmpty()) sb.append("CheckIn~").append(date).append("  ");
-        if (sb.length() == len) sb.append("(none - showing all bookings)");
-        return sb.toString().trim();
-    }
-
-    // =====================================================================
     // Availability query over the shared room collection.
     // =====================================================================
 
@@ -204,83 +187,140 @@ public class FrontDeskUI {
 
         printReportHeader("ROOM AVAILABILITY",
                 "Room type filter: " + roomType,
-                "Bookable = vacant AND Housekeeping status READY");
+                "Available now = vacant AND not reserved for today");
+        printRoomTable(available);
+        System.out.println("Available rooms now: " + available.length);
+    }
 
-        String border = "+----------+------------+-------------+--------------+------------+";
+    /**
+     * Renders a Room[] as a Room No / Room Type / Occupancy table (all shown
+     * VACANT).
+     */
+    private void printRoomTable(Room[] rooms) {
+        String border = "+----------+------------+-------------+";
         System.out.println(border);
-        System.out.printf("| %-8s | %-10s | %-11s | %-12s | %-10s |%n",
-                "Room No", "Room Type", "Occupancy", "Housekeeping", "Bookable");
+        System.out.printf("| %-8s | %-10s | %-11s |%n", "Room No", "Room Type", "Occupancy");
         System.out.println(border);
-
-        int bookable = 0;
-        if (available.length == 0) {
-            System.out.printf("| %-62s |%n", "No vacant rooms for this filter.");
+        if (rooms.length == 0) {
+            System.out.printf("| %-35s |%n", "No rooms available.");
         } else {
-            for (Room r : available) {
-                boolean ok = control.isBookable(r);
-                if (ok) {
-                    bookable++;
-                }
-                System.out.printf("| %-8.8s | %-10.10s | %-11s | %-12.12s | %-10s |%n",
-                        r.getRoomNumber(), r.getRoomType(), "VACANT",
-                        r.getCleaningStatus(), ok ? "YES" : "NO");
+            for (Room r : rooms) {
+                System.out.printf("| %-8.8s | %-10.10s | %-11s |%n",
+                        r.getRoomNumber(), r.getRoomType(), "VACANT");
             }
         }
         System.out.println(border);
-        System.out.println("Vacant rooms: " + available.length
-                + "   |   Bookable now: " + bookable);
     }
 
     // =====================================================================
-    // Date-range availability: is a room type full or free for a period?
+    // Room availability calendar. The user picks a room type, then browses a
+    // month grid where each day cell shows: the day number when at least one
+    // room of that type is free that night, X when that type is fully booked,
+    // and - for a past date. From the same screen they can jump to another
+    // month, or drill into one day to list its free rooms. Availability is
+    // schedule-based (CONFIRMED/ACTIVE bookings), reusing the same overlap
+    // logic as the date-range query.
     // =====================================================================
 
     private void checkAvailabilityByDate() {
-        java.time.LocalDate checkIn = promptDate("Check-in date");
-        java.time.LocalDate checkOut;
-        while (true) {
-            checkOut = promptDate("Check-out date");
-            if (checkOut.isAfter(checkIn)) {
-                break;
-            }
-            System.out.println("Check-out date must be after the check-in date.");
-        }
         String roomType = readRoomTypeFilter();
+        java.time.YearMonth month = java.time.YearMonth.now();
 
-        Room[] free = control.getAvailableRoomsForRange(checkIn, checkOut, roomType);
-        int totalOfType = control.countRoomsByType(roomType);
+        while (true) {
+            displayAvailabilityCalendar(month, roomType);
+            System.out.print("\nEnter a day number (list that night's free rooms), "
+                    + "YYYY-MM (change month), or 0 (back): ");
+            String input = sc.nextLine().trim();
 
-        printReportHeader("AVAILABILITY BY DATE RANGE",
-                "Period: " + checkIn + " to " + checkOut + " | Room type = " + roomType,
-                free.length == 0
-                        ? "Result: FULL - no rooms of this type are free for this period"
-                        : "Result: " + free.length + " of " + totalOfType + " room(s) free for this period");
-
-        String border = "+----------+------------+";
-        System.out.println(border);
-        System.out.printf("| %-8s | %-10s |%n", "Room No", "Room Type");
-        System.out.println(border);
-        if (free.length == 0) {
-            System.out.printf("| %-21s |%n", "No rooms available.");
-        } else {
-            for (Room r : free) {
-                System.out.printf("| %-8.8s | %-10.10s |%n", r.getRoomNumber(), r.getRoomType());
+            if (input.equals("0")) {
+                return;
+            }
+            // A plain number in range = drill into that day of the shown month.
+            try {
+                int day = Integer.parseInt(input);
+                if (day >= 1 && day <= month.lengthOfMonth()) {
+                    showRoomsForDay(month.atDay(day), roomType);
+                    continue;
+                }
+                System.out.println("Day out of range for " + month.getMonth() + " " + month.getYear() + ".");
+                continue;
+            } catch (NumberFormatException ignored) {
+                // not a day number - try to read it as a month below
+            }
+            try {
+                month = java.time.YearMonth.parse(input);
+            } catch (java.time.format.DateTimeParseException e) {
+                System.out.println("Invalid input. Enter a day number, YYYY-MM (e.g. 2026-08), or 0.");
             }
         }
-        System.out.println(border);
     }
 
-    /** Prompts for a yyyy-MM-dd date, re-asking until the input parses. */
-    private java.time.LocalDate promptDate(String label) {
-        while (true) {
-            System.out.print("\n" + label + " (yyyy-MM-dd): ");
-            String input = sc.nextLine().trim();
-            try {
-                return java.time.LocalDate.parse(input);
-            } catch (java.time.format.DateTimeParseException e) {
-                System.out.println("Invalid date format. Please use yyyy-MM-dd, e.g. 2026-08-10.");
+    /**
+     * Draws one month as a Sun-Sat calendar grid, each day showing availability
+     * for the given room type (day number = has a free room that night, X =
+     * fully booked, - = past date).
+     */
+    private void displayAvailabilityCalendar(java.time.YearMonth month, String roomType) {
+        String border = "+------+------+------+------+------+------+------+";
+        String title = month.getMonth() + " " + month.getYear() + " - "
+                + roomType.toUpperCase() + " AVAILABILITY";
+        int contentWidth = 48;
+        int leftPadding = Math.max(0, (contentWidth - title.length()) / 2);
+        int rightPadding = Math.max(0, contentWidth - title.length() - leftPadding);
+
+        System.out.println();
+        System.out.println(border);
+        System.out.printf("|%s%s%s|%n", " ".repeat(leftPadding), title, " ".repeat(rightPadding));
+        System.out.println(border);
+        System.out.println("| Sun  | Mon  | Tue  | Wed  | Thu  | Fri  | Sat  |");
+        System.out.println(border);
+
+        // Sunday = column 0. DayOfWeek: Mon=1..Sun=7, so %7 maps Sun->0.
+        int column = month.atDay(1).getDayOfWeek().getValue() % 7;
+        for (int c = 0; c < column; c++) {
+            System.out.print("|      ");
+        }
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int days = month.lengthOfMonth();
+        for (int day = 1; day <= days; day++) {
+            java.time.LocalDate date = month.atDay(day);
+            String cell;
+            if (date.isBefore(today)) {
+                cell = "-";
+            } else {
+                cell = control.hasAvailabilityOn(date, roomType) ? String.valueOf(day) : "X";
+            }
+            System.out.printf("| %4s ", cell);
+            column++;
+            if (column == 7) {
+                System.out.println("|");
+                column = 0;
             }
         }
+        if (column != 0) {
+            while (column < 7) {
+                System.out.print("|      ");
+                column++;
+            }
+            System.out.println("|");
+        }
+        System.out.println(border);
+        System.out.println("Legend: day shown = has free " + roomType + " room(s) that night | X = "
+                + roomType + " fully booked | - = past date");
+        System.out.println("Total " + roomType + " room(s): " + control.countRoomsByType(roomType));
+    }
+
+    /**
+     * Lists the actual rooms of the given type that are free for the night of
+     * {@code date}.
+     */
+    private void showRoomsForDay(java.time.LocalDate date, String roomType) {
+        Room[] free = control.getAvailableRoomsForRange(date, date.plusDays(1), roomType);
+        printReportHeader("ROOMS AVAILABLE ON " + date + " (" + date.getDayOfWeek() + ")",
+                "Room type = " + roomType,
+                free.length + " of " + control.countRoomsByType(roomType) + " room(s) free that night");
+        printRoomTable(free);
     }
 
     // =====================================================================
@@ -306,8 +346,9 @@ public class FrontDeskUI {
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
         if (control.checkOutBooking(booking.getConfirmationNumber(), checkOutTime)) {
-            System.out.println("Guest checked out. Room " + booking.getRoom().getRoomNumber()
-                    + " is now available. Check-out time: " + checkOutTime);
+            System.out.println("\nGuest checked out successfully. Room " + booking.getRoom().getRoomNumber()
+                    + " is now vacant and handed over to Housekeeping (DIRTY).");
+            printBookingDetails(booking, "CHECK-OUT SUCCESSFUL");
         } else {
             System.out.println("Check-out failed.");
         }
@@ -372,12 +413,21 @@ public class FrontDeskUI {
             return;
         }
 
+        // No early check-in: a guest cannot arrive before the scheduled date.
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (control.isBeforeScheduledCheckIn(booking, today)) {
+            System.out.println("Cannot check in yet. Booking " + booking.getConfirmationNumber()
+                    + " is scheduled from " + booking.getScheduledCheckInDate()
+                    + " - the guest is arriving early (today is " + today + ").");
+            return;
+        }
+
         String checkInTime = java.time.LocalDateTime.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
         if (control.checkInBooking(booking.getConfirmationNumber(), checkInTime)) {
-            System.out.println("Guest checked in. Booking is now ACTIVE and payment marked PAID. Room "
-                    + booking.getRoom().getRoomNumber() + " | Check-in time: " + checkInTime);
+            System.out.println("\nGuest checked in successfully. Booking is now ACTIVE and payment marked PAID.");
+            printBookingDetails(booking, "CHECK-IN SUCCESSFUL");
         } else {
             System.out.println("Check-in failed.");
         }
@@ -406,8 +456,9 @@ public class FrontDeskUI {
 
         String room = booking.getRoom().getRoomNumber();
         if (control.cancelBooking(booking.getConfirmationNumber())) {
-            System.out.println("Booking " + booking.getConfirmationNumber()
-                    + " cancelled (kept on record as CANCELLED). Room " + room + " has been released.");
+            System.out.println("\nBooking cancelled (kept on record as CANCELLED). Room " + room
+                    + " is freed for that reserved period.");
+            printBookingDetails(booking, "BOOKING CANCELLED");
         } else {
             System.out.println("Cancellation failed.");
         }
@@ -461,12 +512,18 @@ public class FrontDeskUI {
             System.out.println("5. Cancelled");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
-                case "1": return "ALL";
-                case "2": return "ACTIVE";
-                case "3": return "CHECKED_OUT";
-                case "4": return "CONFIRMED";
-                case "5": return "CANCELLED";
-                default: System.out.println("Invalid status filter. Please try again.");
+                case "1":
+                    return "ALL";
+                case "2":
+                    return "ACTIVE";
+                case "3":
+                    return "CHECKED_OUT";
+                case "4":
+                    return "CONFIRMED";
+                case "5":
+                    return "CANCELLED";
+                default:
+                    System.out.println("Invalid status filter. Please try again.");
             }
         }
     }
@@ -480,11 +537,16 @@ public class FrontDeskUI {
             System.out.println("4. Suite");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
-                case "1": return "ALL";
-                case "2": return "Standard";
-                case "3": return "Deluxe";
-                case "4": return "Suite";
-                default: System.out.println("Invalid room type filter. Please try again.");
+                case "1":
+                    return "ALL";
+                case "2":
+                    return "Standard";
+                case "3":
+                    return "Deluxe";
+                case "4":
+                    return "Suite";
+                default:
+                    System.out.println("Invalid room type filter. Please try again.");
             }
         }
     }
@@ -492,19 +554,19 @@ public class FrontDeskUI {
     private String readPaymentFilter() {
         while (true) {
             System.out.println("\nPayment Status Filter");
-            System.out.println("1. Outstanding (UNPAID or PARTIAL)");
-            System.out.println("2. Unpaid");
-            System.out.println("3. Partial");
-            System.out.println("4. Paid");
-            System.out.println("5. All");
+            System.out.println("1. Unpaid (outstanding)");
+            System.out.println("2. Paid");
+            System.out.println("3. All");
             System.out.print("Enter choice: ");
             switch (sc.nextLine().trim()) {
-                case "1": return "OUTSTANDING";
-                case "2": return "UNPAID";
-                case "3": return "PARTIAL";
-                case "4": return "PAID";
-                case "5": return "ALL";
-                default: System.out.println("Invalid payment filter. Please try again.");
+                case "1":
+                    return "UNPAID";
+                case "2":
+                    return "PAID";
+                case "3":
+                    return "ALL";
+                default:
+                    System.out.println("Invalid payment filter. Please try again.");
             }
         }
     }
@@ -536,8 +598,7 @@ public class FrontDeskUI {
         System.out.println("+" + "-".repeat(contentWidth + 2) + "+");
     }
 
-    private static final String BOOKING_BORDER =
-            "+------------+----------+----------------------+----------+"
+    private static final String BOOKING_BORDER = "+------------+----------+----------------------+----------+"
             + "------------+------------------+--------------+";
 
     private void printBookingTable(Booking[] bookings) {
@@ -565,8 +626,7 @@ public class FrontDeskUI {
         System.out.println("Total records displayed: " + bookings.length);
     }
 
-    private static final String BILLING_BORDER =
-            "+------------+----------------------+----------+------------+"
+    private static final String BILLING_BORDER = "+------------+----------------------+----------+------------+"
             + "--------------+--------------+";
 
     private void printBillingTable(Booking[] bookings) {
@@ -591,7 +651,12 @@ public class FrontDeskUI {
                     b.getPaymentStatus());
         }
         System.out.println(BILLING_BORDER);
+        // TOTAL row inside the table: the label spans the first four columns, so
+        // its width 57 = 10 + 20 + 8 + 10 (their widths) + 3*3 (the " | "
+        // separators between them). The grand total then sits under Amount (RM).
+        System.out.printf("| %-57s | %,12.2f | %-12s |%n",
+                "Total Amount (RM)", control.totalAmount(bookings), "");
+        System.out.println(BILLING_BORDER);
         System.out.println("Total records displayed: " + bookings.length);
-        System.out.printf("Total amount in this report: RM %,.2f%n", control.totalAmount(bookings));
     }
 }

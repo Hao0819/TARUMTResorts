@@ -357,15 +357,16 @@ public class VIPAllocationUI {
     }
 
     // =====================================================================
-    // Guest directory (priority-tier guests only - the only ones eligible
-    // to register a VIP request).
+    // Guest directory (shows every guest so staff can see all valid Guest
+    // IDs; actual VIP-registration eligibility - priority tier only - is
+    // still enforced by the control layer when the request is submitted).
     // =====================================================================
 
     private void displayPriorityGuestDirectory() {
-        Guest[] guests = control.getPriorityTierGuests();
+        Guest[] guests = control.getAllGuests();
 
         String border = "+----------+----------------------+---------------+------------+";
-        String title = "PRIORITY-TIER GUEST DIRECTORY";
+        String title = "GUEST DIRECTORY";
         int contentWidth = border.length() - 4;
         int leftPadding = (contentWidth - title.length()) / 2;
         int rightPadding = contentWidth - title.length() - leftPadding;
@@ -376,7 +377,7 @@ public class VIPAllocationUI {
         System.out.println(border);
 
         if (guests.length == 0) {
-            System.out.printf("| %-" + contentWidth + "s |%n", "No priority-tier guests found.");
+            System.out.printf("| %-" + contentWidth + "s |%n", "No guests found.");
             System.out.println(border);
             return;
         }
@@ -389,7 +390,7 @@ public class VIPAllocationUI {
                     g.getGuestId(), g.getName(), g.getContactNumber(), g.getMembershipTier());
         }
         System.out.println(border);
-        System.out.println("Total priority-tier guests: " + guests.length);
+        System.out.println("Total guests: " + guests.length);
     }
 
     // =====================================================================
@@ -742,7 +743,11 @@ private void printBookingDetailsTable(Booking booking, String title) {
     System.out.printf("| %-20s | %-30s |%n", "Scheduled Check-Out", booking.getScheduledCheckOutDate());
     System.out.printf("| %-20s | %-30s |%n", "Stay Duration",
             booking.getStayDurationDays() + (booking.getStayDurationDays() == 1 ? " night" : " nights"));
-    System.out.printf("| %-20s | %-30s |%n", "Amount", String.format("RM %,.2f", booking.getAmount()));
+    System.out.printf("| %-20s | %-30s |%n", "Gross Amount", String.format("RM %,.2f", booking.getAmount()));
+    System.out.printf("| %-20s | %-30s |%n", "Discount Rate",
+            String.format("%.0f%%", booking.getDiscountRate() * 100));
+    System.out.printf("| %-20s | %-30s |%n", "Discount Amount", String.format("RM %,.2f", booking.getDiscountAmount()));
+    System.out.printf("| %-20s | %-30s |%n", "Final Amount", String.format("RM %,.2f", booking.getFinalAmount()));
     System.out.printf("| %-20s | %-30s |%n", "Payment Status", booking.getPaymentStatus());
     System.out.printf("| %-20s | %-30s |%n", "Booking Status", booking.getStatus());
     System.out.printf("| %-20s | %-30s |%n", "Booking Time", booking.getBookingCreatedTime());

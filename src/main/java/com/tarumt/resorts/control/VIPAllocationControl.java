@@ -9,6 +9,7 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
 import com.tarumt.resorts.dao.VIPAllocationDAO;
+import com.tarumt.resorts.util.RoomScheduleAvailability;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -343,48 +344,20 @@ public class VIPAllocationControl {
 
     /**
      * True if the room has NO CONFIRMED/ACTIVE booking whose scheduled
-     * stay overlaps [checkIn, checkOut). Mirrors
-     * WalkInRegistrationControl.isRoomAvailableForSchedule() so both
-     * allocation paths agree on what "available for these dates" means.
+     * stay overlaps [checkIn, checkOut). Delegates to the shared
+     * RoomScheduleAvailability utility so every module that needs this
+     * check (Walk-In, VIP) agrees on what "available for these dates"
+     * means from one place.
      */
     private boolean isRoomAvailableForSchedule(
             Room room,
             LocalDate requestedCheckInDate,
             LocalDate requestedCheckOutDate) {
-
-        if (room == null
-                || requestedCheckInDate == null
-                || requestedCheckOutDate == null
-                || !requestedCheckInDate.isBefore(requestedCheckOutDate)) {
-            return false;
-        }
-
-        Iterator<Booking> bookingIterator = bookingList.getIterator();
-        while (bookingIterator.hasNext()) {
-            Booking existingBooking = bookingIterator.next();
-
-            boolean sameRoom = existingBooking.getRoom() != null
-                    && existingBooking.getRoom().getRoomNumber()
-                            .equalsIgnoreCase(room.getRoomNumber());
-
-            boolean blocksSchedule = "CONFIRMED".equalsIgnoreCase(existingBooking.getStatus())
-                    || "ACTIVE".equalsIgnoreCase(existingBooking.getStatus());
-
-            LocalDate existingCheckIn = existingBooking.getScheduledCheckInDate();
-            LocalDate existingCheckOut = existingBooking.getScheduledCheckOutDate();
-
-            if (sameRoom && blocksSchedule
-                    && existingCheckIn != null && existingCheckOut != null) {
-
-                boolean datesOverlap = requestedCheckInDate.isBefore(existingCheckOut)
-                        && requestedCheckOutDate.isAfter(existingCheckIn);
-
-                if (datesOverlap) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return RoomScheduleAvailability.isAvailable(
+                bookingList,
+                room,
+                requestedCheckInDate,
+                requestedCheckOutDate);
     }
 
     /**
@@ -523,24 +496,17 @@ public class VIPAllocationControl {
     }
 
     /**
-     * Returns every guest holding a priority membership tier (PLATINUM,
-     * DIAMOND, ELITE) - the only guests eligible to register a VIP
-     * allocation request. Used to show a guest directory before
-     * registration, so staff can see which Guest IDs are valid.
+     * Returns every guest in the shared guest collection, regardless of
+     * membership tier. Used to show a full guest directory before VIP
+     * registration, so staff can see every valid Guest ID rather than
+     * only priority-tier ones. Registration eligibility (priority tier
+     * only) is still enforced separately by registerVIPRequest().
      */
-    public Guest[] getPriorityTierGuests() {
+    public Guest[] getAllGuests() {
         int total = guestList.getNumberOfEntries();
-        Guest[] temp = new Guest[total];
-        int count = 0;
+        Guest[] result = new Guest[total];
         for (int i = 0; i < total; i++) {
-            Guest g = guestList.getEntry(i);
-            if (g.getMembershipTier().isPriorityTier()) {
-                temp[count++] = g;
-            }
-        }
-        Guest[] result = new Guest[count];
-        for (int i = 0; i < count; i++) {
-            result[i] = temp[i];
+            result[i] = guestList.getEntry(i);
         }
         return result;
     }

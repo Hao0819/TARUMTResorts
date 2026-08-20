@@ -4,7 +4,10 @@
  */
 package com.tarumt.resorts.entity;
 
+import com.tarumt.resorts.adt.DoublyLinkedListQueue;
+import com.tarumt.resorts.adt.ListQueueInterface;
 import java.time.LocalDate;
+import java.util.Iterator;
 
 /**
  * WalkInRegistration.java
@@ -23,7 +26,14 @@ public class WalkInRegistration {
     private LocalDate requestedCheckInDate;
     // Number of nights requested by the guest.
     private int stayDurationDays;
-    private String status; // "WAITING", "ASSIGNED"
+    private String status; // "WAITING", "ASSIGNED", "CANCELLED"
+
+    // Confirmation number of the Booking created from this registration.
+    // Remains null while the registration is WAITING or CANCELLED.
+    private String bookingConfirmationNumber;
+    // Stores this request's changes chronologically.
+    private final ListQueueInterface<RegistrationChange> changeHistory =
+            new DoublyLinkedListQueue<>(); // ADT collection declaration
 
     public WalkInRegistration() {
     }
@@ -129,6 +139,61 @@ public class WalkInRegistration {
         }
 
         return requestedCheckInDate.plusDays(stayDurationDays);
+    }
+
+    /**
+     * Adds one field change to this booking request's change history.
+     */
+    public void recordChange(
+            String fieldName,
+            String oldValue,
+            String newValue) {
+
+        if (fieldName == null
+                || fieldName.trim().isEmpty()) {
+
+            return;
+        }
+
+        String previousValue = oldValue == null ? "-" : oldValue;
+
+        String updatedValue = newValue == null ? "-" : newValue;
+
+        if (previousValue.equals(updatedValue)) {
+            return;
+        }
+
+        RegistrationChange change = new RegistrationChange(
+                fieldName,
+                previousValue,
+                updatedValue);
+
+        changeHistory.enqueue(change); // ADT method call: enqueue()
+    }
+
+    /**
+     * Returns an iterator for reading this request's change history.
+     */
+    public Iterator<RegistrationChange> getChangeHistoryIterator() {
+
+        return changeHistory.getIterator(); // ADT method call: getIterator()
+    }
+
+    /**
+     * Returns the number of changes recorded for this request.
+     */
+    public int getNumberOfChanges() {
+        return changeHistory.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
+    }
+
+    public String getBookingConfirmationNumber() {
+        return bookingConfirmationNumber;
+    }
+
+    public void setBookingConfirmationNumber(
+            String bookingConfirmationNumber) {
+
+        this.bookingConfirmationNumber = bookingConfirmationNumber;
     }
 
     public String getStatus() {

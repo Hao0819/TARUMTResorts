@@ -23,19 +23,20 @@ import java.time.LocalDate;
 public class WalkInRegistrationControl {
 
     // Active registrations processed using strict FIFO behaviour.
-    private ListQueueInterface<WalkInRegistration> registrationQueue = new DoublyLinkedListQueue<>();// ADT declaration
+    private ListQueueInterface<WalkInRegistration> registrationQueue =
+            new DoublyLinkedListQueue<>(); // ADT collection declaration
 
     // Complete registration records used for searching and reporting.
-    private ListQueueInterface<WalkInRegistration> registrationHistory;
+    private ListQueueInterface<WalkInRegistration> registrationHistory; // ADT collection declaration
 
     // Shared room collection provided by Main.
-    private ListQueueInterface<Room> roomList;
+    private ListQueueInterface<Room> roomList; // ADT collection declaration
     private int confirmationCounter;
     private int registrationCounter;
     private int guestCounter;
     // Shared bookings created by Standard and VIP allocation modules.
-    private ListQueueInterface<Booking> bookingList;
-    private ListQueueInterface<Guest> guestList;
+    private ListQueueInterface<Booking> bookingList; // ADT collection declaration
+    private ListQueueInterface<Guest> guestList; // ADT collection declaration
 
     public WalkInRegistrationControl() {
         this(new RoomDAO().getAllRooms(),
@@ -77,7 +78,7 @@ public class WalkInRegistrationControl {
 
             if (registrationRecord.getStatus()
                     .equalsIgnoreCase("WAITING")) {
-                registrationQueue.enqueue(registrationRecord);// ADT method called enque
+                registrationQueue.enqueue(registrationRecord); // ADT method call: enqueue()
             }
         }
 
@@ -86,10 +87,10 @@ public class WalkInRegistrationControl {
         guestList = sharedGuests;
         bookingList = sharedBookings;
 
-        registrationCounter = registrationHistory.getNumberOfEntries() + 1;
+        registrationCounter = registrationHistory.getNumberOfEntries() + 1; // ADT method call: getNumberOfEntries()
         // Continue after the existing shared booking records.
-        confirmationCounter = bookingList.getNumberOfEntries() + 1;
-        guestCounter = guestList.getNumberOfEntries() + 1;
+        confirmationCounter = bookingList.getNumberOfEntries() + 1; // ADT method call: getNumberOfEntries()
+        guestCounter = guestList.getNumberOfEntries() + 1; // ADT method call: getNumberOfEntries()
     }
 
     /*
@@ -105,7 +106,7 @@ public class WalkInRegistrationControl {
                 registrationHistory.searchByKey(
                         registrationId,
                         // every record using registrationId as key
-                        registration -> registration.getRegistrationId());
+                        registration -> registration.getRegistrationId()); // ADT method call: searchByKey()
         // Returns true if a record is found, otherwise returns false.
         return existingRegistration != null;
     }
@@ -130,7 +131,7 @@ public class WalkInRegistrationControl {
         // Simply traverse the Queue nodes.
         Guest existingGuest = guestList.searchByKey(
                 guestId,
-                guest -> guest.getGuestId()); // Specify Guest ID as search key
+                guest -> guest.getGuestId()); // ADT method call: searchByKey()
 
         return existingGuest != null; // Return true if a matching Guest is found.
     }
@@ -156,7 +157,7 @@ public class WalkInRegistrationControl {
         // use shared ADT search
         Booking existingBooking = bookingList.searchByKey(
                 confirmationNumber,
-                booking -> booking.getConfirmationNumber());// Specify the search key for each Booking.
+                booking -> booking.getConfirmationNumber()); // ADT method call: searchByKey()
 
         return existingBooking != null;// found same number return true
     }
@@ -181,18 +182,18 @@ public class WalkInRegistrationControl {
         }
         return guestList.searchByKey(
                 guestId.trim(), // Remove spaces before and after the input.
-                guest -> guest.getGuestId());
+                guest -> guest.getGuestId()); // ADT method call: searchByKey()
     }
 
     /**
      * Returns all shared Guest references in their current stored order.
      */
     public Guest[] getAllGuests() {
-        int guestCount = guestList.getNumberOfEntries();
+        int guestCount = guestList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
         Guest[] guests = new Guest[guestCount];
 
-        Iterator<Guest> iterator = guestList.getIterator();
+        Iterator<Guest> iterator = guestList.getIterator(); // ADT method call: getIterator()
 
         int arrayIndex = 0;
 
@@ -269,47 +270,103 @@ public class WalkInRegistrationControl {
 
         return guestList.searchByKey(
                 normalizedContact,
-                guest -> normalizeContact(guest.getContactNumber()));
+                guest -> normalizeContact(guest.getContactNumber())); // ADT method call: searchByKey()
     }
 
     /**
-     * Updates one WAITING registration identified by both
-     * Registration ID and Guest ID.
+     * Updates the final room type, check-in date and stay duration
+     * of one WAITING booking request as one operation.
      */
-    public boolean updateRequestedRoomType(
+    public boolean updateWaitingBookingRequest(
             String registrationId,
             String guestId,
-            String newRoomType) {
+            String updatedRoomType,
+            LocalDate updatedCheckInDate,
+            int updatedStayDurationDays) {
 
-        if (newRoomType == null) {
+        WalkInRegistration selectedRegistration = findWaitingRegistration(
+                registrationId,
+                guestId);
+
+        if (selectedRegistration == null
+                || updatedRoomType == null
+                || updatedCheckInDate == null
+                || updatedCheckInDate.isBefore(LocalDate.now())
+                || updatedStayDurationDays < 1
+                || updatedStayDurationDays > 30) {
+
             return false;
         }
 
         String normalizedRoomType;
 
-        if (newRoomType.equalsIgnoreCase("Standard")) {
+        if (updatedRoomType.equalsIgnoreCase("Standard")) {
             normalizedRoomType = "Standard";
 
-        } else if (newRoomType.equalsIgnoreCase("Deluxe")) {
+        } else if (updatedRoomType.equalsIgnoreCase("Deluxe")) {
             normalizedRoomType = "Deluxe";
 
-        } else if (newRoomType.equalsIgnoreCase("Suite")) {
+        } else if (updatedRoomType.equalsIgnoreCase("Suite")) {
             normalizedRoomType = "Suite";
 
         } else {
             return false;
         }
 
-        WalkInRegistration selectedRegistration = findWaitingRegistration(
-                registrationId,
-                guestId);
+        // Validate the complete final combination before changing anything.
+        boolean roomAvailable = hasAvailableRoomForSchedule(
+                normalizedRoomType,
+                updatedCheckInDate,
+                updatedStayDurationDays);
 
-        if (selectedRegistration == null) {
+        if (!roomAvailable) {
             return false;
         }
 
+        String previousRoomType = selectedRegistration.getRequestedRoomType();
+
+        LocalDate previousCheckInDate = selectedRegistration.getRequestedCheckInDate();
+
+        int previousStayDurationDays = selectedRegistration.getStayDurationDays();
+
+        boolean roomTypeChanged = !previousRoomType.equalsIgnoreCase(
+                normalizedRoomType);
+
+        boolean checkInDateChanged = !previousCheckInDate.equals(
+                updatedCheckInDate);
+
+        boolean stayDurationChanged = previousStayDurationDays != updatedStayDurationDays;
+
+        // Apply all validated values together.
         selectedRegistration.setRequestedRoomType(
                 normalizedRoomType);
+
+        selectedRegistration.setRequestedCheckInDate(
+                updatedCheckInDate);
+
+        selectedRegistration.setStayDurationDays(
+                updatedStayDurationDays);
+
+        if (roomTypeChanged) {
+            selectedRegistration.recordChange(
+                    "Room Type",
+                    previousRoomType,
+                    normalizedRoomType);
+        }
+
+        if (checkInDateChanged) {
+            selectedRegistration.recordChange(
+                    "Check-In Date",
+                    previousCheckInDate.toString(),
+                    updatedCheckInDate.toString());
+        }
+
+        if (stayDurationChanged) {
+            selectedRegistration.recordChange(
+                    "Stay Duration (Nights)",
+                    String.valueOf(previousStayDurationDays),
+                    String.valueOf(updatedStayDurationDays));
+        }
 
         return true;
     }
@@ -334,7 +391,7 @@ public class WalkInRegistrationControl {
 
         String targetGuestId = guestId.trim();
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator();
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -382,14 +439,14 @@ public class WalkInRegistrationControl {
         String targetRegistrationId = registrationId.trim();
         String targetGuestId = guestId.trim();
 
-        int originalQueueSize = registrationQueue.getNumberOfEntries();
+        int originalQueueSize = registrationQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
         boolean registrationCancelled = false;
 
         // Examine every original queue entry exactly once.
         for (int queuePosition = 0; queuePosition < originalQueueSize; queuePosition++) {
 
-            WalkInRegistration currentRegistration = registrationQueue.dequeue();
+            WalkInRegistration currentRegistration = registrationQueue.dequeue(); // ADT method call: dequeue()
 
             boolean registrationIdMatches = currentRegistration.getRegistrationId()
                     .equalsIgnoreCase(targetRegistrationId);
@@ -409,12 +466,20 @@ public class WalkInRegistrationControl {
                     && isWaiting) {
 
                 // Keep the record in history but remove it from the active queue.
-                currentRegistration.setStatus("CANCELLED");
-                registrationCancelled = true;
+                String previousStatus = currentRegistration.getStatus();
 
+                currentRegistration.setStatus("CANCELLED");
+
+                // Record the successful status change in the Entity ADT.
+                currentRegistration.recordChange(
+                        "Status",
+                        previousStatus,
+                        "CANCELLED");
+
+                registrationCancelled = true;
             } else {
                 // Restore non-target registrations in their original FIFO order.
-                registrationQueue.enqueue(currentRegistration);
+                registrationQueue.enqueue(currentRegistration); // ADT method call: enqueue()
             }
         }
 
@@ -443,7 +508,7 @@ public class WalkInRegistrationControl {
                 email,
                 MembershipTier.NONE);
 
-        guestList.enqueue(newGuest);
+        guestList.enqueue(newGuest); // ADT method call: enqueue()
         return newGuest;
     }
 
@@ -590,8 +655,8 @@ public class WalkInRegistrationControl {
                 requestedCheckInDate,
                 stayDurationDays);
 
-        registrationQueue.enqueue(registration);
-        registrationHistory.enqueue(registration);
+        registrationQueue.enqueue(registration); // ADT method call: enqueue()
+        registrationHistory.enqueue(registration); // ADT method call: enqueue()
 
         return guest;
     }
@@ -627,7 +692,7 @@ public class WalkInRegistrationControl {
             return false;
         }
 
-        Iterator<Booking> bookingIterator = bookingList.getIterator();
+        Iterator<Booking> bookingIterator = bookingList.getIterator(); // ADT method call: getIterator()
 
         while (bookingIterator.hasNext()) {
             Booking existingBooking = bookingIterator.next();
@@ -690,7 +755,7 @@ public class WalkInRegistrationControl {
         boolean immediateCheckIn = requestedCheckInDate.equals(
                 LocalDate.now());
 
-        Iterator<Room> roomIterator = roomList.getIterator();
+        Iterator<Room> roomIterator = roomList.getIterator(); // ADT method call: getIterator()
 
         while (roomIterator.hasNext()) {
             Room candidateRoom = roomIterator.next();
@@ -728,7 +793,7 @@ public class WalkInRegistrationControl {
      */
 
     public Booking processNextGuest() {
-        WalkInRegistration nextGuest = registrationQueue.peek();
+        WalkInRegistration nextGuest = registrationQueue.peek(); // ADT method call: peek()
         if (nextGuest == null) {
             return null;
         }
@@ -741,7 +806,7 @@ public class WalkInRegistrationControl {
         Room assignedRoom = null;
 
         // roomIterator only traversal Room nodes
-        Iterator<Room> roomIterator = roomList.getIterator();
+        Iterator<Room> roomIterator = roomList.getIterator(); // ADT method call: getIterator()
 
         while (roomIterator.hasNext()) {
             Room candidateRoom = roomIterator.next();
@@ -786,13 +851,29 @@ public class WalkInRegistrationControl {
                 nextGuest.getRequestedCheckInDate(),
                 nextGuest.getStayDurationDays());
 
-        boolean bookingSaved = bookingList.enqueue(booking);
+        boolean bookingSaved = bookingList.enqueue(booking); // ADT method call: enqueue()
+
         if (!bookingSaved) {
             return null;
         }
 
+        // Link the completed registration to its created Booking.
+        nextGuest.setBookingConfirmationNumber(
+                booking.getConfirmationNumber());
+
+        String previousStatus = nextGuest.getStatus();
+
         nextGuest.setStatus("ASSIGNED");
-        registrationQueue.dequeue();
+
+        // Record the successful status change in the Entity ADT.
+        nextGuest.recordChange(
+                "Status",
+                previousStatus,
+                "ASSIGNED");
+
+        // Remove the front request only after the Booking is saved successfully.
+        registrationQueue.dequeue(); // ADT method call: dequeue()
+
         return booking;
     }
 
@@ -813,7 +894,7 @@ public class WalkInRegistrationControl {
 
         WalkInRegistration latestRegistration = null;
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator();
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -837,6 +918,29 @@ public class WalkInRegistrationControl {
     }
 
     /**
+     * Finds one registration-history record using its Registration ID.
+     *
+     * The complete history is searched so WAITING, ASSIGNED and
+     * CANCELLED records can all be found.
+     *
+     * @param registrationId Registration ID entered by staff
+     * @return matching registration, or null when no record exists
+     */
+    public WalkInRegistration findRegistrationById(
+            String registrationId) {
+
+        if (registrationId == null
+                || registrationId.trim().isEmpty()) {
+
+            return null;
+        }
+
+        return registrationHistory.searchByKey(
+                registrationId.trim(),
+                registration -> registration.getRegistrationId()); // ADT method call: searchByKey()
+    }
+
+    /**
      * Returns every historical registration belonging to one Guest ID.
      * Results retain their original chronological order.
      */
@@ -851,7 +955,7 @@ public class WalkInRegistrationControl {
         int matchingRecordCount = 0;
 
         // First traversal: count matching records.
-        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator();
+        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
 
         while (countIterator.hasNext()) {
             WalkInRegistration registration = countIterator.next();
@@ -865,7 +969,7 @@ public class WalkInRegistrationControl {
         WalkInRegistration[] matchingRegistrations = new WalkInRegistration[matchingRecordCount];
 
         // Second traversal: store matching record references.
-        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator();
+        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
 
         int arrayIndex = 0;
 
@@ -890,11 +994,11 @@ public class WalkInRegistrationControl {
      */
     public WalkInRegistration[] getAllWaitingRegistrations() {
         // queueSize determine the length of array
-        int queueSize = registrationQueue.getNumberOfEntries();
+        int queueSize = registrationQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
         WalkInRegistration[] registrations = new WalkInRegistration[queueSize];
 
         // getIterator() traversal start from Queue front
-        Iterator<WalkInRegistration> iterator = registrationQueue.getIterator();
+        Iterator<WalkInRegistration> iterator = registrationQueue.getIterator(); // ADT method call: getIterator()
 
         int arrayIndex = 0;
 
@@ -977,11 +1081,11 @@ public class WalkInRegistrationControl {
      */
     public WalkInRegistration[] getAllRegistrationHistory() {
         // historySize include WAITING, ASSIGNED, CANCELLED
-        int historySize = registrationHistory.getNumberOfEntries();
+        int historySize = registrationHistory.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
         WalkInRegistration[] registrations = new WalkInRegistration[historySize];
 
-        Iterator<WalkInRegistration> iterator = registrationHistory.getIterator();
+        Iterator<WalkInRegistration> iterator = registrationHistory.getIterator(); // ADT method call: getIterator()
 
         // Fill the array in sequence.
         int arrayIndex = 0;
@@ -1003,7 +1107,7 @@ public class WalkInRegistrationControl {
         int roomCount = 0;
 
         // From the first room to the last room
-        Iterator<Room> iterator = roomList.getIterator();
+        Iterator<Room> iterator = roomList.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             Room room = iterator.next();
@@ -1017,31 +1121,49 @@ public class WalkInRegistrationControl {
         return roomCount;
     }
 
-    /*
-     * Correct type
-     * + available
-     * + READY/UNKNOWN
-     * = counted as allocatable
+    /**
+     * Counts rooms of one type that can be allocated for tonight.
+     *
+     * A room must:
+     * 1. Match the requested room type.
+     * 2. Be operationally available.
+     * 3. Be ready according to Housekeeping.
+     * 4. Have no CONFIRMED or ACTIVE booking overlapping tonight.
      */
-    // count currently available rooms belogingd to one room type
     public int countAvailableRoomsByType(String roomType) {
-        if (roomType == null || roomType.trim().isEmpty()) {
+
+        if (roomType == null
+                || roomType.trim().isEmpty()) {
+
             return 0;
         }
 
         int availableRoomCount = 0;
 
-        Iterator<Room> iterator = roomList.getIterator();
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
 
-        while (iterator.hasNext()) {
-            Room room = iterator.next();
+        Iterator<Room> roomIterator = roomList.getIterator(); // ADT method call: getIterator()
 
-            boolean roomTypeMatches = room.getRoomType()
-                    .equalsIgnoreCase(roomType.trim());
+        while (roomIterator.hasNext()) {
+
+            Room room = roomIterator.next();
+
+            boolean roomTypeMatches = room.getRoomType().equalsIgnoreCase(
+                    roomType.trim());
+
+            boolean operationallyAvailable = room.isAvailable()
+                    && isReadyForAllocation(room);
+
+            boolean scheduleAvailableTonight = isRoomAvailableForSchedule(
+                    room,
+                    today,
+                    tomorrow);
 
             if (roomTypeMatches
-                    && room.isAvailable()
-                    && isReadyForAllocation(room)) {
+                    && operationallyAvailable
+                    && scheduleAvailableTonight) {
+
                 availableRoomCount++;
             }
         }
@@ -1055,7 +1177,7 @@ public class WalkInRegistrationControl {
      */
     public boolean isFrontWaitingRequestExpired() {
 
-        WalkInRegistration frontRegistration = registrationQueue.peek();
+        WalkInRegistration frontRegistration = registrationQueue.peek(); // ADT method call: peek()
 
         if (frontRegistration == null
                 || frontRegistration.getRequestedCheckInDate() == null) {
@@ -1070,7 +1192,7 @@ public class WalkInRegistrationControl {
 
     // Returns how many guests are currently waiting in the queue.
     public int getWaitingCount() {
-        return registrationQueue.getNumberOfEntries();
+        return registrationQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
     }
 
     public ListQueueInterface<Booking> getBookingList() {

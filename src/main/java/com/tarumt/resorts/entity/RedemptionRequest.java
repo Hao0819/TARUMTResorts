@@ -1,6 +1,6 @@
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Enum.java to edit this template
  */
 package com.tarumt.resorts.entity;
 
@@ -15,18 +15,38 @@ public class RedemptionRequest {
     private String loyaltyId;
     private int points;
     private LocalDate requestDate;
+    private RewardPackage rewardPackage;
 
     public RedemptionRequest(
-            String requestId,
-            String loyaltyId,
-            int points,
-            LocalDate requestDate) {
+        String requestId,
+        String loyaltyId,
+        int points,
+        LocalDate requestDate) {
 
-        this.requestId = requestId;
-        this.loyaltyId = loyaltyId;
-        this.points = points;
-        this.requestDate = requestDate;
-    }
+    this(
+            requestId,
+            loyaltyId,
+            null,
+            points,
+            requestDate);
+}
+    public RedemptionRequest(
+        String requestId,
+        String loyaltyId,
+        RewardPackage rewardPackage,
+        int points,
+        LocalDate requestDate) {
+
+    this.requestId = requestId;
+    this.loyaltyId = loyaltyId;
+    this.rewardPackage = rewardPackage;
+    this.points = points;
+    this.requestDate = requestDate;
+}
+    
+    public RewardPackage getRewardPackage() {
+    return rewardPackage;
+}
 
     public String getRequestId() {
         return requestId;
