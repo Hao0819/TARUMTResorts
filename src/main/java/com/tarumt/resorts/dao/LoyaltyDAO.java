@@ -1,7 +1,3 @@
-/*
-* Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.tarumt.resorts.dao;
 
 import com.tarumt.resorts.adt.DoublyLinkedListQueue;
@@ -11,465 +7,535 @@ import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.LoyaltyAccount;
 import com.tarumt.resorts.entity.LoyaltyTransaction;
 import com.tarumt.resorts.entity.LoyaltyTransaction.TransactionType;
-import java.time.LocalDate;
+import com.tarumt.resorts.entity.MembershipTier;
+import com.tarumt.resorts.entity.RewardPackage;
+import com.tarumt.resorts.util.LoyaltyClock;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Iterator;
 
 /**
- * Provides hard-coded sample data for the Loyalty and Rewards Service.
- *
- * The DAO uses the team's custom ListQueue ADT and shares the same Guest and
- * Booking objects used by the other resort modules. It does not read from or
- * write to files or a database.
+ * Builds Loyalty demo data from the shared Guest and Booking objects.
+ * Accounts start at zero and the transaction ledger becomes the source of
+ * their balances. Storage and traversal use only the team's custom ADT.
  */
 public class LoyaltyDAO {
 
-    private static final int DEMO_EXPIRY_MINUTES = 4;
-
-    private static final LocalDate OPENING_BALANCE_DATE =
-            LocalDate.of(2026, 1, 1);
-
-    private static final LocalDate FALLBACK_EARN_DATE =
-            LocalDate.of(2026, 7, 1);
+    private static final DateTimeFormatter BOOKING_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final ListQueueInterface<LoyaltyAccount> loyaltyAccounts;
     private final ListQueueInterface<LoyaltyTransaction> loyaltyTransactions;
     private final ListQueueInterface<Guest> guests;
     private final ListQueueInterface<Booking> bookings;
 
-    /**
-     * Creates the Loyalty sample collections from the shared Guest and
-     * Booking collections.
-     *
-     * @param guests shared Guest collection
-     * @param bookings shared Booking collection
-     */
     public LoyaltyDAO(
             ListQueueInterface<Guest> guests,
             ListQueueInterface<Booking> bookings) {
 
-        this.guests =
-                guests == null
-                        ? new DoublyLinkedListQueue<>()
-                        : guests;
-
-        this.bookings =
-                bookings == null
-                        ? new DoublyLinkedListQueue<>()
-                        : bookings;
-
-        loyaltyAccounts =
-                new DoublyLinkedListQueue<>();
-
-        loyaltyTransactions =
-                new DoublyLinkedListQueue<>();
+        this.guests = guests == null
+                ? new DoublyLinkedListQueue<>() : guests;
+        this.bookings = bookings == null
+                ? new DoublyLinkedListQueue<>() : bookings;
+        loyaltyAccounts = new DoublyLinkedListQueue<>();
+        loyaltyTransactions = new DoublyLinkedListQueue<>();
 
         initializeLoyaltyAccounts();
         initializeLoyaltyTransactions();
     }
 
-    // -------------------------------------------------------------------------
-    // LOYALTY ACCOUNT SAMPLE DATA
-    // -------------------------------------------------------------------------
-
-    /**
-     * Creates the initial Loyalty accounts using the shared Guest objects.
-     */
+    /** Creates member profiles with zero points before ledger seeding. */
     private void initializeLoyaltyAccounts() {
-
-        addInitialAccount("L001", "G001", 1000, true);     // NONE
-        addInitialAccount("L002", "G002", 3200, true);     // SILVER
-        addInitialAccount("L003", "G003", 7500, true);     // GOLD
-        addInitialAccount("L004", "G004", 12000, true);    // PLATINUM
-        addInitialAccount("L005", "G005", 17500, true);    // DIAMOND
-        addInitialAccount("L006", "G006", 23000, true);    // ELITE
-
-        addInitialAccount("L007", "G007", 850, false);     // inactive
-        addInitialAccount("L008", "G008", 3200, true);     // SILVER
-
-        addInitialAccount("L009", "G009", 7500, true);     // GOLD
-        addInitialAccount("L010", "G010", 12000, true);    // PLATINUM
-        addInitialAccount("L011", "G011", 17500, true);    // DIAMOND
-        addInitialAccount("L012", "G012", 23000, true);    // ELITE
-
-        addInitialAccount("L013", "G013", 500, true);      // NONE
-        addInitialAccount("L014", "G014", 3200, true);     // SILVER
-        addInitialAccount("L015", "G015", 7500, true);     // GOLD
-        addInitialAccount("L016", "G016", 900, true);      // NONE
-
-        addInitialAccount("L017", "G017", 3200, true);     // SILVER
-        addInitialAccount("L018", "G018", 7500, true);     // GOLD
-        addInitialAccount("L019", "G019", 3200, true);     // SILVER
-        addInitialAccount("L020", "G020", 7500, true);     // GOLD
+        addInitialAccount("L001", "G001", true);
+        addInitialAccount("L002", "G002", true);
+        addInitialAccount("L003", "G003", true);
+        addInitialAccount("L004", "G004", true);
+        addInitialAccount("L005", "G005", true);
+        addInitialAccount("L006", "G006", true);
+        addInitialAccount("L007", "G007", false);
+        addInitialAccount("L008", "G008", true);
+        addInitialAccount("L009", "G009", true);
+        addInitialAccount("L010", "G010", true);
+        addInitialAccount("L011", "G011", true);
+        addInitialAccount("L012", "G012", true);
+        addInitialAccount("L013", "G013", true);
+        addInitialAccount("L014", "G014", true);
+        addInitialAccount("L015", "G015", true);
+        addInitialAccount("L016", "G016", true);
+        addInitialAccount("L017", "G017", true);
+        addInitialAccount("L018", "G018", true);
+        addInitialAccount("L019", "G019", true);
+        addInitialAccount("L020", "G020", true);
     }
 
-    /**
-     * Adds one initial Loyalty account when the Guest exists.
-     */
     private void addInitialAccount(
             String loyaltyId,
             String guestId,
-            int points,
             boolean active) {
 
         Guest guest = findGuestById(guestId);
 
         if (guest == null) {
-            System.out.println(
-                    "Warning: Guest "
-                    + guestId
-                    + " was not found. Loyalty account "
-                    + loyaltyId
+            System.out.println("Warning: Guest " + guestId
+                    + " was not found. Loyalty account " + loyaltyId
                     + " was not loaded.");
             return;
         }
 
         LoyaltyAccount account =
-                new LoyaltyAccount(
-                        loyaltyId,
-                        guest,
-                        points,
-                        active
-                );
+                new LoyaltyAccount(loyaltyId, guest, 0, active);
+
+        if (!active) {
+            account.setDeactivatedAt(LoyaltyClock.now());
+        }
 
         loyaltyAccounts.enqueue(account);
     }
 
-    // -------------------------------------------------------------------------
-    // SHARED DATA LOOKUP HELPERS
-    // -------------------------------------------------------------------------
-
-    /**
-     * Finds a Guest from the shared Guest collection.
-     */
-    private Guest findGuestById(String guestId) {
-
-        if (guestId == null
-                || guestId.trim().isEmpty()) {
-
-            return null;
-        }
-
-        return guests.searchByKey(
-                guestId.trim(),
-                guest -> guest.getGuestId()
-        );
-    }
-
-    /**
-     * Finds a Booking from the shared Booking collection.
-     */
-    private Booking findBookingById(String bookingId) {
-
-        if (bookingId == null
-                || bookingId.trim().isEmpty()) {
-
-            return null;
-        }
-
-        return bookings.searchByKey(
-                bookingId.trim(),
-                booking -> booking.getConfirmationNumber()
-        );
-    }
-
-    /**
-     * Finds a Loyalty account by Loyalty ID.
-     */
-    private LoyaltyAccount findAccountByLoyaltyId(
-            String loyaltyId) {
-
-        if (loyaltyId == null
-                || loyaltyId.trim().isEmpty()) {
-
-            return null;
-        }
-
-        return loyaltyAccounts.searchByKey(
-                loyaltyId.trim(),
-                account -> account.getLoyaltyId()
-        );
-    }
-
-    // -------------------------------------------------------------------------
-    // TRANSACTION SAMPLE DATA
-    // -------------------------------------------------------------------------
-
-    /**
-     * Creates the opening-balance and completed-stay sample transactions.
-     *
-     * Eligible sample bookings are used as real EARN records. If one of those
-     * bookings is unavailable or no longer eligible, the member's existing
-     * balance is preserved as an opening-balance ADJUST record instead.
-     */
+    /** Seeds every opening point batch from a real completed paid Booking. */
     private void initializeLoyaltyTransactions() {
 
-        seedBookingOrOpeningBalance("L005", "20260007");
-        seedBookingOrOpeningBalance("L007", "20260008");
-        seedBookingOrOpeningBalance("L014", "20260009");
-        seedBookingOrOpeningBalance("L009", "20260011");
-        seedBookingOrOpeningBalance("L013", "20260012");
-        seedBookingOrOpeningBalance("L017", "20260013");
+        LocalDateTime seedTime = LoyaltyClock.now();
 
-        addFullOpeningBalance("L001");
-        addFullOpeningBalance("L002");
-        addFullOpeningBalance("L003");
-        addFullOpeningBalance("L004");
-        addFullOpeningBalance("L006");
-        addFullOpeningBalance("L008");
-        addFullOpeningBalance("L010");
-        addFullOpeningBalance("L011");
-        addFullOpeningBalance("L012");
-        addFullOpeningBalance("L015");
-        addFullOpeningBalance("L016");
-        addFullOpeningBalance("L018");
-        addFullOpeningBalance("L019");
-        addFullOpeningBalance("L020");
+        // IDs 20261001 onward are historical Loyalty stays in the same shared
+        // Booking collection. Booking 20260010 intentionally remains absent
+        // from the ledger so automatic processing still awards L002 200 points.
+        addHistoricalBookingEarnTransactions();
+
+        // Completed bookings use their actual checkout times.
+        addBookingEarnTransaction("L005", "20260007", null);
+        addBookingEarnTransaction("L007", "20260008", null);
+        addBookingEarnTransaction("L014", "20260009", null);
+        addBookingEarnTransaction("L009", "20260011", null);
+        addBookingEarnTransaction("L013", "20260012", null);
+        addBookingEarnTransaction("L017", "20260013", null);
+        addBookingEarnTransaction("L020", "20260014", null);
+
+        /*
+         * Completed demo redemptions give every tier meaningful performance
+         * data and cover every available reward. Each redemption consumes
+         * its member's actual point batches, so the ledger remains balanced.
+         */
+        LocalDateTime redemptionTime = seedTime.minusMinutes(30);
+        addHistoricalRedemption("L001", RewardPackage.BREAKFAST_SET,
+                redemptionTime.minusMinutes(4));
+        addHistoricalRedemption("L016", RewardPackage.LUNCH_SET,
+                redemptionTime.minusMinutes(2));
+        addHistoricalRedemption("L013", RewardPackage.BREAKFAST_SET,
+                redemptionTime);
+        addHistoricalRedemption("L008", RewardPackage.LUNCH_SET,
+                redemptionTime.plusMinutes(2));
+        addHistoricalRedemption("L003", RewardPackage.DINNER_SET,
+                redemptionTime.plusMinutes(4));
+        addHistoricalRedemption("L004", RewardPackage.BUFFET_VOUCHER,
+                redemptionTime.plusMinutes(6));
+        addHistoricalRedemption("L011", RewardPackage.BREAKFAST_SET,
+                redemptionTime.plusMinutes(8));
+        addHistoricalRedemption("L006", RewardPackage.BUFFET_VOUCHER,
+                redemptionTime.plusMinutes(10));
+        addHistoricalRedemption("L006", RewardPackage.BUFFET_VOUCHER,
+                redemptionTime.plusMinutes(12));
+
+        deriveAccountsFromLedger(seedTime);
+        initializeAccountActivity(seedTime);
+        validateLedgerBalances(seedTime);
     }
 
-    /**
-     * Attempts to seed a real EARN record from a completed booking.
-     * If the booking is not eligible, the account balance is recorded as
-     * an opening adjustment so the transaction ledger remains consistent.
-     */
-    private void seedBookingOrOpeningBalance(
-            String loyaltyId,
-            String bookingId) {
+    /** Derives inactivity activity and the next independent batch expiry. */
+    private void initializeAccountActivity(LocalDateTime seedTime) {
 
-        if (!addBookingEarnTransaction(
-                loyaltyId,
-                bookingId)) {
+        Iterator<LoyaltyAccount> accountIterator =
+                loyaltyAccounts.getIterator();
 
-            addFullOpeningBalance(loyaltyId);
+        while (accountIterator.hasNext()) {
+            LoyaltyAccount account = accountIterator.next();
+            LocalDateTime lastActivity = null;
+            LocalDateTime nextExpiry = null;
+            Iterator<LoyaltyTransaction> transactionIterator =
+                    loyaltyTransactions.getIterator();
+
+            while (transactionIterator.hasNext()) {
+                LoyaltyTransaction transaction = transactionIterator.next();
+
+                if (!account.getLoyaltyId().equalsIgnoreCase(
+                        transaction.getLoyaltyId())) {
+                    continue;
+                }
+
+                TransactionType type = transaction.getTransactionType();
+
+                if ((type == TransactionType.EARN
+                        || type == TransactionType.ADJUST
+                        || type == TransactionType.REDEEM)
+                        && (lastActivity == null
+                        || transaction.getTransactionTime()
+                                .isAfter(lastActivity))) {
+                    lastActivity = transaction.getTransactionTime();
+                }
+
+                if ((type == TransactionType.EARN
+                        || type == TransactionType.ADJUST)
+                        && transaction.getRemainingPoints() > 0
+                        && transaction.getExpiryTime() != null
+                        && seedTime.isBefore(transaction.getExpiryTime())
+                        && (nextExpiry == null
+                        || transaction.getExpiryTime()
+                                .isBefore(nextExpiry))) {
+                    nextExpiry = transaction.getExpiryTime();
+                }
+            }
+
+            account.setLastPointsActivityTime(
+                    lastActivity == null ? seedTime : lastActivity);
+            account.setPointsExpiryTime(nextExpiry);
         }
     }
 
-    /**
-     * Records the entire current balance of one account as an opening
-     * adjustment.
-     */
-    private void addFullOpeningBalance(String loyaltyId) {
+    /** Adds one completed historical redemption using FEFO point batches. */
+    private void addHistoricalRedemption(
+            String loyaltyId,
+            RewardPackage rewardPackage,
+            LocalDateTime redemptionTime) {
 
-        LoyaltyAccount account =
-                findAccountByLoyaltyId(loyaltyId);
-
-        if (account == null) {
+        if (findAccountByLoyaltyId(loyaltyId) == null
+                || rewardPackage == null
+                || redemptionTime == null) {
             return;
         }
 
-        addOpeningBalance(
-                loyaltyId,
-                account.getPointsBalance());
-    }
+        ListQueueInterface<LoyaltyTransaction> usableBatches =
+                new DoublyLinkedListQueue<>();
+        int availablePoints = 0;
+        Iterator<LoyaltyTransaction> iterator =
+                loyaltyTransactions.getIterator();
 
-    /**
-     * Adds an opening-balance transaction.
-     *
-     * ADJUST points represent existing points and do not expire.
-     */
-    private void addOpeningBalance(
-            String loyaltyId,
-            int points) {
+        while (iterator.hasNext()) {
+            LoyaltyTransaction transaction = iterator.next();
+            TransactionType type = transaction.getTransactionType();
 
-        if (points <= 0) {
-            return;
+            if (!transaction.getLoyaltyId().equalsIgnoreCase(loyaltyId)
+                    || (type != TransactionType.EARN
+                    && type != TransactionType.ADJUST)
+                    || transaction.getRemainingPoints() <= 0
+                    || transaction.getTransactionTime().isAfter(
+                            redemptionTime)
+                    || transaction.getExpiryTime() == null
+                    || !redemptionTime.isBefore(
+                            transaction.getExpiryTime())) {
+                continue;
+            }
+
+            usableBatches.priorityEnqueue(
+                    transaction,
+                    (first, second) -> first.getExpiryTime()
+                            .compareTo(second.getExpiryTime()));
+            availablePoints = Math.addExact(
+                    availablePoints,
+                    transaction.getRemainingPoints());
         }
 
-        LoyaltyTransaction transaction =
-                new LoyaltyTransaction(
-                        generateInitialTransactionId(),
-                        loyaltyId,
-                        null,
-                        TransactionType.ADJUST,
-                        points,
-                        OPENING_BALANCE_DATE,
-                        null
-                );
+        int points = rewardPackage.getPointsRequired();
 
-        loyaltyTransactions.enqueue(transaction);
+        if (availablePoints < points) {
+            throw new IllegalStateException(
+                    "Insufficient demo points for " + loyaltyId
+                    + " to redeem " + rewardPackage.getRewardName() + ".");
+        }
+
+        int remainingToRedeem = points;
+        LocalDateTime firstBatchExpiry = null;
+        iterator = usableBatches.getIterator();
+
+        while (iterator.hasNext() && remainingToRedeem > 0) {
+            LoyaltyTransaction batch = iterator.next();
+            int deducted = batch.deductRemainingPoints(remainingToRedeem);
+
+            if (deducted > 0 && firstBatchExpiry == null) {
+                firstBatchExpiry = batch.getExpiryTime();
+            }
+
+            remainingToRedeem -= deducted;
+        }
+
+        LoyaltyTransaction redemption = new LoyaltyTransaction(
+                generateInitialTransactionId(),
+                loyaltyId,
+                null,
+                TransactionType.REDEEM,
+                points,
+                redemptionTime,
+                null);
+        redemption.setRewardPackage(rewardPackage);
+        redemption.recordRemovalResult(
+                availablePoints - points,
+                firstBatchExpiry);
+        loyaltyTransactions.enqueue(redemption);
+    }
+
+    /** Converts every shared historical Loyalty Booking into one EARN batch. */
+    private void addHistoricalBookingEarnTransactions() {
+
+        Iterator<Booking> iterator = bookings.getIterator();
+
+        while (iterator.hasNext()) {
+            Booking booking = iterator.next();
+
+            if (booking == null
+                    || booking.getConfirmationNumber() == null
+                    || !booking.getConfirmationNumber()
+                            .matches("^20261\\d{3}$")
+                    || booking.getGuest() == null) {
+                continue;
+            }
+
+            LoyaltyAccount account = loyaltyAccounts.searchByKey(
+                    booking.getGuest().getGuestId(),
+                    loyaltyAccount -> loyaltyAccount.getGuestId());
+
+            if (account == null
+                    || !addBookingEarnTransaction(
+                            account.getLoyaltyId(),
+                            booking.getConfirmationNumber(),
+                            null)) {
+                throw new IllegalStateException(
+                        "Unable to seed Loyalty EARN from Booking "
+                        + booking.getConfirmationNumber() + ".");
+            }
+        }
     }
 
     /**
-     * Adds an EARN transaction from a real CHECKED_OUT and PAID booking.
-     *
-     * The transaction ledger is reconciled with the account's configured
-     * starting balance:
-     * - older points are represented by ADJUST;
-     * - booking-earned points are represented by EARN;
-     * - any already-used portion is represented by REDEEM.
-     *
-     * @return true when the booking was valid and transaction data was seeded
+     * Adds one EARN batch for one real CHECKED_OUT and PAID booking. The
+     * transaction expiry is three months after this batch's earned time.
      */
     private boolean addBookingEarnTransaction(
             String loyaltyId,
-            String bookingId) {
+            String bookingId,
+            LocalDateTime demoEarnedTime) {
 
-        LoyaltyAccount account =
-                findAccountByLoyaltyId(loyaltyId);
+        LoyaltyAccount account = findAccountByLoyaltyId(loyaltyId);
+        Booking booking = findBookingById(bookingId);
 
-        Booking booking =
-                findBookingById(bookingId);
-
-        if (account == null || booking == null) {
+        if (account == null || booking == null
+                || !isEligibleCompletedBooking(account, booking)
+                || hasSeededBooking(bookingId)) {
             return false;
         }
 
-        if (!isEligibleCompletedBooking(
-                account,
-                booking)) {
-
-            return false;
-        }
-
-        int earnedPoints =
-                (int) Math.floor(
-                        booking.getAmount());
+        int earnedPoints = (int) Math.floor(booking.getAmount());
 
         if (earnedPoints <= 0) {
             return false;
         }
 
-        LocalDate earnDate =
-                booking.getScheduledCheckOutDate();
+        LocalDateTime earnedTime = demoEarnedTime == null
+                ? readBookingEarnedTime(booking) : demoEarnedTime;
+        LocalDateTime expiryTime = earnedTime.plusMonths(3);
 
-        if (earnDate == null) {
-            earnDate = FALLBACK_EARN_DATE;
-        }
-
-        int targetBalance =
-                account.getPointsBalance();
-
-        /*
-         * If the member already had points before this booking, store the
-         * older portion as a non-expiring opening adjustment.
-         */
-        if (targetBalance > earnedPoints) {
-
-            addOpeningBalance(
-                    loyaltyId,
-                    targetBalance - earnedPoints);
-        }
-
-        LoyaltyTransaction earnTransaction =
-                new LoyaltyTransaction(
-                        generateInitialTransactionId(),
-                        loyaltyId,
-                        booking.getConfirmationNumber(),
-                        TransactionType.EARN,
-                        earnedPoints,
-                        earnDate,
-                        LocalDateTime.now()
-                                .plusMinutes(
-                                        DEMO_EXPIRY_MINUTES)
-                );
-
-        /*
-         * If the booking earned more points than the member's configured
-         * current balance, the difference represents points already redeemed
-         * before the program starts.
-         */
-        if (earnedPoints > targetBalance) {
-
-            int previouslyRedeemed =
-                    earnedPoints - targetBalance;
-
-            earnTransaction.deductRemainingPoints(
-                    previouslyRedeemed);
-
-            loyaltyTransactions.enqueue(
-                    earnTransaction);
-
-            LoyaltyTransaction redeemTransaction =
-                    new LoyaltyTransaction(
-                            generateInitialTransactionId(),
-                            loyaltyId,
-                            null,
-                            TransactionType.REDEEM,
-                            previouslyRedeemed,
-                            earnDate.plusDays(1),
-                            null
-                    );
-
-            loyaltyTransactions.enqueue(
-                    redeemTransaction);
-
-            return true;
-        }
-
-        loyaltyTransactions.enqueue(
-                earnTransaction);
+        LoyaltyTransaction earnTransaction = new LoyaltyTransaction(
+                generateInitialTransactionId(), loyaltyId,
+                booking.getConfirmationNumber(), TransactionType.EARN,
+                earnedPoints, earnedTime, expiryTime);
+        // ADT method called: enqueue()
+        loyaltyTransactions.enqueue(earnTransaction);
 
         return true;
     }
 
-    /**
-     * Checks whether a Booking can be used as a real Loyalty EARN record.
-     */
+    private LocalDateTime readBookingEarnedTime(Booking booking) {
+
+        String checkoutTime = booking.getCheckOutTime();
+
+        if (checkoutTime != null && !checkoutTime.trim().isEmpty()) {
+            try {
+                return LocalDateTime.parse(
+                        checkoutTime.trim(), BOOKING_TIME_FORMAT);
+            } catch (DateTimeParseException exception) {
+                // Use the structured scheduled date when legacy text is bad.
+            }
+        }
+
+        if (booking.getScheduledCheckOutDate() != null) {
+            return booking.getScheduledCheckOutDate().atTime(12, 0);
+        }
+
+        throw new IllegalStateException(
+                "Completed booking " + booking.getConfirmationNumber()
+                + " has no usable checkout time.");
+    }
+
+    private boolean hasSeededBooking(String bookingId) {
+
+        Iterator<LoyaltyTransaction> iterator =
+                loyaltyTransactions.getIterator();
+
+        while (iterator.hasNext()) {
+            LoyaltyTransaction transaction = iterator.next();
+
+            if (transaction.getTransactionType() == TransactionType.EARN
+                    && transaction.getBookingId() != null
+                    && transaction.getBookingId().equalsIgnoreCase(bookingId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Derives redeemable balance and lifetime qualifying points from ledger. */
+    private void deriveAccountsFromLedger(LocalDateTime currentTime) {
+
+        Iterator<LoyaltyAccount> accountIterator =
+                loyaltyAccounts.getIterator();
+
+        while (accountIterator.hasNext()) {
+            LoyaltyAccount account = accountIterator.next();
+            int balance = 0;
+            int qualifyingPoints = 0;
+            Iterator<LoyaltyTransaction> transactionIterator =
+                    loyaltyTransactions.getIterator();
+
+            while (transactionIterator.hasNext()) {
+                LoyaltyTransaction transaction = transactionIterator.next();
+
+                if (!account.getLoyaltyId().equalsIgnoreCase(
+                        transaction.getLoyaltyId())) {
+                    continue;
+                }
+
+                if (transaction.getTransactionType() == TransactionType.EARN
+                        || transaction.getTransactionType()
+                                == TransactionType.ADJUST) {
+                    qualifyingPoints = Math.addExact(
+                            qualifyingPoints, transaction.getPoints());
+
+                    if (isUsableAt(transaction, currentTime)) {
+                        balance = Math.addExact(
+                                balance, transaction.getRemainingPoints());
+                    }
+                }
+            }
+
+            account.setPointsBalance(balance);
+            account.setTierQualifyingPoints(qualifyingPoints);
+            applyTier(account);
+        }
+    }
+
+    private void validateLedgerBalances(LocalDateTime currentTime) {
+
+        Iterator<LoyaltyAccount> iterator = loyaltyAccounts.getIterator();
+
+        while (iterator.hasNext()) {
+            LoyaltyAccount account = iterator.next();
+            int ledgerBalance = calculateUsableLedgerBalance(
+                    account.getLoyaltyId(), currentTime);
+
+            if (account.getPointsBalance() != ledgerBalance) {
+                throw new IllegalStateException(
+                        "Loyalty ledger mismatch for "
+                        + account.getLoyaltyId() + ": account="
+                        + account.getPointsBalance() + ", ledger="
+                        + ledgerBalance);
+            }
+        }
+    }
+
+    private int calculateUsableLedgerBalance(
+            String loyaltyId,
+            LocalDateTime currentTime) {
+
+        int total = 0;
+        Iterator<LoyaltyTransaction> iterator =
+                loyaltyTransactions.getIterator();
+
+        while (iterator.hasNext()) {
+            LoyaltyTransaction transaction = iterator.next();
+            TransactionType type = transaction.getTransactionType();
+
+            if (transaction.getLoyaltyId().equalsIgnoreCase(loyaltyId)
+                    && (type == TransactionType.EARN
+                            || type == TransactionType.ADJUST)
+                    && isUsableAt(transaction, currentTime)) {
+                total = Math.addExact(total,
+                        transaction.getRemainingPoints());
+            }
+        }
+
+        return total;
+    }
+
+    private boolean isUsableAt(
+            LoyaltyTransaction transaction,
+            LocalDateTime currentTime) {
+
+        return transaction.getRemainingPoints() > 0
+                && transaction.getExpiryTime() != null
+                && currentTime.isBefore(transaction.getExpiryTime());
+    }
+
+    private void applyTier(LoyaltyAccount account) {
+
+        int points = account.getTierQualifyingPoints();
+        MembershipTier tier;
+
+        if (points >= 20000) {
+            tier = MembershipTier.ELITE;
+        } else if (points >= 15000) {
+            tier = MembershipTier.DIAMOND;
+        } else if (points >= 10000) {
+            tier = MembershipTier.PLATINUM;
+        } else if (points >= 5000) {
+            tier = MembershipTier.GOLD;
+        } else if (points >= 2000) {
+            tier = MembershipTier.SILVER;
+        } else {
+            tier = MembershipTier.NONE;
+        }
+
+        account.setMembershipTier(tier);
+    }
+
     private boolean isEligibleCompletedBooking(
             LoyaltyAccount account,
             Booking booking) {
 
-        if (account == null
-                || booking == null
-                || booking.getGuest() == null
-                || booking.getGuest().getGuestId() == null
-                || account.getGuestId() == null) {
-
-            return false;
-        }
-
-        boolean checkedOut =
-                booking.getStatus() != null
-                && booking.getStatus()
-                        .equalsIgnoreCase(
-                                "CHECKED_OUT");
-
-        boolean paid =
-                booking.getPaymentStatus() != null
-                && booking.getPaymentStatus()
-                        .equalsIgnoreCase(
-                                "PAID");
-
-        boolean sameGuest =
-                account.getGuestId()
-                        .equalsIgnoreCase(
-                                booking.getGuest()
-                                        .getGuestId());
-
-        return checkedOut && paid && sameGuest;
+        return booking.getGuest() != null
+                && booking.getGuest().getGuestId() != null
+                && account.getGuestId() != null
+                && account.getGuestId().equalsIgnoreCase(
+                        booking.getGuest().getGuestId())
+                && booking.getStatus() != null
+                && booking.getStatus().equalsIgnoreCase("CHECKED_OUT")
+                && booking.getPaymentStatus() != null
+                && booking.getPaymentStatus().equalsIgnoreCase("PAID");
     }
 
-    /**
-     * Generates the next transaction ID for sample data.
-     */
+    private Guest findGuestById(String guestId) {
+        return guests.searchByKey(guestId, guest -> guest.getGuestId());
+    }
+
+    private Booking findBookingById(String bookingId) {
+        return bookings.searchByKey(
+                bookingId, booking -> booking.getConfirmationNumber());
+    }
+
+    private LoyaltyAccount findAccountByLoyaltyId(String loyaltyId) {
+        return loyaltyAccounts.searchByKey(
+                loyaltyId, account -> account.getLoyaltyId());
+    }
+
     private String generateInitialTransactionId() {
-
-        int nextNumber =
-                loyaltyTransactions.getNumberOfEntries() + 1;
-
-        return String.format(
-                "T%03d",
-                nextNumber);
+        return String.format("T%03d",
+                loyaltyTransactions.getNumberOfEntries() + 1);
     }
 
-    // -------------------------------------------------------------------------
-    // COLLECTION ACCESS
-    // -------------------------------------------------------------------------
-
-    /**
-     * Returns the initialized Loyalty-account collection.
-     */
-    public ListQueueInterface<LoyaltyAccount>
-            getLoyaltyAccounts() {
-
+    public ListQueueInterface<LoyaltyAccount> getLoyaltyAccounts() {
         return loyaltyAccounts;
     }
 
-    /**
-     * Returns the initialized Loyalty-transaction collection.
-     */
-    public ListQueueInterface<LoyaltyTransaction>
-            getLoyaltyTransactions() {
-
+    public ListQueueInterface<LoyaltyTransaction> getLoyaltyTransactions() {
         return loyaltyTransactions;
     }
 }

@@ -16,12 +16,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Scanner;
 
-/**
- * WalkInRegistrationUI.java
- * Console interface for the Walk-In Registrations module.
- *
- * @author Junhao
- */
+// Console interface for the Walk-In Registrations module.
+// @author LimJunHao
 public class WalkInRegistrationUI {
 
         private WalkInRegistrationControl control;
@@ -51,6 +47,7 @@ public class WalkInRegistrationUI {
                 sc = sharedScanner;
         }
 
+        // Displays the Walk-In menu in a loop and routes each choice to its handler until 0 is entered.
         public void showMenu() {
                 int choice;
                 do {
@@ -87,32 +84,35 @@ public class WalkInRegistrationUI {
                         System.out.printf(
                                         "| %-64s |%n",
                                         "3. View standard booking request queue");
+                        System.out.printf(
+                                        "| %-64s |%n",
+                                        "4. Update waiting booking request");
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "4. Walk-In Registration Analysis Report");
-
-                        System.out.printf(
-                                        "| %-64s |%n",
-                                        "5. Room-Type Demand and Availability Report");
-
+                                        "5. Cancel waiting booking request");
                         System.out.printf(
                                         "| %-64s |%n",
                                         "6. Search standard booking requests");
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "7. Update waiting booking request");
+                                        "7. Walk-In Registration Analysis Report");
 
                         System.out.printf(
                                         "| %-64s |%n",
-                                        "8. Cancel waiting booking request");
+                                        "8. Room-Type Demand and Availability Report");
 
                         System.out.printf(
                                         "| %-64s |%n",
                                         "0. Back to main menu");
 
                         System.out.println(menuBorder);
+
+                        System.out.println(
+                                        "Navigation: Within a function, enter 0 "
+                                                        + "to cancel and return to this menu.");
+
                         System.out.print("Enter choice: ");
 
                         // prevent input letters, symbols, blank
@@ -128,11 +128,11 @@ public class WalkInRegistrationUI {
                                 case 1 -> registerGuest();
                                 case 2 -> processNextGuest();
                                 case 3 -> displayWaitingQueue();
-                                case 4 -> displayRegistrationAnalysisReport();
-                                case 5 -> displayRoomTypeDemandReport();
+                                case 4 -> updateWaitingBookingRequest();
+                                case 5 -> cancelWaitingRegistration();
                                 case 6 -> searchRegistrationHistory();
-                                case 7 -> updateWaitingBookingRequest();
-                                case 8 -> cancelWaitingRegistration();
+                                case 7 -> displayRegistrationAnalysisReport();
+                                case 8 -> displayRoomTypeDemandReport();
                                 case 0 -> System.out.println("Returning to main menu...");
                                 default -> System.out.println("Invalid choice.");
                         }
@@ -145,10 +145,7 @@ public class WalkInRegistrationUI {
                 } while (choice != 0);
         }
 
-        /**
-         * Displays a monthly booking calendar for one room type.
-         * An unavailable starting date is shown as X.
-         */
+        // X marks a start date where no room is free for the whole stay
         private void displayBookingCalendar(
                         YearMonth selectedMonth,
                         String roomType,
@@ -244,25 +241,42 @@ public class WalkInRegistrationUI {
                 }
 
                 System.out.println(border);
-                System.out.println(
-                                "- = Past date and cannot be selected.");
-
-                System.out.println(
-                                "Each displayed number is an available check-in day.");
-
-                System.out.println(
-                                "X = No room is available for a "
-                                                + stayDurationDays
-                                                + "-night stay starting on that day.");
+                System.out.println("- = Past date");
+                System.out.println("Day number = Available check-in date");
+                System.out.println("X = Unavailable for the complete stay");
         }
 
+        // lets staff eyeball existing IDs/contacts before asking for a new one
+        private void displayExistingGuestsForRegistration() {
+                Guest[] guests = control.getAllGuests();
+
+                String border = "+----------+----------------------+---------------+";
+
+                System.out.println();
+                System.out.println(border);
+                System.out.println("|                 EXISTING GUESTS                 |");
+                System.out.println(border);
+                System.out.printf("| %-8s | %-20s | %-13s |%n", "Guest ID", "Name", "Mobile No.");
+                System.out.println(border);
+
+                for (Guest guest : guests) {
+                        System.out.printf("| %-8s | %-20s | %-13s |%n",
+                                        guest.getGuestId(), guest.getName(), guest.getContactNumber());
+                }
+
+                System.out.println(border);
+        }
+
+        // handles the whole flow: guest lookup/creation, room type, stay length, check-in date
         private void registerGuest() {
+                displayExistingGuestsForRegistration();
+
                 String contact;
 
                 while (true) {
                         System.out.print(
                                         "Enter Malaysian mobile number "
-                                                        + "(10-11 digits, starts with 01, 0 = Back): ");
+                                                        + "(10-11 digits, starts with 01): ");
 
                         contact = sc.nextLine().trim();
 
@@ -315,7 +329,7 @@ public class WalkInRegistrationUI {
                         // Only request personal details when this is a new Guest.
                         while (true) {
                                 System.out.print(
-                                                "Enter guest name (0 = Back): ");
+                                                "Enter guest name : ");
 
                                 name = sc.nextLine().trim();
 
@@ -334,7 +348,7 @@ public class WalkInRegistrationUI {
 
                         while (true) {
                                 System.out.print(
-                                                "Enter email (0 = Back): ");
+                                                "Enter email : ");
 
                                 email = sc.nextLine().trim();
 
@@ -355,19 +369,21 @@ public class WalkInRegistrationUI {
 
                 String roomType;
 
+                // Display the shared room-type choices and current nightly rates.
+                displayAvailableRoomTypes();
+
                 while (true) {
-                        System.out.print(
-                                        "Enter room type "
-                                                        + "(D = Deluxe, S = Standard, "
-                                                        + "SU = Suite, 0 = Back): ");
+                        System.out.print("Enter room type code: ");
 
                         String roomTypeCode = sc.nextLine().trim();
 
                         if (roomTypeCode.equals("0")) {
-                                System.out.println("Booking request cancelled.");
+                                System.out.println(
+                                                "Booking request cancelled.");
                                 return;
                         }
 
+                        // Convert the entered code into the complete room-type name.
                         roomType = control.parseRoomTypeCode(
                                         roomTypeCode);
 
@@ -384,7 +400,7 @@ public class WalkInRegistrationUI {
                 while (true) {
                         System.out.print(
                                         "Enter stay duration in nights "
-                                                        + "(1-30, 0 = Back): ");
+                                                        + "(1-30): ");
 
                         String stayDurationInput = sc.nextLine().trim();
 
@@ -420,7 +436,7 @@ public class WalkInRegistrationUI {
                         while (true) {
                                 System.out.print(
                                                 "Enter booking month "
-                                                                + "(YYYY-MM, 0 = Back): ");
+                                                                + "(YYYY-MM): ");
 
                                 String bookingMonthInput = sc.nextLine().trim();
 
@@ -460,7 +476,7 @@ public class WalkInRegistrationUI {
                                 System.out.print(
                                                 "Enter check-in day (1-"
                                                                 + selectedMonth.lengthOfMonth()
-                                                                + ", M = Change Month, 0 = Back): ");
+                                                                + ", M = Change Month): ");
 
                                 String dayInput = sc.nextLine().trim();
 
@@ -563,6 +579,55 @@ public class WalkInRegistrationUI {
                 displayRegistrationResult(registration);
         }
 
+        private void displayAvailableRoomTypes() {
+
+                // Read the latest room rates instead of hard-coding prices in the UI.
+                double standardDailyRate = control.getDailyRateByRoomType("Standard");
+
+                double deluxeDailyRate = control.getDailyRateByRoomType("Deluxe");
+
+                double suiteDailyRate = control.getDailyRateByRoomType("Suite");
+
+                System.out.println();
+                System.out.println(
+                                "+--------+------------+------------------+");
+                System.out.println(
+                                "|          AVAILABLE ROOM TYPES          |");
+                System.out.println(
+                                "+--------+------------+------------------+");
+
+                System.out.printf(
+                                "| %-6s | %-10s | %-16s |%n",
+                                "Code",
+                                "Room Type",
+                                "Rate Per Night");
+
+                System.out.println(
+                                "+--------+------------+------------------+");
+
+                System.out.printf(
+                                "| %-6s | %-10s | RM %13.2f |%n",
+                                "S",
+                                "Standard",
+                                standardDailyRate);
+
+                System.out.printf(
+                                "| %-6s | %-10s | RM %13.2f |%n",
+                                "D",
+                                "Deluxe",
+                                deluxeDailyRate);
+
+                System.out.printf(
+                                "| %-6s | %-10s | RM %13.2f |%n",
+                                "SU",
+                                "Suite",
+                                suiteDailyRate);
+
+                System.out.println(
+                                "+--------+------------+------------------+");
+        }
+
+        // Displays the newly submitted registration's details as a confirmation table.
         private void displayRegistrationResult(
                         WalkInRegistration registration) {
 
@@ -647,6 +712,7 @@ public class WalkInRegistrationUI {
                                 "Standard booking request submitted successfully.");
         }
 
+        // Triggers allocation of the front FIFO request and reports whether it succeeded or stayed blocked.
         private void processNextGuest() {
                 // compares the number of waiting registrations with 0
                 if (control.getWaitingCount() == 0) {
@@ -678,6 +744,7 @@ public class WalkInRegistrationUI {
                 }
         }
 
+        // Displays a successful allocation's full Booking details, including pricing and discount.
         private void displayBookingResult(Booking booking) {
                 String border = "+----------------------+--------------------------------------+";
 
@@ -816,6 +883,7 @@ public class WalkInRegistrationUI {
                                                 + "Payment will be collected during check-in.");
         }
 
+        // Lists every WAITING request in FIFO order, front to rear.
         private void displayWaitingQueue() {
                 WalkInRegistration[] waiting = control.getAllWaitingRegistrations();
 
@@ -890,18 +958,44 @@ public class WalkInRegistrationUI {
                                                 + waiting.length);
         }
 
+        // Prompts for room-type/status filters, then prints the filtered registration table, charts, and conversion-rate insight.
         private void displayRegistrationAnalysisReport() {
                 String roomTypeFilter;
 
                 while (true) {
+                        String filterBorder = "+--------+----------------------+";
+
+                        System.out.println();
+                        System.out.println(filterBorder);
                         System.out.println(
-                                        "\nRoom Type Filter");
-                        System.out.println("1. All Room Types");
-                        System.out.println("2. Standard");
-                        System.out.println("3. Deluxe");
-                        System.out.println("4. Suite");
-                        System.out.println("0. Back");
-                        System.out.print("Enter choice: ");
+                                        "|       ROOM TYPE FILTER        |");
+                        System.out.println(filterBorder);
+
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "Option",
+                                        "Selection");
+
+                        System.out.println(filterBorder);
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "1",
+                                        "All Room Types");
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "2",
+                                        "Standard");
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "3",
+                                        "Deluxe");
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "4",
+                                        "Suite");
+                        System.out.println(filterBorder);
+
+                        System.out.print("Enter filter option: ");
 
                         String choice = sc.nextLine().trim();
 
@@ -930,13 +1024,39 @@ public class WalkInRegistrationUI {
                 String statusFilter;
 
                 while (true) {
-                        System.out.println("\nRegistration Status Filter");
-                        System.out.println("1. All Statuses");
-                        System.out.println("2. Waiting");
-                        System.out.println("3. Assigned");
-                        System.out.println("4. Cancelled");
-                        System.out.println("0. Back");
-                        System.out.print("Enter choice: ");
+                        String statusFilterBorder = "+--------+----------------------+";
+
+                        System.out.println();
+                        System.out.println(statusFilterBorder);
+                        System.out.println(
+                                        "|  REGISTRATION STATUS FILTER   |");
+                        System.out.println(statusFilterBorder);
+
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "Option",
+                                        "Selection");
+
+                        System.out.println(statusFilterBorder);
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "1",
+                                        "All Statuses");
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "2",
+                                        "Waiting");
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "3",
+                                        "Assigned");
+                        System.out.printf(
+                                        "| %-6s | %-20s |%n",
+                                        "4",
+                                        "Cancelled");
+                        System.out.println(statusFilterBorder);
+
+                        System.out.print("Enter filter option: ");
 
                         String choice = sc.nextLine().trim();
 
@@ -971,8 +1091,12 @@ public class WalkInRegistrationUI {
                                 + "------------+------------+--------+"
                                 + "------------------+------------+-----------+";
 
+                String companyName = "TARUMT RESORTS";
                 String title = "WALK-IN REGISTRATION ANALYSIS REPORT";
                 int contentWidth = 134;
+
+                int companyLeftPadding = (contentWidth - companyName.length()) / 2;
+                int companyRightPadding = contentWidth - companyName.length() - companyLeftPadding;
 
                 int leftPadding = (contentWidth - title.length()) / 2;
 
@@ -980,6 +1104,13 @@ public class WalkInRegistrationUI {
 
                 System.out.println();
                 System.out.println(border);
+
+                System.out.println(
+                                "| "
+                                                + " ".repeat(companyLeftPadding)
+                                                + companyName
+                                                + " ".repeat(companyRightPadding)
+                                                + " |");
 
                 System.out.println(
                                 "| "
@@ -1200,6 +1331,30 @@ public class WalkInRegistrationUI {
                                                         + highestRoomTypeCount
                                                         + " requests)");
 
+                        // Conversion rate measures how effectively resolved requests turn
+                        // into a Booking versus being lost to cancellation. WAITING
+                        // requests are excluded since they have not been resolved either
+                        // way yet.
+                        int resolvedCount = statusCounts[1] + statusCounts[2];
+
+                        if (resolvedCount == 0) {
+                                System.out.println(
+                                                "Conversion rate: no resolved requests yet "
+                                                                + "in this filter ("
+                                                                + statusCounts[0]
+                                                                + " still waiting).");
+                        } else {
+                                double conversionRate = statusCounts[1] * 100.0 / resolvedCount;
+
+                                System.out.printf(
+                                                "Conversion rate: %.1f%% assigned (%d of %d resolved requests); "
+                                                                + "%d still waiting.%n",
+                                                conversionRate,
+                                                statusCounts[1],
+                                                resolvedCount,
+                                                statusCounts[0]);
+                        }
+
                         String endLabel = "END OF REPORT";
 
                         int endLeftPadding = (contentWidth - endLabel.length()) / 2;
@@ -1221,6 +1376,7 @@ public class WalkInRegistrationUI {
                 }
         }
 
+        // Prints the room-type demand-vs-supply summary table, demand-pressure ratios, and bar charts.
         private void displayRoomTypeDemandReport() {
 
                 String[] roomTypes = {
@@ -1229,6 +1385,7 @@ public class WalkInRegistrationUI {
 
                 int[] requestCounts = new int[roomTypes.length];
                 int[] roomsAvailableTonightCounts = new int[roomTypes.length];
+                int[] roomCounts = new int[roomTypes.length];
 
                 int totalRegistrationRequests = control.getAllRegistrationHistory().length;
 
@@ -1237,8 +1394,12 @@ public class WalkInRegistrationUI {
                 String border = "+------------+----------+----------+---------+-----------+"
                                 + "---------+-------------+----------+";
 
+                String companyName = "TARUMT RESORTS";
                 String title = "ROOM-TYPE DEMAND SUMMARY REPORT";
                 int contentWidth = 91;
+
+                int companyLeftPadding = (contentWidth - companyName.length()) / 2;
+                int companyRightPadding = contentWidth - companyName.length() - companyLeftPadding;
 
                 int leftPadding = (contentWidth - title.length()) / 2;
 
@@ -1253,9 +1414,15 @@ public class WalkInRegistrationUI {
 
                 System.out.printf(
                                 "|%s%s%s|%n",
-                                " ".repeat(leftPadding),
-                                title,
-                                " ".repeat(rightPadding));
+                                " ".repeat(companyLeftPadding),
+                                companyName,
+                                " ".repeat(companyRightPadding));
+
+                System.out.println(
+                                "|%s%s%s|".formatted(
+                                                " ".repeat(leftPadding),
+                                                title,
+                                                " ".repeat(rightPadding)));
 
                 System.out.println(border);
 
@@ -1310,6 +1477,7 @@ public class WalkInRegistrationUI {
 
                         requestCounts[roomTypeIndex] = requestCount;
                         roomsAvailableTonightCounts[roomTypeIndex] = roomsAvailableTonight;
+                        roomCounts[roomTypeIndex] = roomCount;
 
                         totalRooms += roomCount;
 
@@ -1338,6 +1506,8 @@ public class WalkInRegistrationUI {
                                 "Total rooms: " + totalRooms);
 
                 System.out.println(border);
+
+                displayDemandPressure(roomTypes, requestCounts, roomCounts);
 
                 displaySideBySideBarCharts(
                                 "TOTAL REQUESTS BY ROOM TYPE",
@@ -1461,9 +1631,63 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
         }
 
-        /**
-         * Displays two vertical bar charts side by side.
-         */
+        // capacity-planning ratio (requests per room, all-time) - not the same as tonight's live availability
+        private void displayDemandPressure(
+                        String[] roomTypes,
+                        int[] requestCounts,
+                        int[] roomCounts) {
+
+                System.out.println();
+                System.out.println("DEMAND PRESSURE (requests recorded per room, all-time)");
+                System.out.println();
+
+                double[] pressureRatios = new double[roomTypes.length];
+
+                for (int roomTypeIndex = 0; roomTypeIndex < roomTypes.length; roomTypeIndex++) {
+
+                        int roomCount = roomCounts[roomTypeIndex];
+
+                        pressureRatios[roomTypeIndex] = roomCount == 0
+                                        ? 0.0
+                                        : requestCounts[roomTypeIndex] * 1.0 / roomCount;
+
+                        System.out.printf(
+                                        "  %-10s : %3d requests / %2d rooms = %5.2fx%n",
+                                        roomTypes[roomTypeIndex],
+                                        requestCounts[roomTypeIndex],
+                                        roomCount,
+                                        pressureRatios[roomTypeIndex]);
+                }
+
+                int highestPressureIndex = 0;
+                int lowestPressureIndex = 0;
+
+                for (int roomTypeIndex = 1; roomTypeIndex < pressureRatios.length; roomTypeIndex++) {
+
+                        if (pressureRatios[roomTypeIndex] > pressureRatios[highestPressureIndex]) {
+                                highestPressureIndex = roomTypeIndex;
+                        }
+
+                        if (pressureRatios[roomTypeIndex] < pressureRatios[lowestPressureIndex]) {
+                                lowestPressureIndex = roomTypeIndex;
+                        }
+                }
+
+                System.out.println();
+
+                System.out.printf(
+                                "Highest demand pressure: %s (%.2fx requests per room) "
+                                                + "- consider adding more %s rooms.%n",
+                                roomTypes[highestPressureIndex],
+                                pressureRatios[highestPressureIndex],
+                                roomTypes[highestPressureIndex]);
+
+                System.out.printf(
+                                "Lowest demand pressure: %s (%.2fx requests per room).%n",
+                                roomTypes[lowestPressureIndex],
+                                pressureRatios[lowestPressureIndex]);
+        }
+
         private void displaySideBySideBarCharts(
                         String leftChartTitle,
                         String[] leftCategoryLabels,
@@ -1615,9 +1839,7 @@ public class WalkInRegistrationUI {
                                 rightValueRow);
         }
 
-        /**
-         * Displays one booking request using a consistent table format.
-         */
+        // shared table format so update/cancel screens look the same
         private void displayBookingRequestDetails(
                         String tableTitle,
                         WalkInRegistration registration) {
@@ -1688,9 +1910,6 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
         }
 
-        /**
-         * Displays all changes recorded for one booking request.
-         */
         private void displayRegistrationChangeHistory(
                         WalkInRegistration registration) {
 
@@ -1755,6 +1974,7 @@ public class WalkInRegistrationUI {
                                                 + registration.getNumberOfChanges());
         }
 
+        // Walks staff through changing the room type, check-in date, or duration of one WAITING request.
         private void updateWaitingBookingRequest() {
 
                 if (control.getWaitingCount() == 0) {
@@ -1766,8 +1986,7 @@ public class WalkInRegistrationUI {
                 displayWaitingQueue();
 
                 System.out.print(
-                                "\nEnter Registration ID to update "
-                                                + "(0 = Back): ");
+                                "\nEnter Registration ID to update : ");
 
                 String registrationId = sc.nextLine().trim();
 
@@ -1777,8 +1996,7 @@ public class WalkInRegistrationUI {
                 }
 
                 System.out.print(
-                                "Enter Guest ID for verification "
-                                                + "(0 = Back): ");
+                                "Enter Guest ID for verification : ");
 
                 String guestId = sc.nextLine().trim();
 
@@ -1802,6 +2020,16 @@ public class WalkInRegistrationUI {
                                 "CURRENT BOOKING REQUEST",
                                 selectedRegistration);
 
+                System.out.println();
+                System.out.println(
+                                "Update instructions: Press Enter to keep the current value.");
+                System.out.println(
+                                "Enter 0 at any input prompt to cancel and return to the Walk-In menu.");
+
+                // Show valid room-type codes and current prices before staff update the
+                // request.
+                displayAvailableRoomTypes();
+
                 String updatedRoomType = selectedRegistration.getRequestedRoomType();
 
                 LocalDate updatedCheckInDate = selectedRegistration.getRequestedCheckInDate();
@@ -1810,10 +2038,7 @@ public class WalkInRegistrationUI {
 
                 // Step 1: Select the final room type.
                 while (true) {
-                        System.out.print(
-                                        "\nEnter new room type "
-                                                        + "(D/S/SU, Enter = Keep current, "
-                                                        + "0 = Back): ");
+                        System.out.print("Enter new room type code: ");
 
                         String roomTypeInput = sc.nextLine().trim();
 
@@ -1841,8 +2066,7 @@ public class WalkInRegistrationUI {
                 while (true) {
                         System.out.print(
                                         "Enter new stay duration "
-                                                        + "(1-30 nights, Enter = Keep current, "
-                                                        + "0 = Back): ");
+                                                        + "(1-30 nights) : ");
 
                         String durationInput = sc.nextLine().trim();
 
@@ -1884,8 +2108,7 @@ public class WalkInRegistrationUI {
                 calendarSelection: while (true) {
                         System.out.print(
                                         "Enter booking month "
-                                                        + "(YYYY-MM, Enter = Current request month, "
-                                                        + "0 = Back): ");
+                                                        + "(YYYY-MM) : ");
 
                         String monthInput = sc.nextLine().trim();
 
@@ -1922,8 +2145,8 @@ public class WalkInRegistrationUI {
                                 System.out.print(
                                                 "Enter new check-in day (1-"
                                                                 + selectedMonth.lengthOfMonth()
-                                                                + ", Enter = Keep current date, "
-                                                                + "M = Change month, 0 = Back): ");
+                                                                + ", "
+                                                                + "M = Change month) : ");
 
                                 String dayInput = sc.nextLine().trim();
 
@@ -2025,6 +2248,7 @@ public class WalkInRegistrationUI {
                                 selectedRegistration);
         }
 
+        // Walks staff through cancelling one WAITING request, verified by Registration ID + Guest ID with a confirmation prompt.
         private void cancelWaitingRegistration() {
                 if (control.getWaitingCount() == 0) {
                         System.out.println("No standard booking requests are waiting.");
@@ -2035,7 +2259,7 @@ public class WalkInRegistrationUI {
                 displayWaitingQueue();
 
                 System.out.print(
-                                "\nEnter Registration ID to cancel (0 = Back): ");
+                                "\nEnter Registration ID to cancel : ");
 
                 String registrationId = sc.nextLine().trim();
 
@@ -2045,7 +2269,7 @@ public class WalkInRegistrationUI {
                 }
 
                 System.out.print(
-                                "Enter Guest ID for verification (0 = Back): ");
+                                "Enter Guest ID for verification : ");
 
                 String guestId = sc.nextLine().trim();
 
@@ -2102,6 +2326,7 @@ public class WalkInRegistrationUI {
                 }
         }
 
+        // Lists every shared Guest, so staff can see which Guest IDs exist before searching.
         private void displayGuestDirectory() {
                 // Only show Guests who have Walk-In registration history.
                 Guest[] guests = control.getGuestsWithRegistrationHistory();
@@ -2154,9 +2379,6 @@ public class WalkInRegistrationUI {
                                                 + guests.length);
         }
 
-        /**
-         * Displays the available search methods for registration history.
-         */
         private void searchRegistrationHistory() {
 
                 while (true) {
@@ -2203,9 +2425,6 @@ public class WalkInRegistrationUI {
                 }
         }
 
-        /**
-         * Displays all Registration IDs available in the registration history.
-         */
         private void displayRegistrationIdDirectory() {
 
                 WalkInRegistration[] registrationRecords = control.getAllRegistrationHistory();
@@ -2270,16 +2489,12 @@ public class WalkInRegistrationUI {
                                                 + registrationRecords.length);
         }
 
-        /**
-         * Searches the complete registration history using one Registration ID.
-         */
         private void searchRegistrationById() {
 
                 displayRegistrationIdDirectory();
 
                 System.out.print(
-                                "\nEnter Registration ID to search "
-                                                + "(0 = Back): ");
+                                "\nEnter Registration ID to search : ");
 
                 String registrationId = sc.nextLine().trim();
 
@@ -2385,12 +2600,12 @@ public class WalkInRegistrationUI {
                                 registration);
         }
 
+        // Searches the complete registration history for every record belonging to one Guest ID.
         private void searchRegistrationHistoryByGuestId() {
                 // Show available Guest IDs before asking staff to choose one.
                 displayGuestDirectory();
                 System.out.print(
-                                "\nEnter Guest ID to search registration history "
-                                                + "(0 = Back): ");
+                                "\nEnter Guest ID to search registration history : ");
 
                 String guestId = sc.nextLine().trim();
 

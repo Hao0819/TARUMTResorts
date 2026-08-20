@@ -4,6 +4,7 @@
  */
 package com.tarumt.resorts.entity;
 
+import com.tarumt.resorts.util.LoyaltyClock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -16,8 +17,8 @@ import java.time.LocalDateTime;
  * EXPIRE - points removed after expiry
  * ADJUST - opening-balance or audited adjustment points
  *
- * EARN and ADJUST transactions can contain remaining usable points.
- * Only EARN transactions have an expiry time.
+ * EARN and ADJUST transactions represent separate usable point batches.
+ * Each batch may have its own expiry time and remaining-point balance.
  */
 public class LoyaltyTransaction {
 
@@ -37,7 +38,10 @@ public class LoyaltyTransaction {
     private TransactionType transactionType;
     private int points;
     private int remainingPoints;
+    private int historyRemainingPoints;
+    private RewardPackage rewardPackage;
     private LocalDate transactionDate;
+    private LocalDateTime transactionTime;
     private LocalDateTime expiryTime;
 
     /**
@@ -55,7 +59,7 @@ public class LoyaltyTransaction {
      * @param transactionType transaction type
      * @param points transaction point amount
      * @param transactionDate transaction date
-     * @param expiryTime expiry date and time for EARN points
+     * @param expiryTime expiry time for this usable point batch
      */
     public LoyaltyTransaction(
             String transactionId,
@@ -64,6 +68,31 @@ public class LoyaltyTransaction {
             TransactionType transactionType,
             int points,
             LocalDate transactionDate,
+            LocalDateTime expiryTime) {
+
+        this(
+                transactionId,
+                loyaltyId,
+                bookingId,
+                transactionType,
+                points,
+                transactionDate == null
+                        ? LoyaltyClock.now()
+                        : transactionDate.atStartOfDay(),
+                expiryTime);
+    }
+
+    /**
+     * Creates a transaction with its exact event time. This overload is
+     * additive so existing module calls using LocalDate remain compatible.
+     */
+    public LoyaltyTransaction(
+            String transactionId,
+            String loyaltyId,
+            String bookingId,
+            TransactionType transactionType,
+            int points,
+            LocalDateTime transactionTime,
             LocalDateTime expiryTime) {
 
         if (points <= 0) {
@@ -84,13 +113,6 @@ public class LoyaltyTransaction {
                     "An earning transaction requires a booking ID.");
         }
 
-        if (transactionType == TransactionType.EARN
-                && expiryTime == null) {
-
-            throw new IllegalArgumentException(
-                    "Earned points require an expiry time.");
-        }
-
         this.transactionId = transactionId;
         this.loyaltyId = loyaltyId;
         this.bookingId = bookingId;
@@ -105,14 +127,19 @@ public class LoyaltyTransaction {
                 || transactionType == TransactionType.ADJUST) {
 
             this.remainingPoints = points;
+            this.historyRemainingPoints = points;
         } else {
             this.remainingPoints = 0;
+            this.historyRemainingPoints = 0;
         }
 
+        this.transactionTime =
+                transactionTime == null
+                        ? LoyaltyClock.now()
+                        : transactionTime;
+
         this.transactionDate =
-                transactionDate == null
-                        ? LocalDate.now()
-                        : transactionDate;
+                this.transactionTime.toLocalDate();
 
         this.expiryTime = expiryTime;
     }
@@ -159,6 +186,54 @@ public class LoyaltyTransaction {
         return remainingPoints;
     }
 
+    /**
+     * Returns the remaining value recorded for transaction-history display.
+     * Unlike a point batch's live remainingPoints, this value is not changed
+     * when a later redemption consumes that batch.
+     */
+    public int getHistoryRemainingPoints() {
+        return historyRemainingPoints;
+    }
+
+    public RewardPackage getRewardPackage() {
+        return rewardPackage;
+    }
+
+    /** Associates a redeemed reward with its ledger transaction. */
+    public void setRewardPackage(RewardPackage rewardPackage) {
+
+        if (transactionType != TransactionType.REDEEM
+                && rewardPackage != null) {
+            throw new IllegalStateException(
+                    "Only REDEEM transactions can contain a reward.");
+        }
+
+        this.rewardPackage = rewardPackage;
+    }
+
+    /**
+     * Records the account balance after a REDEEM or EXPIRE transaction and
+     * the expiry time of the point batch that was removed.
+     */
+    public void recordRemovalResult(
+            int balanceAfterTransaction,
+            LocalDateTime sourceBatchExpiryTime) {
+
+        if (transactionType != TransactionType.REDEEM
+                && transactionType != TransactionType.EXPIRE) {
+            throw new IllegalStateException(
+                    "Only REDEEM or EXPIRE can record a removal result.");
+        }
+
+        if (balanceAfterTransaction < 0) {
+            throw new IllegalArgumentException(
+                    "Balance after transaction cannot be negative.");
+        }
+
+        historyRemainingPoints = balanceAfterTransaction;
+        expiryTime = sourceBatchExpiryTime;
+    }
+
     public LocalDate getTransactionDate() {
         return transactionDate;
     }
@@ -167,6 +242,24 @@ public class LoyaltyTransaction {
             LocalDate transactionDate) {
 
         this.transactionDate = transactionDate;
+
+        if (transactionDate != null) {
+            transactionTime = transactionDate.atStartOfDay();
+        }
+    }
+
+    public LocalDateTime getTransactionTime() {
+        return transactionTime;
+    }
+
+    public void setTransactionTime(
+            LocalDateTime transactionTime) {
+
+        this.transactionTime = transactionTime;
+
+        if (transactionTime != null) {
+            transactionDate = transactionTime.toLocalDate();
+        }
     }
 
     public LocalDateTime getExpiryTime() {
@@ -200,7 +293,7 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Removes all remaining usable points from this transaction.
+     * Removes all unused points from this expired batch.
      *
      * @return number of points expired
      */
@@ -213,15 +306,12 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Checks whether the remaining EARN points have expired.
-     *
-     * @param currentTime current date and time
-     * @return true when the expiry time has been reached or passed
+     * Checks whether this usable point batch has expired.
      */
     public boolean isExpiredAt(
             LocalDateTime currentTime) {
 
-        if (transactionType != TransactionType.EARN
+        if (!isUsablePointBatch()
                 || expiryTime == null
                 || remainingPoints <= 0
                 || currentTime == null) {
@@ -233,18 +323,14 @@ public class LoyaltyTransaction {
     }
 
     /**
-     * Checks whether remaining EARN points expire within an inclusive
-     * date-time range.
-     *
-     * @param startTime beginning of the expiry window
-     * @param endTime end of the expiry window
-     * @return true if expiryTime is between startTime and endTime
+     * Checks whether this usable point batch expires inside an inclusive
+     * date-time window.
      */
     public boolean isExpiringBetween(
             LocalDateTime startTime,
             LocalDateTime endTime) {
 
-        if (transactionType != TransactionType.EARN
+        if (!isUsablePointBatch()
                 || expiryTime == null
                 || remainingPoints <= 0
                 || startTime == null
@@ -256,6 +342,12 @@ public class LoyaltyTransaction {
 
         return !expiryTime.isBefore(startTime)
                 && !expiryTime.isAfter(endTime);
+    }
+
+    private boolean isUsablePointBatch() {
+
+        return transactionType == TransactionType.EARN
+                || transactionType == TransactionType.ADJUST;
     }
 
     @Override
@@ -272,14 +364,14 @@ public class LoyaltyTransaction {
                         : expiryTime.toString();
 
         return String.format(
-                "%-8s %-8s %-10s %-8s %8d %10d %-12s %-20s",
+                "%-8s %-8s %-10s %-8s %8d %10d %-20s %-20s",
                 transactionId,
                 loyaltyId,
                 displayedBookingId,
                 transactionType,
                 points,
                 remainingPoints,
-                transactionDate,
+                transactionTime,
                 displayedExpiryTime
         );
     }

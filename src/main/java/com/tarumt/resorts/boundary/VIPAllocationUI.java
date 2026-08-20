@@ -48,15 +48,15 @@ public class VIPAllocationUI {
             System.out.println("| " + " ".repeat(leftPadding) + menuTitle
                     + " ".repeat(rightPadding) + " |");
             System.out.println(menuBorder);
-            System.out.printf("| %-64s |%n", "1. Register new VIP allocation request");
-            System.out.printf("| %-64s |%n", "2. Allocate next VIP guest");
-            System.out.printf("| %-64s |%n", "3. View VIP priority queue");
-            System.out.printf("| %-64s |%n", "4. Update waiting VIP request");
-            System.out.printf("| %-64s |%n", "5. Cancel waiting VIP request");
+            System.out.printf("| %-64s |%n", "1. Register New VIP Allocation Request");
+            System.out.printf("| %-64s |%n", "2. Allocate Next VIP Guest");
+            System.out.printf("| %-64s |%n", "3. View VIP Priority Queue");
+            System.out.printf("| %-64s |%n", "4. Update Waiting VIP Request");
+            System.out.printf("| %-64s |%n", "5. Cancel Waiting VIP Request");
             System.out.printf("| %-64s |%n", "6. VIP Priority Queue Report");
             System.out.printf("| %-64s |%n", "7. VIP Allocation History Report");
             System.out.printf("| %-64s |%n", "8. Search Request ID and Guest ID");
-            System.out.printf("| %-64s |%n", "0. Back to main menu");
+            System.out.printf("| %-64s |%n", "0. Back To Main Menu");
             System.out.println(menuBorder);
             System.out.print("Enter choice: ");
 
@@ -182,23 +182,90 @@ public class VIPAllocationUI {
         }
     }
 
+    /**
+     * Update-flow check-in date picker: goes straight to the month prompt
+     * (no separate "change date?" gate). "na" at the month prompt keeps
+     * the current check-in date unchanged.
+     */
     private LocalDate promptCalendarCheckInDateOrKeep(
             String roomType, int stayDurationDays, LocalDate currentCheckInDate) {
 
-        System.out.print("Change check-in date? (Y = pick a new date, na = keep current ["
-                + currentCheckInDate + "], 0 = back): ");
-        String choice = sc.nextLine().trim();
-        if (choice.equals("0")) {
-            return null;
+        while (true) {
+            YearMonth selectedMonth;
+            while (true) {
+                System.out.print("Enter booking month (YYYY-MM, na = keep current, 0 = back): ");
+                String input = sc.nextLine().trim();
+                if (input.equals("0")) {
+                    return null;
+                }
+                if (input.equalsIgnoreCase("na")) {
+                    return currentCheckInDate;
+                }
+                try {
+                    selectedMonth = YearMonth.parse(input);
+                    if (selectedMonth.isBefore(YearMonth.now())) {
+                        System.out.println("Booking month cannot be in the past.");
+                        continue;
+                    }
+                    break;
+                } catch (DateTimeParseException e) {
+                    System.out.println("Invalid month. Example: 2026-09");
+                }
+            }
+
+            displayBookingCalendar(selectedMonth, roomType);
+
+            while (true) {
+                System.out.print("Enter check-in day (1-" + selectedMonth.lengthOfMonth()
+                        + "), M to change month, or 0 to cancel: ");
+                String dayInput = sc.nextLine().trim();
+
+                if (dayInput.equals("0")) {
+                    return null;
+                }
+                if (dayInput.equalsIgnoreCase("M")) {
+                    break;
+                }
+
+                int selectedDay;
+                try {
+                    selectedDay = Integer.parseInt(dayInput);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid day. Enter a number shown on the calendar.");
+                    continue;
+                }
+
+                if (selectedDay < 1 || selectedDay > selectedMonth.lengthOfMonth()) {
+                    System.out.println("Invalid day for " + selectedMonth.getMonth()
+                            + " " + selectedMonth.getYear() + ".");
+                    continue;
+                }
+
+                LocalDate selectedDate = selectedMonth.atDay(selectedDay);
+                if (selectedDate.isBefore(LocalDate.now())) {
+                    System.out.println("Check-in date cannot be in the past.");
+                    continue;
+                }
+
+                boolean dateAvailable = control.hasAvailableRoomForSchedule(
+                        roomType, selectedDate, stayDurationDays);
+
+                if (!dateAvailable) {
+                    LocalDate checkOutPreview = selectedDate.plusDays(stayDurationDays);
+                    System.out.println("No single " + roomType
+                            + " room is available for the complete stay from "
+                            + selectedDate + " to " + checkOutPreview + ".");
+                    System.out.println("Please choose another check-in day or enter M to change month.");
+                    continue;
+                }
+
+                return selectedDate;
+            }
         }
-        if (choice.equalsIgnoreCase("na")) {
-            return currentCheckInDate;
-        }
-        return promptCalendarCheckInDate(roomType, stayDurationDays);
     }
 
     // =====================================================================
-    // Calendar-based check-in date selection.
+    // Calendar-based check-in date selection (Register flow).
     // =====================================================================
 
     private void displayBookingCalendar(YearMonth selectedMonth, String roomType) {
@@ -573,7 +640,7 @@ public class VIPAllocationUI {
 
         int searchMode;
         while (true) {
-            System.out.println("\nSearch by:");
+            System.out.println("\nSearch By:");
             System.out.println("1. Request ID");
             System.out.println("2. Guest ID");
             System.out.println("0. Back");

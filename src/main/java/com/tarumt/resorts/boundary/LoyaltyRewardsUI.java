@@ -6,6 +6,9 @@ package com.tarumt.resorts.boundary;
 
 import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.control.LoyaltyRewardsControl;
+import com.tarumt.resorts.control.LoyaltyRewardsControl.LoyaltyPerformanceReport;
+import com.tarumt.resorts.control.LoyaltyRewardsControl.RewardPerformance;
+import com.tarumt.resorts.control.LoyaltyRewardsControl.TierPerformance;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.LoyaltyAccount;
@@ -13,11 +16,14 @@ import com.tarumt.resorts.entity.LoyaltyTransaction;
 import com.tarumt.resorts.entity.MembershipTier;
 import com.tarumt.resorts.entity.RewardPackage;
 import com.tarumt.resorts.entity.RedemptionRequest;
+import com.tarumt.resorts.util.LoyaltyClock;
 
 import java.util.Iterator;
 import java.util.Scanner;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /**
  * Boundary class for the Loyalty and Rewards Service.
@@ -30,6 +36,8 @@ public class LoyaltyRewardsUI {
     private final Scanner scanner;
     private static final DateTimeFormatter TIME_FORMATTER =
             DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /**
      * Creates the Loyalty and Rewards user interface.
@@ -56,9 +64,19 @@ public class LoyaltyRewardsUI {
         int choice;
 
         do {
+            // Scan shared completed bookings silently before showing the menu.
+            loyaltyControl.processCompletedBookingsForLoyalty();
+
+            LocalDateTime currentTime =
+            LoyaltyClock.now();
+
             int automaticallyExpired =
             loyaltyControl.processExpiredPoints(
-            LocalDateTime.now());
+            currentTime);
+
+            int automaticallyDeactivated =
+            loyaltyControl.processInactiveAccountTierExpirations(
+            currentTime);
 
             if (automaticallyExpired > 0) {
                 System.out.println();
@@ -68,19 +86,26 @@ public class LoyaltyRewardsUI {
                 + " points expired.");
             }
 
+            if (automaticallyDeactivated > 0) {
+                System.out.println();
+                System.out.println(
+                "Automatic inactivity processed: "
+                + automaticallyDeactivated
+                + " account(s) deactivated with Tier NONE.");
+            }
+
             displayMenu();
             choice = readChoice();
 
             switch (choice) {
                 case 1 -> findLoyaltyMember();
-                case 2 -> createLoyaltyAccount();
-                case 3 -> addPointsFromCompletedStay();
-                case 4 -> redemptionManagement();
-                case 5 -> displayTierAndPointsReport();
-                case 6 -> updateLoyaltyAccountStatus();
-                case 7 -> displayExpiringPointsReport();
-                case 8 -> displayExpiringPointsAlerts();
-                case 9 -> processExpiredPoints();
+                case 2 -> viewCompletedStayPointProcessing();
+                case 3 -> redemptionManagement();
+                case 4 -> displayTierAndPointsReport();
+                case 5 -> displayLoyaltyPerformanceReport();
+                case 6 -> displayExpiringPointsAlerts();
+                case 7 -> displayPointTransactionHistory();
+                case 8 -> displayDemoLoyaltyTimeMenu();
                 case 0 -> System.out.println(
                 "Returning to the main menu.");
                 default -> System.out.println(
@@ -103,8 +128,8 @@ private void displayAllLoyaltyAccounts() {
 }
     
     /**
-     * Triggers Loyalty processing for completed, paid bookings.
-     * This method is exposed for integration with the checkout/front-desk flow.
+     * Explicitly refreshes Loyalty from the shared Booking collection.
+     * Front-Desk does not call or hold a reference to this boundary.
      */
     public void processCompletedBookingsForLoyalty() {
 
@@ -231,6 +256,8 @@ private void displayAllLoyaltyAccounts() {
 }
     private void submitRedemptionRequest() {
 
+    displayAllLoyaltyAccounts();
+
     System.out.println();
     System.out.println(
             "+------------------------------------------------+");
@@ -348,7 +375,15 @@ System.out.printf(
 
 System.out.println(rewardBorder);
 
+System.out.print("Enter reward option: ");
 int selectedOption = readChoice();
+
+    if (selectedOption == 0) {
+        System.out.println(
+                "Redemption request cancelled.");
+        return;
+    }
+
     RewardPackage selectedReward = null;
 
     int currentOption = 1;
@@ -715,245 +750,202 @@ int selectedOption = readChoice();
         displayAccountDetails(newAccount);
     }
 
-    /**
-     * Adds loyalty points after a completed stay.
-     */
-    private void addPointsFromCompletedStay() {
+    /** Displays completed-stay Loyalty processing without awarding points. */
+    private void viewCompletedStayPointProcessing() {
+
+        String outerBorder =
+                "+-----------------------------------------------------------+";
+        String columnBorder =
+                "+----------------------+------------------------------------+";
+        String title = "VIEW COMPLETED-STAY POINT PROCESSING";
+        int leftPadding = (57 - title.length()) / 2;
 
         System.out.println();
-        System.out.println(
-        "+------------------------------------------------+");
-        System.out.println(
-        "|        ADD POINTS FROM COMPLETED STAY          |");
-        System.out.println(
-        "+------------------------------------------------+");
-
-        System.out.print("Enter Loyalty ID: ");
-        String loyaltyId =
-        scanner.nextLine().trim();
-
-        if (loyaltyId.isEmpty()) {
-            System.out.println(
-            "Loyalty ID cannot be empty.");
-            return;
-        }
-
-        LoyaltyAccount account =
-        loyaltyControl.findMemberByLoyaltyId(
-        loyaltyId);
-
-        if (account == null) {
-            System.out.println(
-            "Loyalty member not found.");
-            return;
-        }
-
-        if (!account.isActive()) {
-            System.out.println(
-            "This loyalty account is inactive.");
-            return;
-        }
-
-        System.out.println();
-        System.out.println("Member found:");
-        System.out.println(
-        "Name            : "
-        + account.getMemberName());
-        System.out.println(
-        "Current Points  : "
-        + account.getPointsBalance());
-        System.out.println(
-        "Current Tier    : "
-        + account.getMembershipTier());
-
-        System.out.print(
-        "\nEnter completed Booking ID: ");
-
-        String bookingId =
-        scanner.nextLine().trim();
+        System.out.println(outerBorder);
+        System.out.printf(
+                "| %-57s |%n",
+                " ".repeat(leftPadding) + title);
+        System.out.println(outerBorder);
+        displayCompletedStayBookingList();
+        System.out.print("Enter Booking confirmation number: ");
+        String bookingId = scanner.nextLine().trim();
 
         if (bookingId.isEmpty()) {
-            System.out.println(
-            "Booking ID cannot be empty.");
+            System.out.println("Booking confirmation number cannot be empty.");
             return;
         }
 
         Booking booking =
-        loyaltyControl.findBookingByConfirmationNumber(
-        bookingId);
+                loyaltyControl.findBookingByConfirmationNumber(bookingId);
 
         if (booking == null) {
-            System.out.println(
-            "Booking not found.");
+            System.out.println("Booking not found.");
             return;
         }
 
-        // Booking must contain valid Guest information
-        if (booking.getGuest() == null
-        || booking.getGuest().getGuestId() == null) {
+        Guest guest = booking.getGuest();
+        LoyaltyAccount account = guest == null
+                || guest.getGuestId() == null
+                        ? null
+                        : loyaltyControl.findMemberByGuestId(
+                                guest.getGuestId());
+        LoyaltyTransaction earnBatch =
+                loyaltyControl.findEarnTransactionByBookingId(bookingId);
 
+        System.out.println();
+        System.out.println(columnBorder);
+        printProcessingDetailRow(
+                "Booking Confirmation",
+                booking.getConfirmationNumber());
+        printProcessingDetailRow(
+                "Guest ID",
+                guest == null ? "-" : guest.getGuestId());
+        printProcessingDetailRow(
+                "Guest Name",
+                guest == null ? "-" : guest.getName());
+        printProcessingDetailRow(
+                "Loyalty ID",
+                account == null ? "-" : account.getLoyaltyId());
+        printProcessingDetailRow(
+                "Booking Status",
+                booking.getStatus());
+        printProcessingDetailRow(
+                "Payment Status",
+                booking.getPaymentStatus());
+        printProcessingDetailRow(
+                "Original Amount",
+                String.format("RM %.2f", booking.getAmount()));
+
+        if (guest == null || guest.getGuestId() == null) {
+            System.out.println(columnBorder);
             System.out.println(
-            "Booking does not contain valid Guest information.");
+                    "Not eligible: the Booking has no valid Guest.");
             return;
         }
 
-        // Booking must belong to the Loyalty member
-        if (account.getGuestId() == null
-        || !account.getGuestId()
-        .equalsIgnoreCase(
-        booking.getGuest().getGuestId())) {
-
-            System.out.println(
-            "This booking belongs to a different Guest.");
-            return;
-        }
-
-        // Booking must already be checked out
         if (booking.getStatus() == null
-        || !booking.getStatus()
-        .equalsIgnoreCase("CHECKED_OUT")) {
-
+                || !booking.getStatus().equalsIgnoreCase("CHECKED_OUT")) {
+            System.out.println(columnBorder);
             System.out.println(
-            "Loyalty points can only be awarded "
-            + "after the booking is CHECKED_OUT.");
+                    "Not eligible: Booking status must be CHECKED_OUT.");
             return;
         }
 
-        // Booking must already be paid
         if (booking.getPaymentStatus() == null
-        || !booking.getPaymentStatus()
-        .equalsIgnoreCase("PAID")) {
-
+                || !booking.getPaymentStatus().equalsIgnoreCase("PAID")) {
+            System.out.println(columnBorder);
             System.out.println(
-            "Loyalty points cannot be awarded "
-            + "because this booking is not PAID.");
+                    "Not eligible: payment status must be PAID.");
             return;
         }
 
-        int points =
-        loyaltyControl.calculateRewardPoints(
-        booking);
+        if (earnBatch == null) {
+            System.out.println(columnBorder);
+            System.out.println();
+            System.out.println(
+                    "No Loyalty points have been processed for this booking.");
+            return;
+        }
+
+        printProcessingDetailRow(
+                "Points Earned",
+                earnBatch.getPoints());
+        printProcessingDetailRow(
+                "EARN Batch ID",
+                earnBatch.getTransactionId());
+        printProcessingDetailRow(
+                "Transaction Time",
+                formatDateTime(earnBatch.getTransactionTime()));
+        printProcessingDetailRow(
+                "Expiry Time",
+                formatDateTime(earnBatch.getExpiryTime()));
+        printProcessingDetailRow(
+                "Current Balance",
+                account == null ? "-" : account.getPointsBalance());
+        printProcessingDetailRow(
+                "Current Tier",
+                account == null ? "-" : account.getMembershipTier());
+        System.out.println(columnBorder);
+    }
+
+    /** Displays completed Booking confirmation numbers before lookup input. */
+    private void displayCompletedStayBookingList() {
+
+        ListQueueInterface<Booking> completedBookings =
+                loyaltyControl.getCompletedStayBookingsForDisplay();
 
         System.out.println();
-        System.out.println("Booking found:");
-        System.out.println(
-        "Confirmation No : "
-        + booking.getConfirmationNumber());
+        System.out.println("COMPLETED-STAY BOOKING LIST");
 
-        System.out.println(
-        "Guest ID        : "
-        + booking.getGuest().getGuestId());
-
-        System.out.println(
-        "Status          : "
-        + booking.getStatus());
-
-        System.out.println(
-        "Payment Status  : "
-        + booking.getPaymentStatus());
-
-        double roomDiscountRate =
-        loyaltyControl.getRoomDiscountRate(
-                account.getMembershipTier());
-
-double discountAmount =
-        loyaltyControl.calculateRoomDiscountAmount(
-                booking);
-
-double payableAmount =
-        loyaltyControl.calculatePayableAmount(
-                booking);
-
-System.out.printf(
-        "Original Amount : RM %.2f%n",
-        booking.getAmount());
-
-System.out.printf(
-        "Room Discount   : %.0f%%%n",
-        roomDiscountRate * 100);
-
-System.out.printf(
-        "Discount Amount : RM %.2f%n",
-        discountAmount);
-
-System.out.printf(
-        "Payable Amount  : RM %.2f%n",
-        payableAmount);
-
-System.out.println(
-        "Points Earned   : "
-        + points);
-
-        if (loyaltyControl.hasBookingReceivedPoints(
-        bookingId)) {
-
-            System.out.println(
-            "This booking has already received loyalty points.");
+        if (completedBookings == null || completedBookings.isEmpty()) {
+            System.out.println("No completed-stay bookings available.");
+            System.out.println();
             return;
         }
 
-        int previousPoints =
-        account.getPointsBalance();
+        String border =
+                "+------------+----------+------------------------+-------------+---------+----------+--------------+";
+        System.out.println(border);
+        System.out.printf(
+                "| %-10s | %-8s | %-22s | %-11s | %-7s | %8s | %-12s |%n",
+                "Booking", "Guest ID", "Guest Name", "Status",
+                "Payment", "Amount", "Point Status");
+        System.out.println(border);
 
-        String previousTier =
-        account.getMembershipTier().toString();
+        Iterator<Booking> iterator = completedBookings.getIterator();
 
-        System.out.print(
-        "Confirm adding "
-        + points
-        + " points? (Y/N): ");
+        while (iterator.hasNext()) {
+            Booking booking = iterator.next();
+            Guest guest = booking.getGuest();
+            boolean processed =
+                    loyaltyControl.findEarnTransactionByBookingId(
+                            booking.getConfirmationNumber()) != null;
 
-        String confirmation =
-        scanner.nextLine().trim();
-
-        if (!confirmation.equalsIgnoreCase("Y")) {
-            System.out.println(
-            "Add-points operation cancelled.");
-            return;
+            System.out.printf(
+                    "| %-10.10s | %-8.8s | %-22.22s | %-11.11s | %-7.7s | %8.2f | %-12.12s |%n",
+                    booking.getConfirmationNumber(),
+                    guest == null ? "-" : guest.getGuestId(),
+                    guest == null ? "-" : guest.getName(),
+                    booking.getStatus(),
+                    booking.getPaymentStatus(),
+                    booking.getAmount(),
+                    processed ? "PROCESSED" : "PENDING");
         }
 
-        boolean added =
-        loyaltyControl.addPointsFromCompletedStay(
-        loyaltyId,
-        bookingId);
-
-        if (!added) {
-            System.out.println(
-            "Unable to add loyalty points.");
-            return;
-        }
-
+        System.out.println(border);
+        System.out.println("Total completed stays: "
+                + completedBookings.getNumberOfEntries());
         System.out.println();
-        System.out.println(
-        "Points added successfully.");
-        System.out.println(
-        "Previous Points : " + previousPoints);
-        System.out.println(
-        "Points Added    : " + points);
-        System.out.println(
-        "New Balance     : "
-        + account.getPointsBalance());
-        System.out.println(
-        "Previous Tier   : " + previousTier);
-        System.out.println(
-        "Current Tier    : "
-        + account.getMembershipTier());
+    }
+
+    /** Prints one aligned label/value row for completed-stay processing. */
+    private void printProcessingDetailRow(
+            String label,
+            Object value) {
+
+        System.out.printf(
+                "| %-20.20s | %-34.34s |%n",
+                label,
+                value == null ? "-" : value);
     }
 
 
     /**
-     * Allows the user to filter loyalty accounts by tier,
-     * account status, and minimum points.
+     * Allows the user to filter loyalty accounts by tier and account status.
      */
     private void displayTierAndPointsReport() {
 
+        String border =
+                "+------------------------------------------------+";
+        String title = "TIER AND POINTS REPORT";
+        int leftPadding = (46 - title.length()) / 2;
+
         System.out.println();
-        System.out.println(
-        "+------------------------------------------------+");
-        System.out.println(
-        "|             TIER AND POINTS REPORT              |");
-        System.out.println(
-        "+------------------------------------------------+");
+        System.out.println(border);
+        System.out.printf(
+                "| %-46s |%n",
+                " ".repeat(leftPadding) + title);
+        System.out.println(border);
 
         System.out.println("Membership Tier:");
         System.out.println("0. All Tiers");
@@ -1013,31 +1005,11 @@ System.out.println(
             return;
         }
 
-        System.out.print("Enter minimum points: ");
-
-        int minimumPoints;
-
-        try {
-            minimumPoints = Integer.parseInt(
-            scanner.nextLine().trim());
-
-        } catch (NumberFormatException e) {
-            System.out.println(
-            "Invalid points. Please enter a number.");
-            return;
-        }
-
-        if (minimumPoints < 0) {
-            System.out.println(
-            "Minimum points cannot be negative.");
-            return;
-        }
-
         ListQueueInterface<LoyaltyAccount> filteredAccounts =
         loyaltyControl.filterMembers(
         selectedTier,
         statusOption,
-        minimumPoints
+        0
         );
 
         displayAccountList(filteredAccounts);
@@ -1048,6 +1020,8 @@ System.out.println(
      * without permanently deleting its history.
      */
     private void updateLoyaltyAccountStatus() {
+
+        displayAllLoyaltyAccounts();
 
         System.out.println();
         System.out.println(
@@ -1159,23 +1133,34 @@ System.out.println(
     }
 
     String border =
-            "+----------+----------+--------------------------+------------+------------+----------+";
+            "+------------+------------+--------------------------+------------+------------+------------+----------+";
 
-    System.out.println(
-            "+-------------------------------------------------------------------------------------+");
-    System.out.println(
-            "|                                LOYALTY MEMBER LIST                                  |");
-    System.out.println(
-            "+-------------------------------------------------------------------------------------+");
+    String titleBorder =
+            "+" + "-".repeat(border.length() - 2) + "+";
 
+    String title = "LOYALTY MEMBER LIST";
+    int titleWidth = border.length() - 4;
+    int titleLeftPadding =
+            (titleWidth - title.length()) / 2;
+    int titleRightPadding =
+            titleWidth - title.length() - titleLeftPadding;
+
+    System.out.println(titleBorder);
+    System.out.println(
+            "| "
+            + " ".repeat(titleLeftPadding)
+            + title
+            + " ".repeat(titleRightPadding)
+            + " |");
     System.out.println(border);
 
     System.out.printf(
-            "| %-8s | %-8s | %-24s | %10s | %-10s | %-8s |%n",
-            "Loyalty",
-            "Guest",
+            "| %-10s | %-10s | %-24s | %10s | %10s | %-10s | %-8s |%n",
+            "Loyalty ID",
+            "Guest ID",
             "Member Name",
-            "Points",
+            "Balance",
+            "Tier Pts",
             "Tier",
             "Status");
 
@@ -1190,11 +1175,12 @@ System.out.println(
                 accountIterator.next();
 
         System.out.printf(
-                "| %-8s | %-8s | %-24s | %10d | %-10s | %-8s |%n",
+                "| %-10.10s | %-10.10s | %-24.24s | %10d | %10d | %-10.10s | %-8.8s |%n",
                 account.getLoyaltyId(),
                 account.getGuestId(),
                 account.getMemberName(),
                 account.getPointsBalance(),
+                account.getTierQualifyingPoints(),
                 account.getMembershipTier(),
                 account.isActive()
                         ? "ACTIVE"
@@ -1208,130 +1194,151 @@ System.out.println(
             accounts.getNumberOfEntries());
 }
 
-    /**
-     * Accepts expiry-report filters and displays matching
-     * earned-points transactions.
-     */
-    private void displayExpiringPointsReport() {
+    /** Displays management KPIs, tier results and reward popularity. */
+    private void displayLoyaltyPerformanceReport() {
+
+        LocalDateTime reportTime = LoyaltyClock.now();
+        int expiryRiskDays = 7;
+        LoyaltyPerformanceReport report =
+                loyaltyControl.generateLoyaltyPerformanceReport(
+                        reportTime, expiryRiskDays);
 
         System.out.println();
         System.out.println(
-        "+------------------------------------------------+");
+                "+----------------------------------------------------------------------+");
         System.out.println(
-        "|            EXPIRING POINTS REPORT              |");
+                "|                      LOYALTY PERFORMANCE REPORT                      |");
         System.out.println(
-        "+------------------------------------------------+");
+                "+----------------------------------------------------------------------+");
 
-        LocalDateTime startTime =
-        LocalDateTime.now();
+        printPerformanceSummaryRow(
+                "Report Time", formatDateTime(reportTime));
+        printPerformanceSummaryRow(
+                "Total Members", report.getTotalMembers());
+        printPerformanceSummaryRow(
+                "Active Members", report.getActiveMembers());
+        printPerformanceSummaryRow(
+                "Points Earned", report.getEarnedPoints());
+        printPerformanceSummaryRow(
+                "Points Redeemed", report.getRedeemedPoints());
+        printPerformanceSummaryRow(
+                "Points Expired", report.getExpiredPoints());
+        printPerformanceSummaryRow(
+                "Current Point Liability",
+                report.getAvailablePoints());
+        printPerformanceSummaryRow(
+                "Overall Redemption Rate",
+                String.format("%.2f%%", report.getRedemptionRate()));
+        printPerformanceSummaryRow(
+                "Points Expiring in 7 Days",
+                report.getExpiringSoonPoints());
 
-        LocalDateTime endTime =
-        startTime.plusMinutes(4);
+        String highestTier = report.getHighestRedeemingTier() == null
+                ? "-" : report.getHighestRedeemingTier().toString();
+        printPerformanceSummaryRow(
+                "Highest Redeeming Tier", highestTier);
+
+        String topMember = report.getTopRedeemingLoyaltyId() == null
+                ? "-"
+                : report.getTopRedeemingLoyaltyId()
+                + " - " + report.getTopRedeemingMember();
+        printPerformanceSummaryRow("Top Redeeming Member", topMember);
+        printPerformanceSummaryRow(
+                "Top Member Redeemed Points",
+                report.getTopMemberRedeemedPoints());
+
+        String popularReward = report.getMostPopularReward() == null
+                ? "No completed reward redemptions"
+                : report.getMostPopularReward().getRewardName()
+                + " (" + report.getMostPopularRewardCount() + " time(s))";
+        printPerformanceSummaryRow("Most Popular Reward", popularReward);
 
         System.out.println(
-        "Checking from : " + startTime.format(TIME_FORMATTER));
+                "+----------------------------------------------------------------------+");
 
-        System.out.println(
-        "Checking until: " + endTime.format(TIME_FORMATTER));
-
-        System.out.println();
-        System.out.println("Membership Tier:");
-        System.out.println("0. All Tiers");
-        System.out.println("1. NONE");
-        System.out.println("2. SILVER");
-        System.out.println("3. GOLD");
-        System.out.println("4. PLATINUM");
-        System.out.println("5. DIAMOND");
-        System.out.println("6. ELITE");
-        System.out.print("Enter tier option: ");
-
-        int tierOption =
-        readChoice();
-
-        MembershipTier selectedTier;
-
-        switch (tierOption) {
-
-            case 0 ->
-            selectedTier = null;
-
-            case 1 ->
-            selectedTier = MembershipTier.NONE;
-
-            case 2 ->
-            selectedTier = MembershipTier.SILVER;
-
-            case 3 ->
-            selectedTier = MembershipTier.GOLD;
-
-            case 4 ->
-            selectedTier = MembershipTier.PLATINUM;
-
-            case 5 ->
-            selectedTier = MembershipTier.DIAMOND;
-
-            case 6 ->
-            selectedTier = MembershipTier.ELITE;
-
-            default -> {
-                System.out.println(
-                "Invalid membership tier option.");
-                return;
-            }
-        }
-
-        System.out.print(
-        "Enter minimum expiring points: ");
-
-        int minimumPoints;
-
-        try {
-
-            minimumPoints =
-            Integer.parseInt(
-            scanner.nextLine().trim());
-
-        } catch (NumberFormatException e) {
-
-            System.out.println(
-            "Invalid points. Please enter a number.");
-            return;
-        }
-
-        if (minimumPoints < 0) {
-
-            System.out.println(
-            "Minimum points cannot be negative.");
-            return;
-        }
-
-        ListQueueInterface<LoyaltyTransaction> report =
-        loyaltyControl.generateExpiringPointsReport(
-        startTime,
-        endTime,
-        selectedTier,
-        minimumPoints
-        );
-
-        displayExpiringTransactionList(
-        report);
+        displayTierPerformanceTable(report.getTierRows());
+        displayRewardPerformanceTable(report.getRewardRows());
     }
 
-    /**
-     * Displays earned points that will expire within the next four minutes.
-     */
+    /** Prints one aligned summary row in the performance report. */
+    private void printPerformanceSummaryRow(String label, Object value) {
+        System.out.printf(
+                "| %-28s : %-37.37s |%n",
+                label,
+                value == null ? "-" : value);
+    }
+
+    /** Displays performance totals grouped by the member's current tier. */
+    private void displayTierPerformanceTable(TierPerformance[] rows) {
+
+        String border =
+                "+----------+-----+---------+---------+---------+---------+---------+--------+";
+
+        System.out.println();
+        System.out.println("TIER PERFORMANCE");
+        System.out.println(border);
+        System.out.printf(
+                "| %-8s | %3s | %7s | %7s | %7s | %7s | %7s | %6s |%n",
+                "Tier", "Mem", "Balance", "Issued", "Redeem",
+                "Expire", "Avg Bal", "Rate");
+        System.out.println(border);
+
+        for (TierPerformance row : rows) {
+            System.out.printf(
+                    "| %-8s | %3d | %7d | %7d | %7d | %7d | %7.1f | %5.1f%% |%n",
+                    row.getTier(),
+                    row.getMembers(),
+                    row.getAvailablePoints(),
+                    row.getIssuedPoints(),
+                    row.getRedeemedPoints(),
+                    row.getExpiredPoints(),
+                    row.getAverageBalance(),
+                    row.getRedemptionRate());
+        }
+
+        System.out.println(border);
+        System.out.println(
+                "Issued = EARN points. Rate = Redeemed / Issued.");
+    }
+
+    /** Displays popularity statistics from successfully processed rewards. */
+    private void displayRewardPerformanceTable(RewardPerformance[] rows) {
+
+        String border =
+                "+--------------------------+-------------------+-------------+";
+
+        System.out.println();
+        System.out.println("REWARD POPULARITY");
+        System.out.println(border);
+        System.out.printf(
+                "| %-24s | %17s | %11s |%n",
+                "Reward", "Completed Redeems", "Points Used");
+        System.out.println(border);
+
+        for (RewardPerformance row : rows) {
+            System.out.printf(
+                    "| %-24s | %17d | %11d |%n",
+                    row.getReward().getRewardName(),
+                    row.getRedemptionCount(),
+                    row.getPointsUsed());
+        }
+
+        System.out.println(border);
+    }
+
+    /** Displays individual point batches expiring within seven days. */
     private void displayExpiringPointsAlerts() {
 
         LocalDateTime currentTime =
-        LocalDateTime.now();
-
-        int alertPeriodMinutes = 4;
+                LoyaltyClock.now();
+        int alertPeriodDays =
+                loyaltyControl.getExpiryNotificationDays();
 
         ListQueueInterface<LoyaltyTransaction> alerts =
-        loyaltyControl.generateExpiringPointsAlerts(
-        currentTime,
-        alertPeriodMinutes
-        );
+                loyaltyControl.generateExpiringPointsReport(
+                        currentTime,
+                        currentTime.plusDays(alertPeriodDays),
+                        null);
 
         System.out.println();
         System.out.println(
@@ -1342,54 +1349,30 @@ System.out.println(
         "+------------------------------------------------+");
 
         System.out.println(
-        "Checking period: "
-        + currentTime.format(TIME_FORMATTER)
-        + " to "
-        + currentTime.plusMinutes(
-        alertPeriodMinutes).format(TIME_FORMATTER));
+                "Checking period: "
+                + currentTime.toLocalDate()
+                + " to "
+                + currentTime.plusDays(
+                        alertPeriodDays).toLocalDate());
 
         if (alerts == null || alerts.isEmpty()) {
 
             System.out.println();
             System.out.println(
-            "No points will expire within the next "
-            + alertPeriodMinutes
-            + " minutes.");
+                    "No point batches will expire within the next "
+                    + alertPeriodDays
+                    + " days.");
 
             return;
         }
 
-        System.out.println();
-
-        Iterator<LoyaltyTransaction> alertIterator =
-        alerts.getIterator();
-
-        while (alertIterator.hasNext()) {
-
-            LoyaltyTransaction transaction =
-            alertIterator.next();
-
-            System.out.println(
-            "Loyalty ID   : "
-            + transaction.getLoyaltyId());
-
-            System.out.println(
-            "Points       : "
-            + transaction.getRemainingPoints());
-
-            System.out.println(
-            "Expiry Time  : "
-            + transaction.getExpiryTime().format(TIME_FORMATTER));
-
-            System.out.println(
-            "------------------------------------------------");
-        }
+        displayExpiringTransactionList(alerts);
     }
 
     /**
      * Displays the Expiring Points Report.
      *
-     * @param transactions custom ADT containing expiring records
+     * @param transactions custom ADT containing expiring point batches
      */
     private void displayExpiringTransactionList(
     ListQueueInterface<LoyaltyTransaction> transactions) {
@@ -1405,18 +1388,20 @@ System.out.println(
         }
 
        String border =
-        "+----------+----------+----------------------+------------+------------+------------+";
+        "+----------+------------+----------+--------------------------+----------+------------+------------+---------------------+";
 
 System.out.println(border);
 
 System.out.printf(
-        "| %-8s | %-8s | %-20s | %10s | %-10s | %-10s |%n",
-        "Trans ID",
-        "Loyalty",
+        "| %-8s | %-10s | %-8s | %-24s | %-8s | %10s | %-10s | %-19s |%n",
+        "Batch ID",
+        "Loyalty ID",
+        "Guest ID",
         "Member Name",
-        "Remaining",
-        "Expiry",
-        "Tier");
+        "Type",
+        "Points",
+        "Tier",
+        "Expiry Time");
 
 System.out.println(border);
 
@@ -1437,21 +1422,108 @@ while (transactionIterator.hasNext()) {
     }
 
     System.out.printf(
-            "| %-8s | %-8s | %-20s | %10d | %-10s | %-10s |%n",
+            "| %-8s | %-10s | %-8s | %-24.24s | %-8s | %10d | %-10s | %-19s |%n",
             transaction.getTransactionId(),
             transaction.getLoyaltyId(),
+            account.getGuestId(),
             account.getMemberName(),
+            transaction.getTransactionType(),
             transaction.getRemainingPoints(),
-            transaction.getExpiryTime()
-                    .format(TIME_FORMATTER),
-            account.getMembershipTier());
+            account.getMembershipTier(),
+            formatDateTime(
+                    transaction.getExpiryTime()));
 }
 
 System.out.println(border);
 
 System.out.println(
-        "Total expiring records: "
+        "Total expiring point batches: "
         + transactions.getNumberOfEntries());
+    }
+
+    /**
+     * Formats an account activity or expiry timestamp for display.
+     */
+    private String formatDateTime(LocalDateTime dateTime) {
+
+        return dateTime == null
+                ? "-"
+                : dateTime.format(DATE_TIME_FORMATTER);
+    }
+
+    /** Displays a member's complete point ledger, not an expiry report. */
+    private void displayPointTransactionHistory() {
+
+        displayAllLoyaltyAccounts();
+
+        System.out.println();
+        System.out.println(
+                "+------------------------------------------------+");
+        System.out.println(
+                "|           POINT TRANSACTION HISTORY            |");
+        System.out.println(
+                "+------------------------------------------------+");
+        System.out.print("Enter Loyalty ID: ");
+        String loyaltyId = scanner.nextLine().trim();
+        LoyaltyAccount account =
+                loyaltyControl.findMemberByLoyaltyId(loyaltyId);
+
+        if (account == null) {
+            System.out.println("Loyalty member not found.");
+            return;
+        }
+
+        displayAccountDetails(account);
+
+        ListQueueInterface<LoyaltyTransaction> transactions =
+                loyaltyControl.getLoyaltyTransactions().filter(
+                        transaction -> transaction != null
+                        && transaction.getLoyaltyId() != null
+                        && transaction.getLoyaltyId()
+                                .equalsIgnoreCase(loyaltyId));
+
+        if (transactions.isEmpty()) {
+            System.out.println();
+            System.out.println("No point transactions for this member.");
+            return;
+        }
+
+        String border =
+                "+----------+------------+----------+----------+------------+---------------------+---------------------+";
+        System.out.println();
+        System.out.println(border);
+        System.out.printf(
+                "| %-8s | %-10s | %-8s | %8s | %10s | %-19s | %-19s |%n",
+                "Txn ID", "Booking", "Type", "Points", "Remaining",
+                "Transaction Time", "Expiry Time");
+        System.out.println(border);
+
+        Iterator<LoyaltyTransaction> iterator =
+                transactions.getIterator();
+
+        while (iterator.hasNext()) {
+            LoyaltyTransaction transaction = iterator.next();
+            boolean pointBatch = transaction.getTransactionType()
+                    == LoyaltyTransaction.TransactionType.EARN
+                    || transaction.getTransactionType()
+                    == LoyaltyTransaction.TransactionType.ADJUST;
+            System.out.printf(
+                    "| %-8s | %-10s | %-8s | %8d | %10d | %-19s | %-19s |%n",
+                    transaction.getTransactionId(),
+                    transaction.getBookingId() == null
+                            ? "-" : transaction.getBookingId(),
+                    transaction.getTransactionType(),
+                    transaction.getPoints(),
+                    pointBatch
+                            ? transaction.getRemainingPoints()
+                            : transaction.getHistoryRemainingPoints(),
+                    formatDateTime(transaction.getTransactionTime()),
+                    formatDateTime(transaction.getExpiryTime()));
+        }
+
+        System.out.println(border);
+        System.out.println("Total transactions: "
+                + transactions.getNumberOfEntries());
     }
     
     /**
@@ -1462,38 +1534,45 @@ System.out.println(
     private void displayAccountDetails(
     LoyaltyAccount account) {
 
+        String outerBorder =
+                "+-----------------------------------------------------------+";
+
+        String columnBorder =
+                "+----------------------+------------------------------------+";
+
+        String title = "LOYALTY MEMBER DETAILS";
+        int leftPadding = (57 - title.length()) / 2;
+
         System.out.println();
-        System.out.println(
-        "+-------------------------------------------------+");
-        System.out.println(
-        "|             LOYALTY MEMBER DETAILS             |");
-        System.out.println(
-        "+-------------------------------------------------+");
-
+        System.out.println(outerBorder);
         System.out.printf(
-        "| %-18s : %-25s |%n",
-        "Loyalty ID",
-        account.getLoyaltyId());
+                "| %-57s |%n",
+                " ".repeat(leftPadding) + title);
+        System.out.println(columnBorder);
 
-        System.out.printf(
-        "| %-18s : %-25s |%n",
-        "Guest ID",
-        account.getGuestId());
+        printAccountDetailRow(
+                "Loyalty ID",
+                account.getLoyaltyId());
 
-        System.out.printf(
-        "| %-18s : %-25s |%n",
-        "Member Name",
-        account.getMemberName());
+        printAccountDetailRow(
+                "Guest ID",
+                account.getGuestId());
 
-        System.out.printf(
-        "| %-18s : %-25d |%n",
-        "Points Balance",
-        account.getPointsBalance());
+        printAccountDetailRow(
+                "Member Name",
+                account.getMemberName());
 
-        System.out.printf(
-        "| %-18s : %-25s |%n",
-        "Membership Tier",
-        account.getMembershipTier());
+        printAccountDetailRow(
+                "Points Balance",
+                account.getPointsBalance());
+
+        printAccountDetailRow(
+                "Tier Points",
+                account.getTierQualifyingPoints());
+
+        printAccountDetailRow(
+                "Membership Tier",
+                account.getMembershipTier());
         
         String roomDiscount =
         String.format(
@@ -1501,27 +1580,124 @@ System.out.println(
                 loyaltyControl.getRoomDiscountPercentage(
                         account.getMembershipTier()));
 
-System.out.printf(
-        "| %-18s : %-25s |%n",
-        "Room Discount",
-        roomDiscount);
+        printAccountDetailRow(
+                "Room Discount",
+                roomDiscount);
 
-        System.out.printf(
-        "| %-18s : %-25s |%n",
-        "Promotion",
-        loyaltyControl.getPromotionForTier(
-        account.getMembershipTier()));
+        printAccountDetailRow(
+                "Account Status",
+                account.isActive()
+                        ? "ACTIVE"
+                        : "INACTIVE");
 
-        System.out.printf(
-        "| %-18s : %-25s |%n",
-        "Account Status",
-        account.isActive()
-        ? "ACTIVE"
-        : "INACTIVE");
+        printAccountDetailRow(
+                "Last Points Activity",
+                formatDateTime(
+                        account.getLastPointsActivityTime()));
 
-        System.out.println(
-        "+-------------------------------------------------+");
+        printAccountDetailRow(
+                "Next Batch Expiry",
+                formatDateTime(
+                        account.getPointsExpiryTime()));
+
+        if (!account.isActive()
+                && account.getDeactivatedAt() != null) {
+
+            printAccountDetailRow(
+                    "Deactivated At",
+                    formatDateTime(
+                            account.getDeactivatedAt()));
+
+        }
+
+        System.out.println(columnBorder);
     }
+
+    /**
+     * Prints one consistently aligned row in the member-details table.
+     */
+    private void printAccountDetailRow(
+            String label,
+            Object value) {
+
+        System.out.printf(
+                "| %-20.20s | %-34.34s |%n",
+                label,
+                value == null ? "-" : value);
+    }
+
+    /** Allows a presenter to change time for the Loyalty module only. */
+    private void displayDemoLoyaltyTimeMenu() {
+
+        int choice;
+
+        do {
+            System.out.println();
+            System.out.println(
+                    "+--------------------------------------------------------+");
+            System.out.println(
+                    "|                   DEMO LOYALTY DATE                    |");
+            System.out.println(
+                    "+--------------------------------------------------------+");
+            System.out.printf(
+                    "| %-20s : %-31s |%n",
+                    "Current Loyalty Date",
+                    LoyaltyClock.today());
+            System.out.printf(
+                    "| %-20s : %-31s |%n",
+                    "Clock Mode",
+                    LoyaltyClock.isDemoMode()
+                            ? "DEMO" : "REAL SYSTEM TIME");
+            System.out.println(
+                    "+--------------------------------------------------------+");
+            System.out.printf("| %-54s |%n", "1. Set Loyalty Date");
+            System.out.printf("| %-54s |%n", "2. Reset to Real System Date");
+            System.out.printf("| %-54s |%n", "0. Back to Loyalty Menu");
+            System.out.println(
+                    "+--------------------------------------------------------+");
+            System.out.print("Enter choice: ");
+
+            choice = readChoice();
+
+            switch (choice) {
+                case 1 -> setDemoLoyaltyDate();
+                case 2 -> {
+                    LoyaltyClock.resetToSystemTime();
+                    System.out.println(
+                            "Loyalty date reset to the real system date.");
+                }
+                case 0 -> {
+                }
+                default -> System.out.println(
+                        "Invalid choice. Please try again.");
+            }
+
+        } while (choice != 0);
+    }
+
+    private void setDemoLoyaltyDate() {
+        System.out.print(
+                "Enter Loyalty date (yyyy-MM-dd): ");
+
+        try {
+            LocalDate targetDate = LocalDate.parse(
+                    scanner.nextLine().trim());
+            LoyaltyClock.setDate(targetDate);
+            printChangedLoyaltyTime();
+        } catch (DateTimeParseException exception) {
+            System.out.println("Invalid date format. Use yyyy-MM-dd.");
+        }
+    }
+
+    private void printChangedLoyaltyTime() {
+        System.out.println(
+                "Loyalty date changed to "
+                + LoyaltyClock.today()
+                + ".");
+        System.out.println(
+                "Only Loyalty uses this demo time.");
+    }
+
     /**
      * Prints the Loyalty and Rewards menu.
      */
@@ -1535,15 +1711,14 @@ System.out.printf(
         "+------------------------------------------------+");
 
         System.out.printf("| %-46s |%n", "1. Find Loyalty Member");
-        System.out.printf("| %-46s |%n", "2. Create Loyalty Account");
-        System.out.printf("| %-46s |%n", "3. Add Points from Completed Stay");
-        System.out.printf("| %-46s |%n", "4. Redeem Rewards");
-        System.out.printf("| %-46s |%n", "5. Tier and Points Report");
-        System.out.printf("| %-46s |%n", "6. Activate / Deactivate Account");
-        System.out.printf("| %-46s |%n", "7. Expiring Points Report");
-        System.out.printf("| %-46s |%n", "8. Expiring Points Notifications");
-        System.out.printf("| %-46s |%n", "9. Process Expired Points");
-        System.out.printf("| %-46s |%n", "0. Return to Main Menu");
+        System.out.printf("| %-46s |%n", "2. View Completed-Stay Point Processing");
+        System.out.printf("| %-46s |%n", "3. Redeem Rewards");
+        System.out.printf("| %-46s |%n", "4. Tier and Points Report");
+        System.out.printf("| %-46s |%n", "5. Loyalty Performance Report");
+        System.out.printf("| %-46s |%n", "6. Expiring Points Notifications");
+        System.out.printf("| %-46s |%n", "7. Point Transaction History");
+        System.out.printf("| %-46s |%n", "8. Demo Loyalty Date");
+        System.out.printf("| %-46s |%n", "0. Main Menu");
 
         System.out.println(
         "+------------------------------------------------+");
@@ -1568,56 +1743,6 @@ System.out.printf(
 
             return -1;
         }
-    }
-
-    /**
-     * Processes all points that have already expired.
-     */
-    private void processExpiredPoints() {
-
-        System.out.println();
-        System.out.println(
-        "+------------------------------------------------+");
-        System.out.println(
-        "|             PROCESS EXPIRED POINTS             |");
-        System.out.println(
-        "+------------------------------------------------+");
-
-        LocalDateTime currentTime =
-        LocalDateTime.now();
-
-        System.out.println(
-        "Processing time: " + currentTime.format(TIME_FORMATTER));
-
-        System.out.print(
-        "Confirm processing expired points? (Y/N): ");
-
-        String confirmation =
-        scanner.nextLine().trim();
-
-        if (!confirmation.equalsIgnoreCase("Y")) {
-            System.out.println(
-            "Expired-points processing cancelled.");
-            return;
-        }
-
-        int totalExpiredPoints =
-        loyaltyControl.processExpiredPoints(
-        currentTime);
-
-        if (totalExpiredPoints == 0) {
-            System.out.println(
-            "No expired points were found.");
-            return;
-        }
-
-        System.out.println();
-        System.out.println(
-        "Expired points processed successfully.");
-
-        System.out.println(
-        "Total points expired: "
-        + totalExpiredPoints);
     }
 
 }

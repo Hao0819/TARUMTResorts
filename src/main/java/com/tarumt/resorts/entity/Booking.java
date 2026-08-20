@@ -16,7 +16,7 @@ import java.time.LocalDate;
  * Per ECB rules, this entity only references other entities (Guest, Room),
  * never a Control or Boundary class.
  *
- * @author Junhao
+ * @author LimJunHao
  */
 public class Booking {
     private String confirmationNumber;
@@ -210,6 +210,21 @@ public class Booking {
 
     public double getAmount() {
         return amount;
+    }
+
+    /**
+     * Loads the verified gross amount of a historical booking.
+     * Normal new bookings continue to calculate this value from room rate and
+     * stay duration through {@link #setSchedule(LocalDate, int)}.
+     */
+    public void setHistoricalAmount(double amount) {
+        if (amount < 0.0) {
+            throw new IllegalArgumentException(
+                    "Historical booking amount cannot be negative.");
+        }
+
+        this.amount = amount;
+        applyMembershipDiscount();
     }
 
     /**

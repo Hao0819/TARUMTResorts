@@ -3,6 +3,7 @@ package com.tarumt.resorts.control;
 import com.tarumt.resorts.entity.Booking;
 import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.Room;
+import com.tarumt.resorts.entity.LoyaltyAccount;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import java.time.LocalDate;
 import com.tarumt.resorts.dao.BookingDAO;
@@ -20,7 +21,7 @@ import com.tarumt.resorts.dao.RoomDAO;
  * bookings (Walk-In / VIP do); it searches and manages the resulting Booking
  * from the shared collection.
  *
- * @author Keng Ting
+ * @author Tan Keng Ting
  */
 public class FrontDeskControl {
 
@@ -32,6 +33,11 @@ public class FrontDeskControl {
     // check-out also writes a DIRTY entry into Housekeeping's status log so
     // their View/reports reflect the handover — not just the Room field.
     private HousekeepingControl housekeeping;
+
+    // Optional shared Loyalty accounts (owned by the Loyalty module). When wired
+    // in by Main, Front-Desk can show and search each booking guest's loyalty ID
+    // and current points. Left null in standalone mode.
+    private ListQueueInterface<LoyaltyAccount> loyaltyAccounts;
 
     /**
      * Standalone constructor - loads hard-coded sample data so the module
@@ -68,6 +74,49 @@ public class FrontDeskControl {
      */
     public void setHousekeepingControl(HousekeepingControl housekeeping) {
         this.housekeeping = housekeeping;
+    }
+
+    /**
+     * Wires in the shared Loyalty accounts so Front-Desk can display and search
+     * a booking guest's loyalty ID and current points. Optional: when left null
+     * (standalone mode), loyalty lookups return null and the UI shows "-".
+     */
+    public void setLoyaltyAccounts(ListQueueInterface<LoyaltyAccount> loyaltyAccounts) {
+        this.loyaltyAccounts = loyaltyAccounts;
+    }
+
+    /**
+     * Finds the loyalty account belonging to a booking's guest (matched by guest
+     * ID), or null if loyalty data isn't wired in or the guest has no account.
+     * Self-implemented linear scan.
+     */
+    public LoyaltyAccount getLoyaltyAccountFor(Booking booking) {
+        if (loyaltyAccounts == null || booking == null || booking.getGuest() == null) {
+            return null;
+        }
+        String guestId = booking.getGuest().getGuestId();
+        if (guestId == null) {
+            return null;
+        }
+        for (int i = 0; i < loyaltyAccounts.getNumberOfEntries(); i++) {
+            LoyaltyAccount account = loyaltyAccounts.getEntry(i);
+            if (guestId.equalsIgnoreCase(account.getGuestId())) {
+                return account;
+            }
+        }
+        return null;
+    }
+
+    /** The booking guest's loyalty ID, or "-" when there is no linked account. */
+    public String getLoyaltyIdFor(Booking booking) {
+        LoyaltyAccount account = getLoyaltyAccountFor(booking);
+        return (account == null || account.getLoyaltyId() == null) ? "-" : account.getLoyaltyId();
+    }
+
+    /** The booking guest's current points as text, or "-" when there is no account. */
+    public String getLoyaltyPointsFor(Booking booking) {
+        LoyaltyAccount account = getLoyaltyAccountFor(booking);
+        return account == null ? "-" : String.valueOf(account.getPointsBalance());
     }
 
     // =====================================================================
@@ -423,8 +472,22 @@ public class FrontDeskControl {
      * (not available) and, since the bill is settled on arrival, the payment
      * status is marked PAID (CONFIRMED/UNPAID -> ACTIVE/PAID).
      *
-     * @return false if the booking is missing, not CONFIRMED, or the arrival
-     *         date is before the scheduled check-in date
+     * Added: also re-checks Housekeeping readiness at the moment of actual
+     * arrival, not just at allocation time. Walk-In/VIP only validate a
+     * room's cleaning status when the booking is created AND only for a
+     * same-day request (see WalkInRegistrationControl.isReadyForAllocation()
+     * / VIPAllocationControl.isReadyForAllocation()) - a room booked well in
+     * advance is never re-checked before the guest actually shows up days or
+     * weeks later. Without this check, a room that Housekeeping re-logged as
+     * DIRTY/CLEANING/INSPECTED after allocation (e.g. a supervisor's manual
+     * "d" jump-to-DIRTY) could still be checked into. Re-validating here, on
+     * the shared Room object's own cleaningStatus field, closes that gap
+     * without requiring Front-Desk to depend on the optional Housekeeping
+     * control reference.
+     *
+     * @return false if the booking is missing, not CONFIRMED, the arrival
+     *         date is before the scheduled check-in date, or the room is not
+     *         currently Housekeeping-READY (nor UNKNOWN/never logged)
      */
     public boolean checkInBooking(String confirmationNumber, String checkInTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
@@ -433,6 +496,11 @@ public class FrontDeskControl {
         }
         // No early check-in: the arrival date must not precede the schedule.
         if (isBeforeScheduledCheckIn(booking, parseDatePart(checkInTime))) {
+            return false;
+        }
+        // Added: the room must still be Housekeeping-ready right now - not
+        // just at the moment the booking was originally allocated.
+        if (!isRoomReadyForCheckIn(booking.getRoom())) {
             return false;
         }
         booking.setCheckInTime(checkInTime);
@@ -455,6 +523,38 @@ public class FrontDeskControl {
                 && booking.getScheduledCheckInDate() != null
                 && arrivalDate != null
                 && arrivalDate.isBefore(booking.getScheduledCheckInDate());
+    }
+
+    /**
+     * Added: true when a room is Housekeeping-READY, or has never been
+     * logged at all (cleaningStatus null/"UNKNOWN"). Mirrors
+     * WalkInRegistrationControl.isReadyForAllocation() /
+     * VIPAllocationControl.isReadyForAllocation() exactly, so all three
+     * modules agree on what "ready for a guest" means. Reads the shared
+     * Room object's own field directly rather than calling into
+     * HousekeepingControl, so this works even when Housekeeping isn't wired
+     * in (standalone Front-Desk mode) - it simply falls back to whatever the
+     * Room's own cleaningStatus already says (default "UNKNOWN").
+     */
+    private boolean isRoomReadyForCheckIn(Room room) {
+        if (room == null) {
+            return false;
+        }
+        String cleaningStatus = room.getCleaningStatus();
+        return cleaningStatus == null
+                || cleaningStatus.equalsIgnoreCase("READY")
+                || cleaningStatus.equalsIgnoreCase("UNKNOWN");
+    }
+
+    /**
+     * Public, null-safe wrapper around {@link #isRoomReadyForCheckIn(Room)}
+     * so the boundary layer can show a specific "room not ready" message
+     * instead of a generic check-in failure, the same way
+     * {@link #isBeforeScheduledCheckIn(Booking, LocalDate)} is exposed for
+     * the early-arrival case.
+     */
+    public boolean isBookingRoomReadyForCheckIn(Booking booking) {
+        return booking != null && isRoomReadyForCheckIn(booking.getRoom());
     }
 
     /** Extracts the date (yyyy-MM-dd) from a "yyyy-MM-dd HH:mm" string; null if unparseable. */
@@ -551,12 +651,15 @@ public class FrontDeskControl {
     private boolean matchesAnyField(Booking b, String query) {
         Guest g = b.getGuest();
         Room r = b.getRoom();
+        LoyaltyAccount la = getLoyaltyAccountFor(b);
         return fieldContains(b.getConfirmationNumber(), query)
                 || (g != null && (fieldContains(g.getName(), query)
                         || fieldContains(g.getGuestId(), query)
                         || fieldContains(String.valueOf(g.getMembershipTier()), query)))
                 || (r != null && (fieldContains(r.getRoomNumber(), query)
                         || fieldContains(r.getRoomType(), query)))
+                || (la != null && (fieldContains(la.getLoyaltyId(), query)
+                        || fieldContains(String.valueOf(la.getPointsBalance()), query)))
                 || fieldContains(b.getStatus(), query)
                 || fieldContains(b.getPaymentStatus(), query)
                 || fieldContains(b.getCheckInTime(), query)

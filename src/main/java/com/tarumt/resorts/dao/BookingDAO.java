@@ -6,6 +6,8 @@ import com.tarumt.resorts.entity.Room;
 import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 
 /**
@@ -21,9 +23,12 @@ import java.util.Iterator;
  * Confirmation numbers are 8-digit as required by the Front-Desk
  * specification.
  *
- * @author Keng Ting
+ * @author LimJunHao
  */
 public class BookingDAO {
+
+        private static final DateTimeFormatter BOOKING_TIME_FORMAT =
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
         private ListQueueInterface<Guest> guests;
         private ListQueueInterface<Room> rooms;
@@ -298,9 +303,9 @@ public class BookingDAO {
                 // the Front-Desk demonstrate Check-in and Cancel on their own, without
                 // first running the Walk-In module. The 5-argument constructor is used
                 // with a null check-in time, so each one is CONFIRMED. Confirmation
-                // numbers continue after the records above (20260015-20260034); Walk-In's
-                // counter (bookingList size + 1) resumes after these, so runtime bookings
-                // never collide. Rooms are ones NOT occupied by the ACTIVE bookings above.
+                // These records use confirmation numbers 20260015-20260034.
+                // Additional seeded records below continue through 20260060,
+                // so runtime Walk-In bookings resume from 20260061.
                 bookings.enqueue(withPaymentStatus(new Booking("20260015", findGuest("G012"), findRoom("101"),
                                 "2026-07-20 10:00", null), "UNPAID"));
                 bookings.enqueue(withPaymentStatus(new Booking("20260016", findGuest("G013"), findRoom("102"),
@@ -419,8 +424,8 @@ public class BookingDAO {
                                                 "2026-08-20 10:30"),
                                 "PAID"));
 
-                // CONFIRMED bookings for the additional available rooms.
-                // These bookings complete the fully-booked period from 10-12 August.
+                // These bookings complete the fully booked nights from
+                // 24-26 August, with check-out on 27 August.
 
                 bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260040", findGuest("G026"), findRoom("109"),
@@ -509,7 +514,137 @@ public class BookingDAO {
 
                 // Add planned stay dates and recalculate each booking amount.
                 applySampleSchedules(bookings);
+                addHistoricalLoyaltyBookings(bookings);
                 return bookings;
+        }
+
+        /**
+         * Adds verified historical stays used by the Loyalty opening ledger.
+         * Every point batch therefore references a real shared Booking rather
+         * than an unlinked ADJUST transaction.
+         */
+        private void addHistoricalLoyaltyBookings(
+                        ListQueueInterface<Booking> bookings) {
+
+                int[] nextBookingNumber = {1001};
+
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G001", 500, 36);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G016", 800, 34);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G002", 1800, 55);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G002", 3000, 20);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G003", 7500, 48);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G004", 12000, 42);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G006", 23000, 18);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G005", 15000, 33);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G010", 12000, 46);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G011", 17500, 29);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G012", 23000, 24);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G008", 1200, 53);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G008", 2000, 22);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G009", 3000, 51);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G009", 4100, 27);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G014", 700, 49);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G014", 1000, 21);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G017", 700, 47);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G017", 1000, 19);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G015", 3000, 54);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G015", 4500, 26);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G018", 3000, 52);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G018", 4500, 25);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G019", 1200, 45);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G019", 2000, 17);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G020", 2500, 50);
+                addHistoricalEarnedPoints(bookings, nextBookingNumber,
+                                "G020", 3500, 23);
+        }
+
+        /** Splits one verified total into several independently dated stays. */
+        private void addHistoricalEarnedPoints(
+                        ListQueueInterface<Booking> bookings,
+                        int[] nextBookingNumber,
+                        String guestId,
+                        int totalPoints,
+                        int latestStayDaysAgo) {
+
+                if (totalPoints >= 2000) {
+                        int first = totalPoints * 40 / 100;
+                        int second = totalPoints * 30 / 100;
+                        int third = totalPoints - first - second;
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, first, latestStayDaysAgo + 28);
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, second, latestStayDaysAgo + 14);
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, third, latestStayDaysAgo);
+                } else {
+                        int first = totalPoints / 2;
+                        int second = totalPoints - first;
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, first, latestStayDaysAgo + 14);
+                        addHistoricalLoyaltyBooking(bookings, nextBookingNumber,
+                                        guestId, second, latestStayDaysAgo);
+                }
+        }
+
+        /** Creates one real PAID and CHECKED_OUT historical Booking. */
+        private void addHistoricalLoyaltyBooking(
+                        ListQueueInterface<Booking> bookings,
+                        int[] nextBookingNumber,
+                        String guestId,
+                        int points,
+                        int stayDaysAgo) {
+
+                LocalDateTime checkOutTime = LocalDateTime.now()
+                                .minusDays(stayDaysAgo)
+                                .withHour(11)
+                                .withMinute(0)
+                                .withSecond(0)
+                                .withNano(0);
+                LocalDate checkInDate = checkOutTime.toLocalDate().minusDays(1);
+                String confirmationNumber = String.format(
+                                "%04d%04d",
+                                checkOutTime.getYear(),
+                                nextBookingNumber[0]++);
+                Booking booking = new Booking(
+                                confirmationNumber,
+                                findGuest(guestId),
+                                findRoom("101"),
+                                checkInDate.atTime(14, 0)
+                                                .format(BOOKING_TIME_FORMAT));
+
+                booking.setSchedule(checkInDate, 1);
+                booking.setHistoricalAmount(points);
+                booking.setPaymentStatus("PAID");
+                booking.setStatus("CHECKED_OUT");
+                booking.setCheckOutTime(
+                                checkOutTime.format(BOOKING_TIME_FORMAT));
+                bookings.enqueue(booking);
         }
 
         /**

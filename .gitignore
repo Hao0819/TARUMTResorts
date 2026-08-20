@@ -6,3 +6,8 @@ nb-configuration.xml
 .netbeans_automatic_build
 # VS Code workspace settings (machine-specific)
 .vscode/
+
+# Generated PDF/revision artifacts are not part of the Java project.
+tmp/
+output/
+tools/

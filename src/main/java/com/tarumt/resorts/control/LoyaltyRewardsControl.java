@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Iterator;
 import com.tarumt.resorts.entity.RedemptionRequest;
+import com.tarumt.resorts.util.LoyaltyClock;
 
 /**
  * Handles the business logic for the Loyalty and Rewards Service.
@@ -28,6 +29,9 @@ import com.tarumt.resorts.entity.RedemptionRequest;
 public class LoyaltyRewardsControl {
 
     private static final double POINTS_PER_RM = 1.0;
+    private static final int POINTS_EXPIRY_MONTHS = 3;
+    private static final int EXPIRY_NOTIFICATION_DAYS = 7;
+    private static final int ACCOUNT_INACTIVITY_YEARS = 1;
 
     private ListQueueInterface<LoyaltyAccount> loyaltyAccounts;
     private ListQueueInterface<LoyaltyTransaction> loyaltyTransactions;
@@ -114,7 +118,12 @@ public class LoyaltyRewardsControl {
     public ListQueueInterface<LoyaltyTransaction> getLoyaltyTransactions() {
         return loyaltyTransactions;
     }
-    
+
+    /** Returns the configured advance-warning period for expiring batches. */
+    public int getExpiryNotificationDays() {
+        return EXPIRY_NOTIFICATION_DAYS;
+    }
+
     private String generateRedemptionRequestId() {
 
     String requestId = String.format(
@@ -143,6 +152,9 @@ public class LoyaltyRewardsControl {
     if (account == null || !account.isActive()) {
         return null;
     }
+
+    // Do not reserve rewards against a balance that has already expired.
+    processExpiredPoints(LoyaltyClock.now());
 
     int points =
             rewardPackage.getPointsRequired();
@@ -180,7 +192,7 @@ public class LoyaltyRewardsControl {
                     account.getLoyaltyId(),
                     rewardPackage,
                     points,
-                    LocalDate.now());
+                    LoyaltyClock.today());
 
     if (!redemptionRequests.enqueue(request)) {
         return null;
@@ -268,6 +280,22 @@ public class LoyaltyRewardsControl {
         );
     }
 
+    /**
+     * Returns operational completed stays for the Loyalty lookup table.
+     * Historical seed bookings (20261xxx) are already represented in the
+     * opening ledger and are omitted to keep the selection table concise.
+     */
+    public ListQueueInterface<Booking> getCompletedStayBookingsForDisplay() {
+
+        return bookings.filter(booking ->
+                booking != null
+                && booking.getStatus() != null
+                && booking.getStatus().equalsIgnoreCase("CHECKED_OUT")
+                && booking.getConfirmationNumber() != null
+                && !booking.getConfirmationNumber()
+                        .matches("^20261\\d{3}$"));
+    }
+
     // -------------------------------------------------------------------------
     // ACCOUNT CREATION
     // -------------------------------------------------------------------------
@@ -305,6 +333,13 @@ public class LoyaltyRewardsControl {
             return false;
         }
 
+        if (!newAccount.isActive()
+                && newAccount.getDeactivatedAt() == null) {
+
+            newAccount.setDeactivatedAt(
+                    LoyaltyClock.now());
+        }
+
         return loyaltyAccounts.enqueue(newAccount);
     }
 
@@ -329,14 +364,6 @@ public class LoyaltyRewardsControl {
         }
 
         if (findMemberByGuestId(trimmedGuestId) != null) {
-            return null;
-        }
-
-        /*
-         * A Guest without a LoyaltyAccount should normally have tier NONE.
-         * This prevents an existing tier from being silently overwritten.
-         */
-        if (guest.getMembershipTier() != MembershipTier.NONE) {
             return null;
         }
 
@@ -386,10 +413,18 @@ public class LoyaltyRewardsControl {
      * 1. create a Loyalty account for the Guest when needed, and
      * 2. award the completed-stay points.
      *
-     * This method is exposed as the Loyalty-side integration hook for the
-     * checkout/front-desk module.
+     * Front-Desk does not call this method. Loyalty invokes it when its menu
+     * opens and discovers changes through the shared Booking collection.
+     *
+     * @return counters used by the UI to display a concise automation summary
      */
-    public void processCompletedBookingsForLoyalty() {
+    public AutomaticProcessingResult processCompletedBookingsForLoyalty() {
+
+        int accountsCreated = 0;
+        int bookingsProcessed = 0;
+        int pointsAwarded = 0;
+        ListQueueInterface<ProcessedBookingResult> processedItems =
+                new DoublyLinkedListQueue<>();
 
         Iterator<Booking> bookingIterator =
                 bookings.getIterator();
@@ -401,7 +436,9 @@ public class LoyaltyRewardsControl {
             if (booking == null
                     || booking.getGuest() == null
                     || booking.getGuest().getGuestId() == null
-                    || booking.getConfirmationNumber() == null) {
+                    || booking.getGuest().getGuestId().trim().isEmpty()
+                    || booking.getConfirmationNumber() == null
+                    || booking.getConfirmationNumber().trim().isEmpty()) {
 
                 continue;
             }
@@ -424,15 +461,179 @@ public class LoyaltyRewardsControl {
 
             if (account == null) {
                 account = createAccountForGuest(guestId);
+
+                if (account != null) {
+                    accountsCreated++;
+                }
             }
 
             if (account == null || !account.isActive()) {
                 continue;
             }
 
-            addPointsFromCompletedStay(
+            int bookingPoints = calculateRewardPoints(booking);
+            MembershipTier previousTier = account.getMembershipTier();
+
+            if (addPointsFromCompletedStay(
                     account.getLoyaltyId(),
-                    booking.getConfirmationNumber());
+                    booking.getConfirmationNumber())) {
+
+                bookingsProcessed++;
+                pointsAwarded = Math.addExact(
+                        pointsAwarded, bookingPoints);
+
+                LoyaltyTransaction earnBatch =
+                        findEarnTransactionByBookingId(
+                                booking.getConfirmationNumber());
+
+                if (earnBatch != null) {
+                    int newPoints = account.getPointsBalance();
+
+                    // ADT method called: enqueue()
+                    processedItems.enqueue(new ProcessedBookingResult(
+                            account.getLoyaltyId(),
+                            booking.getConfirmationNumber(),
+                            newPoints - bookingPoints,
+                            bookingPoints,
+                            newPoints,
+                            previousTier,
+                            account.getMembershipTier(),
+                            earnBatch.getTransactionId(),
+                            earnBatch.getTransactionTime(),
+                            earnBatch.getExpiryTime()));
+                }
+            }
+        }
+
+        return new AutomaticProcessingResult(
+                accountsCreated,
+                bookingsProcessed,
+                pointsAwarded,
+                processedItems);
+    }
+
+    /** Immutable counters for one scan of the shared Booking collection. */
+    public static final class AutomaticProcessingResult {
+
+        private final int accountsCreated;
+        private final int bookingsProcessed;
+        private final int pointsAwarded;
+        private final ListQueueInterface<ProcessedBookingResult>
+                processedItems;
+
+        private AutomaticProcessingResult(
+                int accountsCreated,
+                int bookingsProcessed,
+                int pointsAwarded,
+                ListQueueInterface<ProcessedBookingResult> processedItems) {
+
+            this.accountsCreated = accountsCreated;
+            this.bookingsProcessed = bookingsProcessed;
+            this.pointsAwarded = pointsAwarded;
+            this.processedItems = processedItems;
+        }
+
+        public int getAccountsCreated() {
+            return accountsCreated;
+        }
+
+        public int getBookingsProcessed() {
+            return bookingsProcessed;
+        }
+
+        public int getPointsAwarded() {
+            return pointsAwarded;
+        }
+
+        public ListQueueInterface<ProcessedBookingResult>
+                getProcessedItems() {
+
+            return processedItems;
+        }
+
+        public boolean hasActivity() {
+            return accountsCreated > 0
+                    || bookingsProcessed > 0
+                    || pointsAwarded > 0;
+        }
+    }
+
+    /** Read-only details for one booking processed during an automatic scan. */
+    public static final class ProcessedBookingResult {
+
+        private final String loyaltyId;
+        private final String bookingId;
+        private final int previousPoints;
+        private final int pointsEarned;
+        private final int newPoints;
+        private final MembershipTier previousTier;
+        private final MembershipTier newTier;
+        private final String earnBatchId;
+        private final LocalDateTime transactionTime;
+        private final LocalDateTime expiryTime;
+
+        private ProcessedBookingResult(
+                String loyaltyId,
+                String bookingId,
+                int previousPoints,
+                int pointsEarned,
+                int newPoints,
+                MembershipTier previousTier,
+                MembershipTier newTier,
+                String earnBatchId,
+                LocalDateTime transactionTime,
+                LocalDateTime expiryTime) {
+
+            this.loyaltyId = loyaltyId;
+            this.bookingId = bookingId;
+            this.previousPoints = previousPoints;
+            this.pointsEarned = pointsEarned;
+            this.newPoints = newPoints;
+            this.previousTier = previousTier;
+            this.newTier = newTier;
+            this.earnBatchId = earnBatchId;
+            this.transactionTime = transactionTime;
+            this.expiryTime = expiryTime;
+        }
+
+        public String getLoyaltyId() {
+            return loyaltyId;
+        }
+
+        public String getBookingId() {
+            return bookingId;
+        }
+
+        public int getPreviousPoints() {
+            return previousPoints;
+        }
+
+        public int getPointsEarned() {
+            return pointsEarned;
+        }
+
+        public int getNewPoints() {
+            return newPoints;
+        }
+
+        public MembershipTier getPreviousTier() {
+            return previousTier;
+        }
+
+        public MembershipTier getNewTier() {
+            return newTier;
+        }
+
+        public String getEarnBatchId() {
+            return earnBatchId;
+        }
+
+        public LocalDateTime getTransactionTime() {
+            return transactionTime;
+        }
+
+        public LocalDateTime getExpiryTime() {
+            return expiryTime;
         }
     }
 
@@ -487,6 +688,21 @@ public class LoyaltyRewardsControl {
         return transaction != null;
     }
 
+    /** Returns the EARN batch created for a booking, or null when unprocessed. */
+    public LoyaltyTransaction findEarnTransactionByBookingId(
+            String bookingId) {
+
+        if (bookingId == null || bookingId.trim().isEmpty()) {
+            return null;
+        }
+
+        return loyaltyTransactions.searchByKey(
+                bookingId.trim(), transaction ->
+                        transaction.getTransactionType()
+                                == TransactionType.EARN
+                                ? transaction.getBookingId() : null);
+    }
+
    /**
  * Calculates loyalty points using the ORIGINAL booking amount.
  *
@@ -539,7 +755,8 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
      * The booking must exist, belong to the same Guest, be CHECKED_OUT,
      * be PAID, and must not have received points before.
      *
-     * EARN points expire four minutes after being awarded for demonstration.
+     * Each successful earn creates a separate point batch and resets the
+     * account-level three-month points-expiry date.
      *
      * @param loyaltyId Loyalty account ID
      * @param bookingId booking confirmation number
@@ -599,15 +816,26 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
             return false;
         }
 
+        LocalDateTime earnedTime =
+                LoyaltyClock.now();
+
+        // Remove an already-expired account balance before adding new points.
+        processExpiredPoints(earnedTime);
+
         long newBalance =
                 (long) account.getPointsBalance() + points;
 
-        if (newBalance > Integer.MAX_VALUE) {
+        long newTierQualifyingPoints =
+                (long) account.getTierQualifyingPoints()
+                + points;
+
+        if (newBalance > Integer.MAX_VALUE
+                || newTierQualifyingPoints > Integer.MAX_VALUE) {
             return false;
         }
 
-        LocalDateTime earnedTime =
-                LocalDateTime.now();
+        LocalDateTime batchExpiryTime =
+                earnedTime.plusMonths(POINTS_EXPIRY_MONTHS);
 
         LoyaltyTransaction earnTransaction =
                 new LoyaltyTransaction(
@@ -616,8 +844,8 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                         booking.getConfirmationNumber(),
                         TransactionType.EARN,
                         points,
-                        earnedTime.toLocalDate(),
-                        earnedTime.plusMinutes(4)
+                        earnedTime,
+                        batchExpiryTime
                 );
 
         if (!loyaltyTransactions.enqueue(earnTransaction)) {
@@ -625,6 +853,10 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         }
 
         account.setPointsBalance((int) newBalance);
+        account.setTierQualifyingPoints(
+                (int) newTierQualifyingPoints);
+        recordPointsActivity(account, earnedTime);
+        updateNextPointsExpiry(account, earnedTime);
         recalculateTier(account);
 
         return true;
@@ -654,18 +886,26 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
 
         return redeemPoints(
                 loyaltyId.trim(),
-                rewardPackage.getPointsRequired());
+                rewardPackage.getPointsRequired(),
+                rewardPackage);
     }
 
     /**
-     * Performs the point deduction for a direct redemption.
-     *
-     * ADJUST points never expire. EARN points may only be used while they
-     * still have remaining points and have not expired.
+     * Redeems points from individual batches. Batches with the earliest
+     * expiry time are consumed first so fewer points are unnecessarily lost.
      */
     private boolean redeemPoints(
             String loyaltyId,
             int points) {
+
+        return redeemPoints(loyaltyId, points, null);
+    }
+
+    /** Redeems points and retains the selected reward in the audit ledger. */
+    private boolean redeemPoints(
+            String loyaltyId,
+            int points,
+            RewardPackage rewardPackage) {
 
         if (loyaltyId == null
                 || loyaltyId.trim().isEmpty()
@@ -682,12 +922,10 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         }
 
         LocalDateTime currentTime =
-                LocalDateTime.now();
+                LoyaltyClock.now();
 
         /*
-         * Keep the account balance synchronized before checking whether the
-         * member can redeem. This is especially important for the 4-minute
-         * demonstration expiry.
+         * Expire any due batches before checking the redeemable balance.
          */
         processExpiredPoints(currentTime);
 
@@ -695,58 +933,38 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
             return false;
         }
 
-        int availablePoints = 0;
+        ListQueueInterface<LoyaltyTransaction> usableBatches =
+                new DoublyLinkedListQueue<>();
 
-        Iterator<LoyaltyTransaction> checkIterator =
+        long availablePoints = 0;
+
+        Iterator<LoyaltyTransaction> transactionIterator =
                 loyaltyTransactions.getIterator();
 
-        while (checkIterator.hasNext()) {
+        while (transactionIterator.hasNext()) {
 
             LoyaltyTransaction transaction =
-                    checkIterator.next();
+                    transactionIterator.next();
 
-            if (isUsablePointsTransaction(
+            if (!isUsablePointsTransaction(
                     transaction,
                     account.getLoyaltyId(),
                     currentTime)) {
 
-                availablePoints +=
-                        transaction.getRemainingPoints();
+                continue;
             }
+
+            usableBatches.priorityEnqueue(
+                    transaction,
+                    this::comparePointBatchExpiry);
+
+            availablePoints +=
+                    transaction.getRemainingPoints();
         }
 
         if (availablePoints < points) {
             return false;
         }
-
-        int remainingToRedeem = points;
-
-        Iterator<LoyaltyTransaction> redeemIterator =
-                loyaltyTransactions.getIterator();
-
-        while (redeemIterator.hasNext()
-                && remainingToRedeem > 0) {
-
-            LoyaltyTransaction transaction =
-                    redeemIterator.next();
-
-            if (isUsablePointsTransaction(
-                    transaction,
-                    account.getLoyaltyId(),
-                    currentTime)) {
-
-                int deducted =
-                        transaction.deductRemainingPoints(
-                                remainingToRedeem);
-
-                remainingToRedeem -= deducted;
-            }
-        }
-
-        account.setPointsBalance(
-                account.getPointsBalance() - points);
-
-        recalculateTier(account);
 
         LoyaltyTransaction redeemTransaction =
                 new LoyaltyTransaction(
@@ -755,17 +973,48 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                         null,
                         TransactionType.REDEEM,
                         points,
-                        currentTime.toLocalDate(),
+                        currentTime,
                         null
                 );
+        redeemTransaction.setRewardPackage(rewardPackage);
 
-        loyaltyTransactions.enqueue(redeemTransaction);
+        if (!loyaltyTransactions.enqueue(redeemTransaction)) {
+            return false;
+        }
+
+        int remainingToRedeem = points;
+        Iterator<LoyaltyTransaction> batchIterator =
+                usableBatches.getIterator();
+
+        while (batchIterator.hasNext()
+                && remainingToRedeem > 0) {
+
+            LoyaltyTransaction pointBatch =
+                    batchIterator.next();
+
+            int deductedPoints =
+                    pointBatch.deductRemainingPoints(
+                            remainingToRedeem);
+
+            remainingToRedeem -= deductedPoints;
+        }
+
+        int balanceAfterRedemption =
+                account.getPointsBalance() - points;
+
+        account.setPointsBalance(balanceAfterRedemption);
+        recordPointsActivity(account, currentTime);
+        updateNextPointsExpiry(account, currentTime);
+
+        redeemTransaction.recordRemovalResult(
+                balanceAfterRedemption,
+                account.getPointsExpiryTime());
 
         return true;
     }
 
     /**
-     * Checks whether a transaction contains points that may be redeemed.
+     * Checks whether a transaction still contains redeemable points.
      */
     private boolean isUsablePointsTransaction(
             LoyaltyTransaction transaction,
@@ -774,7 +1023,6 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
 
         if (transaction == null
                 || loyaltyId == null
-                || currentTime == null
                 || transaction.getLoyaltyId() == null
                 || !transaction.getLoyaltyId()
                         .equalsIgnoreCase(loyaltyId)
@@ -783,15 +1031,92 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
             return false;
         }
 
-        if (transaction.getTransactionType()
-                == TransactionType.ADJUST) {
+        TransactionType type =
+                transaction.getTransactionType();
 
-            return true;
+        boolean pointBatch =
+                type == TransactionType.EARN
+                || type == TransactionType.ADJUST;
+
+        return pointBatch
+                && transaction.getExpiryTime() != null
+                && currentTime != null
+                && currentTime.isBefore(transaction.getExpiryTime());
+    }
+
+    /** Records activity for the separate one-year inactivity rule. */
+    private void recordPointsActivity(
+            LoyaltyAccount account,
+            LocalDateTime activityTime) {
+
+        if (account == null || activityTime == null) {
+            return;
         }
 
-        return transaction.getTransactionType()
-                == TransactionType.EARN
-                && !transaction.isExpiredAt(currentTime);
+        account.setLastPointsActivityTime(activityTime);
+    }
+
+    /** Stores the earliest expiry among the account's unused point batches. */
+    private void updateNextPointsExpiry(
+            LoyaltyAccount account,
+            LocalDateTime currentTime) {
+
+        if (account == null) {
+            return;
+        }
+
+        LocalDateTime nextExpiry = null;
+
+        Iterator<LoyaltyTransaction> iterator =
+                loyaltyTransactions.getIterator();
+
+        while (iterator.hasNext()) {
+            LoyaltyTransaction transaction = iterator.next();
+            TransactionType type = transaction.getTransactionType();
+
+            if (transaction.getLoyaltyId() != null
+                    && transaction.getLoyaltyId().equalsIgnoreCase(
+                    account.getLoyaltyId())
+                    && transaction.getRemainingPoints() > 0
+                    && (type == TransactionType.EARN
+                    || type == TransactionType.ADJUST)
+                    && transaction.getExpiryTime() != null
+                    && (currentTime == null
+                    || currentTime.isBefore(transaction.getExpiryTime()))
+                    && (nextExpiry == null
+                    || transaction.getExpiryTime().isBefore(nextExpiry))) {
+                nextExpiry = transaction.getExpiryTime();
+            }
+        }
+
+        account.setPointsExpiryTime(nextExpiry);
+    }
+
+    /**
+     * Orders expiring batches first and non-expiring legacy batches last.
+     */
+    private int comparePointBatchExpiry(
+            LoyaltyTransaction first,
+            LoyaltyTransaction second) {
+
+        LocalDateTime firstExpiry =
+                first.getExpiryTime();
+        LocalDateTime secondExpiry =
+                second.getExpiryTime();
+
+        if (firstExpiry == null && secondExpiry == null) {
+            return 0;
+        }
+
+        if (firstExpiry == null) {
+            return 1;
+        }
+
+        if (secondExpiry == null) {
+            return -1;
+        }
+
+        return firstExpiry.compareTo(secondExpiry);
     }
 
     // -------------------------------------------------------------------------
@@ -816,7 +1141,8 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
     // -------------------------------------------------------------------------
 
     /**
-     * Recalculates a member's tier based on current points.
+     * Recalculates a member's tier from qualifying points. Redeemable balance
+     * changes caused by redemption or expiry do not affect this calculation.
      *
      * NONE: 0-1,999
      * SILVER: 2,000-4,999
@@ -825,7 +1151,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
      * DIAMOND: 15,000-19,999
      * ELITE: 20,000+
      *
-     * Inactive accounts always use tier NONE.
+     * An inactive account always has Tier NONE.
      *
      * @param account account to update
      */
@@ -835,12 +1161,15 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
             return;
         }
 
+        LocalDateTime currentTime =
+                LoyaltyClock.now();
+
         if (!account.isActive()) {
             account.setMembershipTier(MembershipTier.NONE);
             return;
         }
 
-        int points = account.getPointsBalance();
+        int points = account.getTierQualifyingPoints();
 
         MembershipTier newTier;
 
@@ -910,14 +1239,7 @@ public double getRoomDiscountRate(MembershipTier tier) {
         return 0.0;
     }
 
-    return switch (tier) {
-        case NONE -> 0.00;
-        case SILVER -> 0.05;
-        case GOLD -> 0.10;
-        case PLATINUM -> 0.15;
-        case DIAMOND -> 0.20;
-        case ELITE -> 0.25;
-    };
+    return tier.getRoomDiscountRate();
 }
 
 /**
@@ -965,8 +1287,9 @@ public double calculatePayableAmount(Booking booking) {
     /**
      * Activates or deactivates a Loyalty account.
      *
-     * Inactive accounts cannot earn or redeem points and use tier NONE.
-     * Reactivating restores the correct tier from the current point balance.
+     * Inactive accounts cannot earn or redeem points and always use Tier NONE.
+     * Reactivation restores the tier from saved qualifying points and begins
+     * a new inactivity period.
      *
      * @param loyaltyId Loyalty account ID
      * @param active new active status
@@ -990,16 +1313,73 @@ public double calculatePayableAmount(Booking booking) {
             return false;
         }
 
-        account.setActive(active);
+        LocalDateTime currentTime =
+                LoyaltyClock.now();
+
+        processInactiveAccountTierExpirations(
+                currentTime);
+
+        if (account.isActive() == active) {
+            return true;
+        }
 
         if (active) {
+            account.setActive(true);
+            account.setDeactivatedAt(null);
+            account.setLastPointsActivityTime(currentTime);
+            updateNextPointsExpiry(account, currentTime);
             recalculateTier(account);
         } else {
-            account.setMembershipTier(
-                    MembershipTier.NONE);
+            account.setActive(false);
+            account.setDeactivatedAt(currentTime);
+            account.setMembershipTier(MembershipTier.NONE);
         }
 
         return true;
+    }
+
+    /**
+     * Automatically deactivates accounts with no successful EARN or REDEEM
+     * for one year and immediately applies Tier NONE.
+     *
+     * @param currentTime time used for the inactivity check
+     * @return number of accounts whose tier changed to NONE
+     */
+    public int processInactiveAccountTierExpirations(
+            LocalDateTime currentTime) {
+
+        if (currentTime == null) {
+            return 0;
+        }
+
+        int changedAccounts = 0;
+
+        Iterator<LoyaltyAccount> iterator =
+                loyaltyAccounts.getIterator();
+
+        while (iterator.hasNext()) {
+
+            LoyaltyAccount account =
+                    iterator.next();
+
+            if (account == null
+                    || !account.isActive()
+                    || account.getLastPointsActivityTime() == null
+                    || currentTime.isBefore(
+                            account.getLastPointsActivityTime()
+                                    .plusYears(
+                                            ACCOUNT_INACTIVITY_YEARS))) {
+
+                continue;
+            }
+
+            account.setActive(false);
+            account.setDeactivatedAt(currentTime);
+            account.setMembershipTier(MembershipTier.NONE);
+            changedAccounts++;
+        }
+
+        return changedAccounts;
     }
 
     // -------------------------------------------------------------------------
@@ -1081,36 +1461,398 @@ public double calculatePayableAmount(Booking booking) {
         return orderedAccounts;
     }
 
+    /** One row of the Loyalty Performance Report grouped by current tier. */
+    public static final class TierPerformance {
+
+        private final MembershipTier tier;
+        private int members;
+        private long availablePoints;
+        private long issuedPoints;
+        private long redeemedPoints;
+        private long expiredPoints;
+
+        private TierPerformance(MembershipTier tier) {
+            this.tier = tier;
+        }
+
+        public MembershipTier getTier() {
+            return tier;
+        }
+
+        public int getMembers() {
+            return members;
+        }
+
+        public long getAvailablePoints() {
+            return availablePoints;
+        }
+
+        public long getIssuedPoints() {
+            return issuedPoints;
+        }
+
+        public long getRedeemedPoints() {
+            return redeemedPoints;
+        }
+
+        public long getExpiredPoints() {
+            return expiredPoints;
+        }
+
+        public double getAverageBalance() {
+            return members == 0
+                    ? 0.0
+                    : (double) availablePoints / members;
+        }
+
+        public double getRedemptionRate() {
+            return issuedPoints == 0
+                    ? 0.0
+                    : redeemedPoints * 100.0 / issuedPoints;
+        }
+    }
+
+    /** One row of completed reward-redemption popularity statistics. */
+    public static final class RewardPerformance {
+
+        private final RewardPackage reward;
+        private int redemptionCount;
+        private long pointsUsed;
+
+        private RewardPerformance(RewardPackage reward) {
+            this.reward = reward;
+        }
+
+        public RewardPackage getReward() {
+            return reward;
+        }
+
+        public int getRedemptionCount() {
+            return redemptionCount;
+        }
+
+        public long getPointsUsed() {
+            return pointsUsed;
+        }
+    }
+
+    /** Complete management summary for the Loyalty Performance Report. */
+    public static final class LoyaltyPerformanceReport {
+
+        private int totalMembers;
+        private int activeMembers;
+        private long earnedPoints;
+        private long adjustedPoints;
+        private long redeemedPoints;
+        private long expiredPoints;
+        private long availablePoints;
+        private long expiringSoonPoints;
+        private String topRedeemingLoyaltyId;
+        private String topRedeemingMember;
+        private long topMemberRedeemedPoints;
+        private MembershipTier highestRedeemingTier;
+        private RewardPackage mostPopularReward;
+        private int mostPopularRewardCount;
+        private final TierPerformance[] tierRows;
+        private final RewardPerformance[] rewardRows;
+
+        private LoyaltyPerformanceReport() {
+            MembershipTier[] tiers = MembershipTier.values();
+            tierRows = new TierPerformance[tiers.length];
+
+            for (int index = 0; index < tiers.length; index++) {
+                tierRows[index] = new TierPerformance(tiers[index]);
+            }
+
+            RewardPackage[] rewards = RewardPackage.values();
+            rewardRows = new RewardPerformance[rewards.length];
+
+            for (int index = 0; index < rewards.length; index++) {
+                rewardRows[index] = new RewardPerformance(rewards[index]);
+            }
+        }
+
+        public int getTotalMembers() {
+            return totalMembers;
+        }
+
+        public int getActiveMembers() {
+            return activeMembers;
+        }
+
+        public long getEarnedPoints() {
+            return earnedPoints;
+        }
+
+        public long getAdjustedPoints() {
+            return adjustedPoints;
+        }
+
+        public long getRedeemedPoints() {
+            return redeemedPoints;
+        }
+
+        public long getExpiredPoints() {
+            return expiredPoints;
+        }
+
+        public long getAvailablePoints() {
+            return availablePoints;
+        }
+
+        public long getExpiringSoonPoints() {
+            return expiringSoonPoints;
+        }
+
+        public String getTopRedeemingLoyaltyId() {
+            return topRedeemingLoyaltyId;
+        }
+
+        public String getTopRedeemingMember() {
+            return topRedeemingMember;
+        }
+
+        public long getTopMemberRedeemedPoints() {
+            return topMemberRedeemedPoints;
+        }
+
+        public MembershipTier getHighestRedeemingTier() {
+            return highestRedeemingTier;
+        }
+
+        public RewardPackage getMostPopularReward() {
+            return mostPopularReward;
+        }
+
+        public int getMostPopularRewardCount() {
+            return mostPopularRewardCount;
+        }
+
+        public TierPerformance[] getTierRows() {
+            return tierRows.clone();
+        }
+
+        public RewardPerformance[] getRewardRows() {
+            return rewardRows.clone();
+        }
+
+        public double getRedemptionRate() {
+            long issuedPoints = earnedPoints + adjustedPoints;
+            return issuedPoints == 0
+                    ? 0.0
+                    : redeemedPoints * 100.0 / issuedPoints;
+        }
+    }
+
+    /**
+     * Builds a read-only management report from the account, transaction and
+     * completed-redemption ledgers.
+     *
+     * @param currentTime report generation time
+     * @param expiringDays number of days used for expiry risk
+     * @return calculated performance report
+     */
+    public LoyaltyPerformanceReport generateLoyaltyPerformanceReport(
+            LocalDateTime currentTime,
+            int expiringDays) {
+
+        LoyaltyPerformanceReport report =
+                new LoyaltyPerformanceReport();
+
+        if (currentTime == null || expiringDays < 0) {
+            return report;
+        }
+
+        LocalDateTime expiryEndTime =
+                currentTime.plusDays(expiringDays);
+
+        Iterator<LoyaltyAccount> accountIterator =
+                loyaltyAccounts.getIterator();
+
+        while (accountIterator.hasNext()) {
+            LoyaltyAccount account = accountIterator.next();
+            MembershipTier tier = account.getMembershipTier() == null
+                    ? MembershipTier.NONE
+                    : account.getMembershipTier();
+            TierPerformance tierRow = report.tierRows[tier.ordinal()];
+
+            report.totalMembers++;
+            report.availablePoints += account.getPointsBalance();
+            tierRow.members++;
+            tierRow.availablePoints += account.getPointsBalance();
+
+            if (account.isActive()) {
+                report.activeMembers++;
+            }
+
+        }
+
+        Iterator<LoyaltyTransaction> transactionIterator =
+                loyaltyTransactions.getIterator();
+
+        while (transactionIterator.hasNext()) {
+            LoyaltyTransaction transaction = transactionIterator.next();
+            LoyaltyAccount account = findMemberByLoyaltyId(
+                    transaction.getLoyaltyId());
+
+            if (account == null) {
+                continue;
+            }
+
+            MembershipTier tier = account.getMembershipTier() == null
+                    ? MembershipTier.NONE
+                    : account.getMembershipTier();
+            TierPerformance tierRow = report.tierRows[tier.ordinal()];
+
+            if ((transaction.getTransactionType() == TransactionType.EARN
+                    || transaction.getTransactionType()
+                            == TransactionType.ADJUST)
+                    && transaction.getRemainingPoints() > 0
+                    && transaction.getExpiryTime() != null
+                    && !transaction.getExpiryTime().isBefore(currentTime)
+                    && !transaction.getExpiryTime().isAfter(expiryEndTime)) {
+                report.expiringSoonPoints +=
+                        transaction.getRemainingPoints();
+            }
+
+            switch (transaction.getTransactionType()) {
+                case EARN -> {
+                    report.earnedPoints += transaction.getPoints();
+                    tierRow.issuedPoints += transaction.getPoints();
+                }
+                case ADJUST -> {
+                    report.adjustedPoints += transaction.getPoints();
+                    tierRow.issuedPoints += transaction.getPoints();
+                }
+                case REDEEM -> {
+                    report.redeemedPoints += transaction.getPoints();
+                    tierRow.redeemedPoints += transaction.getPoints();
+
+                    RewardPackage reward =
+                            transaction.getRewardPackage();
+
+                    if (reward != null) {
+                        RewardPerformance rewardRow =
+                                report.rewardRows[reward.ordinal()];
+                        rewardRow.redemptionCount++;
+                        rewardRow.pointsUsed += transaction.getPoints();
+
+                        if (rewardRow.redemptionCount
+                                > report.mostPopularRewardCount) {
+                            report.mostPopularReward = reward;
+                            report.mostPopularRewardCount =
+                                    rewardRow.redemptionCount;
+                        }
+                    }
+                }
+                case EXPIRE -> {
+                    report.expiredPoints += transaction.getPoints();
+                    tierRow.expiredPoints += transaction.getPoints();
+                }
+            }
+
+        }
+
+        for (TierPerformance tierRow : report.tierRows) {
+            if (tierRow.redeemedPoints > 0
+                    && (report.highestRedeemingTier == null
+                    || tierRow.redeemedPoints
+                    > report.tierRows[
+                            report.highestRedeemingTier.ordinal()]
+                            .redeemedPoints)) {
+                report.highestRedeemingTier = tierRow.tier;
+            }
+        }
+
+        accountIterator = loyaltyAccounts.getIterator();
+
+        while (accountIterator.hasNext()) {
+            LoyaltyAccount account = accountIterator.next();
+            long memberRedeemedPoints = 0;
+            transactionIterator = loyaltyTransactions.getIterator();
+
+            while (transactionIterator.hasNext()) {
+                LoyaltyTransaction transaction = transactionIterator.next();
+
+                if (transaction.getTransactionType()
+                        == TransactionType.REDEEM
+                        && account.getLoyaltyId().equalsIgnoreCase(
+                                transaction.getLoyaltyId())) {
+                    memberRedeemedPoints += transaction.getPoints();
+                }
+            }
+
+            if (memberRedeemedPoints > report.topMemberRedeemedPoints) {
+                report.topMemberRedeemedPoints = memberRedeemedPoints;
+                report.topRedeemingLoyaltyId = account.getLoyaltyId();
+                report.topRedeemingMember = account.getMemberName();
+            }
+        }
+
+        return report;
+    }
+
     // -------------------------------------------------------------------------
     // EXPIRING POINTS REPORTS
     // -------------------------------------------------------------------------
 
+    /** Returns accounts whose next point batch expires within the window. */
+    public ListQueueInterface<LoyaltyAccount>
+            generateExpiringAccountAlerts(
+                    LocalDateTime currentTime,
+                    int daysAhead) {
+
+        if (currentTime == null || daysAhead < 0) {
+            return new DoublyLinkedListQueue<>();
+        }
+
+        LocalDateTime endTime = currentTime.plusDays(daysAhead);
+        ListQueueInterface<LoyaltyAccount> matches =
+                loyaltyAccounts.filter(account ->
+                        account != null
+                        && account.getPointsBalance() > 0
+                        && account.getPointsExpiryTime() != null
+                        && !account.getPointsExpiryTime()
+                                .isBefore(currentTime)
+                        && !account.getPointsExpiryTime()
+                                .isAfter(endTime));
+        ListQueueInterface<LoyaltyAccount> ordered =
+                new DoublyLinkedListQueue<>();
+        Iterator<LoyaltyAccount> iterator = matches.getIterator();
+
+        while (iterator.hasNext()) {
+            ordered.priorityEnqueue(
+                    iterator.next(),
+                    (first, second) -> first.getPointsExpiryTime()
+                            .compareTo(second.getPointsExpiryTime()));
+        }
+
+        return ordered;
+    }
+
     /**
      * Generates the expiring-points report.
      *
-     * Only EARN transactions with remaining points are considered.
-     * Results are ordered by the earliest expiry time first.
+     * Each result is one point batch with unused points expiring inside the
+     * selected window. Results are ordered by earliest expiry time first.
      *
      * @param startTime start of expiry window
      * @param endTime end of expiry window
      * @param tier selected tier, or null for all tiers
-     * @param minimumExpiringPoints minimum remaining expiring points
-     * @return matching expiring transactions
+     * @return matching point-batch transactions
      */
     public ListQueueInterface<LoyaltyTransaction>
             generateExpiringPointsReport(
                     LocalDateTime startTime,
                     LocalDateTime endTime,
-                    MembershipTier tier,
-                    int minimumExpiringPoints) {
+                    MembershipTier tier) {
 
         ListQueueInterface<LoyaltyTransaction> emptyResult =
                 new DoublyLinkedListQueue<>();
 
         if (startTime == null
                 || endTime == null
-                || endTime.isBefore(startTime)
-                || minimumExpiringPoints < 0) {
+                || endTime.isBefore(startTime)) {
 
             return emptyResult;
         }
@@ -1118,21 +1860,10 @@ public double calculatePayableAmount(Booking booking) {
         ListQueueInterface<LoyaltyTransaction> filteredTransactions =
                 loyaltyTransactions.filter(transaction -> {
 
-                    if (transaction.getTransactionType()
-                            != TransactionType.EARN) {
-
-                        return false;
-                    }
-
-                    if (!transaction.isExpiringBetween(
-                            startTime,
-                            endTime)) {
-
-                        return false;
-                    }
-
-                    if (transaction.getRemainingPoints()
-                            < minimumExpiringPoints) {
+                    if (transaction == null
+                            || !transaction.isExpiringBetween(
+                                    startTime,
+                                    endTime)) {
 
                         return false;
                     }
@@ -1141,13 +1872,9 @@ public double calculatePayableAmount(Booking booking) {
                             findMemberByLoyaltyId(
                                     transaction.getLoyaltyId());
 
-                    if (account == null) {
-                        return false;
-                    }
-
-                    return tier == null
-                            || account.getMembershipTier()
-                            == tier;
+                    return account != null
+                            && (tier == null
+                            || account.getMembershipTier() == tier);
                 });
 
         ListQueueInterface<LoyaltyTransaction> orderedTransactions =
@@ -1163,37 +1890,32 @@ public double calculatePayableAmount(Booking booking) {
 
             orderedTransactions.priorityEnqueue(
                     transaction,
-                    (first, second) ->
-                            first.getExpiryTime()
-                                    .compareTo(
-                                            second.getExpiryTime())
-            );
+                    this::comparePointBatchExpiry);
         }
 
         return orderedTransactions;
     }
 
     /**
-     * Generates notifications for points expiring within a number of minutes.
+     * Generates notifications for point batches expiring within several days.
      *
      * @param currentTime current date and time
-     * @param minutesAhead notification window in minutes
-     * @return matching expiring transactions
+     * @param daysAhead notification window in days
+     * @return matching point-batch transactions
      */
     public ListQueueInterface<LoyaltyTransaction>
             generateExpiringPointsAlerts(
                     LocalDateTime currentTime,
-                    int minutesAhead) {
+                    int daysAhead) {
 
-        if (currentTime == null || minutesAhead < 0) {
+        if (currentTime == null || daysAhead < 0) {
             return new DoublyLinkedListQueue<>();
         }
 
         return generateExpiringPointsReport(
                 currentTime,
-                currentTime.plusMinutes(minutesAhead),
-                null,
-                1
+                currentTime.plusDays(daysAhead),
+                null
         );
     }
 
@@ -1202,13 +1924,8 @@ public double calculatePayableAmount(Booking booking) {
     // -------------------------------------------------------------------------
 
     /**
-     * Processes EARN points whose expiry time has passed.
-     *
-     * Expired remaining points are removed from the member balance and an
-     * EXPIRE transaction is added to the transaction history.
-     *
-     * @param currentTime time used for the expiry check
-     * @return total points expired
+     * Expires each unused EARN/ADJUST batch independently three months after
+     * that batch was earned. Each expired batch creates its own EXPIRE entry.
      */
     public int processExpiredPoints(
             LocalDateTime currentTime) {
@@ -1218,65 +1935,62 @@ public double calculatePayableAmount(Booking booking) {
         }
 
         int totalExpiredPoints = 0;
+        ListQueueInterface<LoyaltyTransaction> expiredBatches =
+                loyaltyTransactions.filter(transaction -> {
+                    if (transaction == null
+                            || transaction.getRemainingPoints() <= 0
+                            || transaction.getExpiryTime() == null
+                            || currentTime.isBefore(
+                                    transaction.getExpiryTime())) {
+                        return false;
+                    }
 
-        ListQueueInterface<LoyaltyTransaction> expiredTransactions =
-                loyaltyTransactions.filter(
-                        transaction ->
-                                transaction.isExpiredAt(
-                                        currentTime)
-                );
+                    TransactionType type = transaction.getTransactionType();
+                    return type == TransactionType.EARN
+                            || type == TransactionType.ADJUST;
+                });
 
         Iterator<LoyaltyTransaction> expiredIterator =
-                expiredTransactions.getIterator();
+                expiredBatches.getIterator();
 
         while (expiredIterator.hasNext()) {
-
-            LoyaltyTransaction earnTransaction =
-                    expiredIterator.next();
-
-            LoyaltyAccount account =
-                    findMemberByLoyaltyId(
-                            earnTransaction.getLoyaltyId());
+            LoyaltyTransaction expiredBatch = expiredIterator.next();
+            LoyaltyAccount account = findMemberByLoyaltyId(
+                    expiredBatch.getLoyaltyId());
 
             if (account == null) {
                 continue;
             }
 
-            int expiredPoints =
-                    earnTransaction.expireRemainingPoints();
+            int expiredPoints = expiredBatch.getRemainingPoints();
 
-            int actualDeduction =
-                    Math.min(
-                            expiredPoints,
-                            account.getPointsBalance()
-                    );
-
-            if (actualDeduction <= 0) {
+            if (expiredPoints <= 0) {
                 continue;
             }
 
-            account.setPointsBalance(
-                    account.getPointsBalance()
-                            - actualDeduction
-            );
-
-            recalculateTier(account);
-
+            int balanceAfterExpiry = Math.max(
+                    0, account.getPointsBalance() - expiredPoints);
             LoyaltyTransaction expiryTransaction =
                     new LoyaltyTransaction(
                             generateTransactionId(),
                             account.getLoyaltyId(),
-                            null,
+                            expiredBatch.getBookingId(),
                             TransactionType.EXPIRE,
-                            actualDeduction,
-                            currentTime.toLocalDate(),
-                            null
-                    );
+                            expiredPoints,
+                            currentTime,
+                            null);
 
-            loyaltyTransactions.enqueue(
-                    expiryTransaction);
+            if (!loyaltyTransactions.enqueue(expiryTransaction)) {
+                continue;
+            }
 
-            totalExpiredPoints += actualDeduction;
+            expiredBatch.expireRemainingPoints();
+            account.setPointsBalance(balanceAfterExpiry);
+            expiryTransaction.recordRemovalResult(
+                    balanceAfterExpiry,
+                    expiredBatch.getExpiryTime());
+            totalExpiredPoints += expiredPoints;
+            updateNextPointsExpiry(account, currentTime);
         }
 
         return totalExpiredPoints;
@@ -1306,14 +2020,15 @@ public double calculatePayableAmount(Booking booking) {
     boolean redeemed =
             redeemPoints(
                     nextRequest.getLoyaltyId(),
-                    nextRequest.getPoints());
+                    nextRequest.getPoints(),
+                    nextRequest.getRewardPackage());
 
     if (!redeemed) {
         // Keep the request in the queue if processing fails.
         return false;
     }
 
-    // FIFO: remove the first request only after successful redemption.
+    // FIFO: the completed reward is already retained in the REDEEM ledger.
     redemptionRequests.dequeue();
 
     return true;
