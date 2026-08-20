@@ -11,8 +11,8 @@ import java.util.Scanner;
  * HouseKeepingUI.java
  * Console interface for the Housekeeping & Task Log module.
  *
- * @author KohJun
- */
+ * @author GanKohJun
+ */s
 public class HouseKeepingUI {
 
     private HousekeepingControl control;

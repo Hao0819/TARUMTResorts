@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  * READY) and auto-advances the whole cycle in the background using a
  * scheduler, while still letting staff log any step manually at any time.
  *
- * @author KohJun
+ * @author GanKohJun
  */
 public class HousekeepingControl {
 
@@ -36,13 +36,13 @@ public class HousekeepingControl {
     };
 
     // Auto DIRTY -> CLEANING delay - simulates dispatching a cleaner.
-    private static final long AUTO_CLEANING_DELAY_SECONDS = 1800; // 30 minutes
+    private static final long AUTO_CLEANING_DELAY_SECONDS = 10; // 30 minutes
 
     // Auto CLEANING -> INSPECTED delay - simulates the supervisor's check.
-    private static final long AUTO_INSPECT_DELAY_SECONDS = 60; // 1 minute
+    private static final long AUTO_INSPECT_DELAY_SECONDS = 10; // 1 minute
 
     // Auto INSPECTED -> READY delay - simulates the supervisor's sign-off.
-    private static final long AUTO_READY_DELAY_SECONDS = 60; // 1 minute
+    private static final long AUTO_READY_DELAY_SECONDS = 10; // 1 minute
 
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
