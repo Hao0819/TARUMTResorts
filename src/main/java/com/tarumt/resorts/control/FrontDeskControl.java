@@ -304,32 +304,17 @@ public class FrontDeskControl {
     }
 
     /**
-     * True if the room has a CONFIRMED or ACTIVE booking whose scheduled stay
-     * overlaps [checkIn, checkOut). Two ranges overlap when each starts before
-     * the other ends: existingIn < checkOut AND existingOut > checkIn.
+     * True if the room cannot be scheduled for [checkIn, checkOut) because a
+     * CONFIRMED or ACTIVE booking's scheduled stay overlaps it. Delegates to the
+     * shared {@link com.tarumt.resorts.util.RoomScheduleAvailability} rule so
+     * Walk-In, VIP, and Front-Desk all agree on the same room/date decisions
+     * (and share its 1-day Housekeeping turnaround buffer, which reserves the
+     * night after each check-out for cleaning). This is simply the negation of
+     * that utility's "is available" answer.
      */
     private boolean isRoomTakenInRange(Room room, LocalDate checkIn, LocalDate checkOut) {
-        int total = bookingList.getNumberOfEntries();
-        for (int i = 0; i < total; i++) {
-            Booking b = bookingList.getEntry(i);
-            if (b.getRoom() == null
-                    || !b.getRoom().getRoomNumber().equalsIgnoreCase(room.getRoomNumber())) {
-                continue;
-            }
-            String status = b.getStatus();
-            if (!"CONFIRMED".equalsIgnoreCase(status) && !"ACTIVE".equalsIgnoreCase(status)) {
-                continue; // CHECKED_OUT / CANCELLED do not hold the room
-            }
-            LocalDate existingIn = b.getScheduledCheckInDate();
-            LocalDate existingOut = b.getScheduledCheckOutDate();
-            if (existingIn == null || existingOut == null) {
-                continue; // no schedule -> cannot determine overlap
-            }
-            if (existingIn.isBefore(checkOut) && existingOut.isAfter(checkIn)) {
-                return true;
-            }
-        }
-        return false;
+        return !com.tarumt.resorts.util.RoomScheduleAvailability.isAvailable(
+                bookingList, room, checkIn, checkOut);
     }
 
     // =====================================================================
@@ -406,9 +391,12 @@ public class FrontDeskControl {
     // =====================================================================
 
     /**
-     * Filters bookings by two criteria: payment status and room type.
-     * Payment is a two-state flow in this system - UNPAID (booking made) or
-     * PAID (settled at check-in). Self-implemented linear scan.
+     * Filters bookings by two criteria: payment status and room type, for the
+     * Billing Summary. CANCELLED bookings are excluded: they are kept on record
+     * (visible via the Occupancy report's status filter) but are not billable
+     * revenue, so counting their UNPAID amount as an outstanding balance would
+     * overstate what guests actually owe. Payment is a two-state flow - UNPAID
+     * (booking made) or PAID (settled at check-in). Self-implemented linear scan.
      */
     public Booking[] filterByPayment(String paymentFilter, String roomTypeFilter) {
         String pay = (paymentFilter == null) ? "ALL" : paymentFilter.trim();
@@ -419,6 +407,9 @@ public class FrontDeskControl {
         int count = 0;
         for (int i = 0; i < total; i++) {
             Booking b = bookingList.getEntry(i);
+            if ("CANCELLED".equalsIgnoreCase(b.getStatus())) {
+                continue; // cancelled bookings are not billable
+            }
             String status = b.getPaymentStatus();
             boolean payOk = pay.equalsIgnoreCase("ALL") || pay.equalsIgnoreCase(status);
             boolean typeOk = type.equalsIgnoreCase("ALL")
@@ -431,13 +422,14 @@ public class FrontDeskControl {
     }
 
     /**
-     * Selection sort ordering bookings by amount owed, highest first.
+     * Selection sort ordering bookings by the amount payable (after any
+     * membership discount), highest first.
      */
     public void sortByAmountDescending(Booking[] bookings) {
         for (int i = 0; i < bookings.length - 1; i++) {
             int best = i;
             for (int j = i + 1; j < bookings.length; j++) {
-                if (bookings[j].getAmount() > bookings[best].getAmount()) {
+                if (bookings[j].getFinalAmount() > bookings[best].getFinalAmount()) {
                     best = j;
                 }
             }
@@ -449,11 +441,15 @@ public class FrontDeskControl {
         }
     }
 
-    /** Sums the amount across the given bookings (used for report totals). */
+    /**
+     * Sums the amount payable (after membership discount) across the given
+     * bookings, matching the per-booking figure shown in the Billing report and
+     * the detail card's "Amount Payable". Used for the report total.
+     */
     public double totalAmount(Booking[] bookings) {
         double total = 0.0;
         for (Booking b : bookings) {
-            total += b.getAmount();
+            total += b.getFinalAmount();
         }
         return total;
     }

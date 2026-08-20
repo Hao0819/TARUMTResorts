@@ -52,7 +52,7 @@ public class FrontDeskUI {
                     + " ".repeat(rightPadding) + " |");
             System.out.println(menuBorder);
 
-            System.out.printf("| %-64s |%n", "1. Search bookings (keyword; incl. confirmation no)");
+            System.out.printf("| %-64s |%n", "1. Search bookings (by confirmation / room / guest ID / etc.)");
             System.out.printf("| %-64s |%n", "2. Check room availability (now)");
             System.out.printf("| %-64s |%n", "3. Room availability calendar (by month)");
             System.out.printf("| %-64s |%n", "4. Check in guest");
@@ -582,7 +582,7 @@ public class FrontDeskUI {
 
         printSummaryHeader("BILLING SUMMARY REPORT",
                 "Filters: Payment = " + paymentFilter + " | Room type = " + roomType,
-                "Sorted by: Amount owed (highest first)");
+                "Sorted by: Amount payable (highest first)");
         printReportBillingTable(results);
 
         // Graphical section: a vertical bar chart of the reported bookings
@@ -872,7 +872,7 @@ public class FrontDeskUI {
     /** Billing report table in the open-edge summary style, with a total row. */
     private void printReportBillingTable(Booking[] bookings) {
         String header = String.format("%-10s | %-20s | %-8s | %-10s | %12s | %-12s",
-                "Confirm No", "Guest Name", "Room No", "Room Type", "Amount (RM)", "Payment");
+                "Confirm No", "Guest Name", "Room No", "Room Type", "Payable (RM)", "Payment");
         System.out.println(header);
         System.out.println("-".repeat(header.length()));
         if (bookings.length == 0) {
@@ -887,14 +887,14 @@ public class FrontDeskUI {
                     b.getGuest().getName(),
                     b.getRoom().getRoomNumber(),
                     b.getRoom().getRoomType(),
-                    b.getAmount(),
+                    b.getFinalAmount(),
                     b.getPaymentStatus());
         }
         System.out.println("-".repeat(header.length()));
         // TOTAL row: the label spans the first four columns (width 57 = 10 + 20 +
-        // 8 + 10 + 3*3 separators) so the grand total lands under Amount (RM).
+        // 8 + 10 + 3*3 separators) so the grand total lands under Payable (RM).
         System.out.printf("%-57s | %,12.2f | %-12s%n",
-                "Total Amount (RM)", control.totalAmount(bookings), "");
+                "Total Payable (RM)", control.totalAmount(bookings), "");
         System.out.println("Total records displayed: " + bookings.length);
     }
 
