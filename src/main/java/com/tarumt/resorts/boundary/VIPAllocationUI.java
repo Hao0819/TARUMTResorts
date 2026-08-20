@@ -182,11 +182,7 @@ public class VIPAllocationUI {
         }
     }
 
-    /**
-     * Update-flow check-in date picker: goes straight to the month prompt
-     * (no separate "change date?" gate). "na" at the month prompt keeps
-     * the current check-in date unchanged.
-     */
+
     private LocalDate promptCalendarCheckInDateOrKeep(
             String roomType, int stayDurationDays, LocalDate currentCheckInDate) {
 
