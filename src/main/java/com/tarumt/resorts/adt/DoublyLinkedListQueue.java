@@ -9,20 +9,10 @@ import java.util.Comparator;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
 
-/**
- * Generic collection ADT implemented using a doubly linked structure.
- * Supports FIFO queue operations, rear removal, indexed access,
- * iteration, containment checking, and key-based searching.
- *
- * The front and rear references allow efficient insertion and removal
- * at both ends of the linked structure.
- *
- * Team Component - Shared Collection ADT.
- * Base skeleton authored by: Lim Jun Hao
- *
- * @param <T> the type of entry stored in this collection
- */
-
+// Generic collection ADT built on a doubly linked structure - FIFO queue ops, rear removal,
+// indexed access, iteration, containment checking, key-based search. Front/rear refs give
+// O(1) insertion and removal at both ends.
+// Team Component - Shared Collection ADT. Base skeleton by: Lim Jun Hao
 public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
     private Node front;
     private Node rear;
@@ -37,11 +27,6 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         // Points to the node after this node.
         private Node next;
 
-        /**
-         * Creates an unlinked node containing the given entry.
-         *
-         * @param data the entry stored in this node
-         */
         private Node(T data) {
             this.data = data;
             // A newly created node is not connected yet.
@@ -177,10 +162,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return false;
     }
 
-    /**
-     * Returns an iterator that traverses the linked nodes from front to rear.
-     * A complete traversal takes O(n) time and uses O(1) extra space.
-     */
+    // front-to-rear traversal, O(n) full pass, O(1) extra space
     @Override
     public Iterator<T> getIterator() {
         return new Iterator<T>() {
@@ -234,7 +216,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         numberOfEntries = 0;
     }
 
-    // ===== Stack-like behaviour (added by: Housekeeping module owner) =====
+    // ===== Stack-like behaviour (added by: Gan Koh Jun) =====
     // Removes and returns the rear node's entry, for undo/rollback. O(1).
     @Override
     public T removeLast() {
@@ -275,7 +257,7 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return rear.data;
     }
 
-    // ===== Key-based search behaviour (added by: Front-Desk module owner) =====
+    // ===== Key-based search behaviour (added by: Tan Keng Ting) =====
 
     // Finds the first entry whose extracted key equals the given key (case-insensitive). O(n).
     @Override
@@ -298,15 +280,9 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return null;
     }
 
-    // ===== Filtering behaviour (used by Loyalty and reporting modules) =====
+    // ===== Filtering behaviour (added by: Gary Khor Wei Qi) =====
 
-    /**
-     * Creates a new collection containing entries that satisfy the condition.
-     * The original collection and its entry order remain unchanged.
-     *
-     * @param condition determines whether an entry should be included
-     * @return a new collection containing the matching entries
-     */
+    // builds a new collection with matching entries only, leaves the original untouched
     @Override
     public ListQueueInterface<T> filter(
             Predicate<T> condition) {
@@ -333,16 +309,9 @@ public class DoublyLinkedListQueue<T> implements ListQueueInterface<T> {
         return filteredEntries;
     }
 
-    // ===== Priority insertion behaviour (used by VIP Allocation module) =====
+    // ===== Priority insertion behaviour (added by: Brian Lee Kit Mun) =====
 
-    /**
-     * Inserts an entry into the position determined by the comparator.
-     * Entries that compare as equal retain their original insertion order.
-     *
-     * @param newEntry   the entry to insert
-     * @param comparator defines the priority order between entries
-     * @return true if the entry was inserted successfully
-     */
+    // walks forward until the comparator says newEntry belongs first; ties keep insertion order (stable)
     @Override
     public boolean priorityEnqueue(
             T newEntry,

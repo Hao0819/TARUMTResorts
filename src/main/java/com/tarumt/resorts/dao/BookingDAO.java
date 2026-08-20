@@ -23,7 +23,7 @@ import java.util.Iterator;
  * Confirmation numbers are 8-digit as required by the Front-Desk
  * specification.
  *
- * @author Keng Ting
+ * @author LimJunHao
  */
 public class BookingDAO {
 

@@ -14,7 +14,7 @@ import java.util.Iterator;
  * Represents a single walk-in guest registration record within the
  * standard booking queue.
  *
- * @author Junhao
+ * @author LimJunHao
  */
 public class WalkInRegistration {
 
