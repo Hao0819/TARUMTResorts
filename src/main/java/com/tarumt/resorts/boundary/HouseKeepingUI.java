@@ -12,7 +12,7 @@ import java.util.Scanner;
  * Console interface for the Housekeeping & Task Log module.
  *
  * @author GanKohJun
- */s
+ */
 public class HouseKeepingUI {
 
     private HousekeepingControl control;
