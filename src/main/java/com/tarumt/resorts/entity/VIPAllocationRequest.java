@@ -15,7 +15,7 @@ public class VIPAllocationRequest {
     private String requestedRoomType;
     private LocalDate requestedCheckInDate;
     private int stayDurationDays;
-    private String status; // "WAITING", "ASSIGNED", "CANCELLED"
+    private String status;
 
     public VIPAllocationRequest() {
     }

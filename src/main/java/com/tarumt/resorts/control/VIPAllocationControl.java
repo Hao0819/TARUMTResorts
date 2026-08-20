@@ -27,10 +27,8 @@ import java.util.Iterator;
  */
 public class VIPAllocationControl {
 
-    // Priority-ordered active requests (highest tier at the front).
     private ListQueueInterface<VIPAllocationRequest> priorityQueue;
 
-    // Complete request records used for searching and reporting.
     private ListQueueInterface<VIPAllocationRequest> requestHistory;
 
     private ListQueueInterface<Room> roomList;
@@ -76,40 +74,33 @@ public class VIPAllocationControl {
         requestHistory = sharedRequestHistory;
         priorityQueue = new DoublyLinkedListQueue<>();
 
-        // Replay WAITING history in chronological order so same-tier guests
-        // land in the priority queue in original arrival order.
         VIPAllocationRequest[] chronological = getAllRequestHistory();
         sortByRequestTime(chronological);
 
         for (int i = 0; i < chronological.length; i++) {
             if (chronological[i].getStatus().equalsIgnoreCase("WAITING")) {
-                priorityQueue.priorityEnqueue( // ADT method call: priorityEnqueue()
+                priorityQueue.priorityEnqueue( 
                         chronological[i],
                         tierPriorityComparator());
             }
         }
 
-        requestCounter = requestHistory.getNumberOfEntries() + 1; // ADT method call: getNumberOfEntries()
-        confirmationCounter = bookingList.getNumberOfEntries() + 1; // ADT method call: getNumberOfEntries()
+        requestCounter = requestHistory.getNumberOfEntries() + 1;
+        confirmationCounter = bookingList.getNumberOfEntries() + 1; 
     }
 
     // =====================================================================
     // Core feature: priority insertion by membership tier.
     // =====================================================================
 
-    /** Higher tier priority level first; equal tiers preserve arrival order. */
+    /** Higher tier priority level first */
     private Comparator<VIPAllocationRequest> tierPriorityComparator() {
         return (newRequest, existingRequest) ->
                 existingRequest.getGuest().getMembershipTier().getPriorityLevel()
                 - newRequest.getGuest().getMembershipTier().getPriorityLevel();
     }
 
-    /**
-     * Registers a new VIP allocation request for a guest holding a priority
-     * membership tier.
-     *
-     * @return the created request, or null if invalid
-     */
+    /** Registers a new VIP allocation request for a guest holding a priority membership tier. */
     public VIPAllocationRequest registerVIPRequest(
             String guestId,
             String requestedRoomType,
@@ -147,13 +138,13 @@ public class VIPAllocationControl {
                 requestedCheckInDate, stayDurationDays);
 
         boolean insertedIntoQueue =
-                priorityQueue.priorityEnqueue(request, tierPriorityComparator()); // ADT method call: priorityEnqueue()
+                priorityQueue.priorityEnqueue(request, tierPriorityComparator());
 
         if (!insertedIntoQueue) {
             return null;
         }
 
-        requestHistory.enqueue(request); // ADT method call: enqueue()
+        requestHistory.enqueue(request);
         return request;
     }
 
@@ -173,7 +164,7 @@ public class VIPAllocationControl {
         String targetRequestId = requestId.trim();
         String targetGuestId = guestId.trim();
 
-        Iterator<VIPAllocationRequest> iterator = priorityQueue.getIterator(); // ADT method call: getIterator()
+        Iterator<VIPAllocationRequest> iterator = priorityQueue.getIterator();
         while (iterator.hasNext()) {
             VIPAllocationRequest current = iterator.next();
 
@@ -191,21 +182,17 @@ public class VIPAllocationControl {
         return null;
     }
 
-    /** Finds ANY VIP request by Request ID, searching the full history. */
+    /** Finds ANY VIP request by Request ID */
     public VIPAllocationRequest findRequestById(String requestId) {
         if (requestId == null || requestId.trim().isEmpty()) {
             return null;
         }
-        return requestHistory.searchByKey( // ADT method call: searchByKey()
+        return requestHistory.searchByKey(
                 requestId.trim(),
                 request -> request.getRequestId());
     }
 
-    /**
-     * Updates the room type / schedule of one WAITING request.
-     *
-     * @return true if a matching WAITING request was found and updated
-     */
+    /** Updates the room type / schedule of one WAITING request. */
     public boolean updateVIPRequest(
             String requestId,
             String guestId,
@@ -257,11 +244,11 @@ public class VIPAllocationControl {
         String targetRequestId = requestId.trim();
         String targetGuestId = guestId.trim();
 
-        int originalSize = priorityQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
+        int originalSize = priorityQueue.getNumberOfEntries();
         boolean cancelled = false;
 
         for (int i = 0; i < originalSize; i++) {
-            VIPAllocationRequest current = priorityQueue.dequeue(); // ADT method call: dequeue()
+            VIPAllocationRequest current = priorityQueue.dequeue();
 
             boolean requestIdMatches = current.getRequestId()
                     .equalsIgnoreCase(targetRequestId);
@@ -273,9 +260,8 @@ public class VIPAllocationControl {
             if (!cancelled && requestIdMatches && guestIdMatches && isWaiting) {
                 current.setStatus("CANCELLED");
                 cancelled = true;
-                // Not re-enqueued - removed from the active priority queue.
             } else {
-                priorityQueue.priorityEnqueue(current, tierPriorityComparator()); // ADT method call: priorityEnqueue()
+                priorityQueue.priorityEnqueue(current, tierPriorityComparator());
             }
         }
 
@@ -293,7 +279,6 @@ public class VIPAllocationControl {
                 || cleaningStatus.equalsIgnoreCase("UNKNOWN");
     }
 
-    /** Delegates to the shared availability utility used by every module. */
     private boolean isRoomAvailableForSchedule(
             Room room,
             LocalDate requestedCheckInDate,
@@ -321,7 +306,7 @@ public class VIPAllocationControl {
         LocalDate requestedCheckOutDate = requestedCheckInDate.plusDays(stayDurationDays);
         boolean immediateCheckIn = requestedCheckInDate.equals(LocalDate.now());
 
-        Iterator<Room> roomIterator = roomList.getIterator(); // ADT method call: getIterator()
+        Iterator<Room> roomIterator = roomList.getIterator();
         while (roomIterator.hasNext()) {
             Room candidateRoom = roomIterator.next();
 
@@ -343,7 +328,7 @@ public class VIPAllocationControl {
 
     /** Allocates a room to the guest at the front of the priority queue. */
     public Booking allocateNextVIPGuest() {
-        VIPAllocationRequest frontRequest = priorityQueue.peek(); // ADT method call: peek()
+        VIPAllocationRequest frontRequest = priorityQueue.peek(); 
         if (frontRequest == null) {
             return null;
         }
@@ -353,7 +338,7 @@ public class VIPAllocationControl {
         boolean immediateCheckIn = requestedCheckInDate.equals(LocalDate.now());
 
         Room assignedRoom = null;
-        Iterator<Room> roomIterator = roomList.getIterator(); // ADT method call: getIterator()
+        Iterator<Room> roomIterator = roomList.getIterator(); 
 
         while (roomIterator.hasNext()) {
             Room candidate = roomIterator.next();
@@ -379,7 +364,6 @@ public class VIPAllocationControl {
         String confirmationNumber = generateConfirmationNumber();
         String bookingTime = LocalDateTime.now().format(TIME_FORMAT);
 
-        // checkInTime = null -> booking resolves to CONFIRMED; settled at Front-Desk check-in.
         Booking booking = new Booking(
                 confirmationNumber,
                 frontRequest.getGuest(),
@@ -389,14 +373,13 @@ public class VIPAllocationControl {
                 requestedCheckInDate,
                 frontRequest.getStayDurationDays());
 
-        boolean bookingSaved = bookingList.enqueue(booking); // ADT method call: enqueue()
+        boolean bookingSaved = bookingList.enqueue(booking);
         if (!bookingSaved) {
             return null;
         }
 
-        // Room occupancy is only toggled by Front-Desk at actual check-in/check-out.
         frontRequest.setStatus("ASSIGNED");
-        priorityQueue.dequeue(); // ADT method call: dequeue()
+        priorityQueue.dequeue();
         return booking;
     }
 
@@ -406,25 +389,25 @@ public class VIPAllocationControl {
 
     /** Returns the current priority queue in order (front = next to be allocated). */
     public VIPAllocationRequest[] getPriorityListInOrder() {
-        int total = priorityQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
+        int total = priorityQueue.getNumberOfEntries();
         VIPAllocationRequest[] result = new VIPAllocationRequest[total];
         for (int i = 0; i < total; i++) {
-            result[i] = priorityQueue.getEntry(i); // ADT method call: getEntry()
+            result[i] = priorityQueue.getEntry(i);
         }
         return result;
     }
 
     public int getWaitingCount() {
-        return priorityQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
+        return priorityQueue.getNumberOfEntries(); 
     }
 
     /** Returns every guest holding a priority membership tier (PLATINUM/DIAMOND/ELITE). */
     public Guest[] getPriorityTierGuests() {
-        int total = guestList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
+        int total = guestList.getNumberOfEntries();
         Guest[] temp = new Guest[total];
         int count = 0;
         for (int i = 0; i < total; i++) {
-            Guest g = guestList.getEntry(i); // ADT method call: getEntry()
+            Guest g = guestList.getEntry(i); 
             if (g.getMembershipTier().isPriorityTier()) {
                 temp[count++] = g;
             }
@@ -436,7 +419,7 @@ public class VIPAllocationControl {
         return result;
     }
 
-    /** Filters request history by membership tier and status; "ALL" matches everything. */
+    /** Filters request history by membership tier and status*/
     public VIPAllocationRequest[] filterRequestHistory(
             String tierFilter, String statusFilter) {
 
@@ -490,15 +473,15 @@ public class VIPAllocationControl {
         if (guestId == null || guestId.trim().isEmpty()) {
             return null;
         }
-        return priorityQueue.searchByKey( // ADT method call: searchByKey()
+        return priorityQueue.searchByKey(
                 guestId.trim(),
                 request -> request.getGuest().getGuestId());
     }
 
     public VIPAllocationRequest[] getAllRequestHistory() {
-        int total = requestHistory.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
+        int total = requestHistory.getNumberOfEntries();
         VIPAllocationRequest[] result = new VIPAllocationRequest[total];
-        Iterator<VIPAllocationRequest> iterator = requestHistory.getIterator(); // ADT method call: getIterator()
+        Iterator<VIPAllocationRequest> iterator = requestHistory.getIterator(); 
         int index = 0;
         while (iterator.hasNext()) {
             result[index++] = iterator.next();
@@ -540,11 +523,11 @@ public class VIPAllocationControl {
         if (guestId == null || guestId.trim().isEmpty()) {
             return null;
         }
-        return guestList.searchByKey(guestId.trim(), guest -> guest.getGuestId()); // ADT method call: searchByKey()
+        return guestList.searchByKey(guestId.trim(), guest -> guest.getGuestId());
     }
 
     private boolean requestIdExists(String requestId) {
-        VIPAllocationRequest existing = requestHistory.searchByKey( // ADT method call: searchByKey()
+        VIPAllocationRequest existing = requestHistory.searchByKey( 
                 requestId, request -> request.getRequestId());
         return existing != null;
     }
@@ -559,7 +542,7 @@ public class VIPAllocationControl {
     }
 
     private boolean confirmationNumberExists(String confirmationNumber) {
-        Booking existing = bookingList.searchByKey( // ADT method call: searchByKey()
+        Booking existing = bookingList.searchByKey(
                 confirmationNumber, booking -> booking.getConfirmationNumber());
         return existing != null;
     }

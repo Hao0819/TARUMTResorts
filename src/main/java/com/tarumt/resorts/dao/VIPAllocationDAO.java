@@ -58,7 +58,7 @@ public class VIPAllocationDAO {
 
             // Constructor defaults to WAITING; override for completed/cancelled sample records.
             request.setStatus(status);
-            requestHistory.enqueue(request); // ADT method call: enqueue()
+            requestHistory.enqueue(request);
         }
         return requestHistory;
     }
@@ -68,6 +68,6 @@ public class VIPAllocationDAO {
             String guestId) {
         return guests.searchByKey(
                 guestId,
-                guest -> guest.getGuestId()); // ADT method call: searchByKey()
+                guest -> guest.getGuestId());
     }
 }
