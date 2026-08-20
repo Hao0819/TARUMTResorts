@@ -9,6 +9,7 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.adt.ListQueueInterface;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
+import com.tarumt.resorts.util.RoomScheduleAvailability;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
@@ -18,13 +19,12 @@ import java.time.LocalDate;
  * WalkInRegistrationControl.java
  * Handles the business logic for the Walk-In Registration module.
  *
- * @author Junhao
+ * @author LimJunHao
  */
 public class WalkInRegistrationControl {
 
     // Active registrations processed using strict FIFO behaviour.
-    private ListQueueInterface<WalkInRegistration> registrationQueue = new DoublyLinkedListQueue<>(); // ADT collection
-                                                                                                      // declaration
+    private ListQueueInterface<WalkInRegistration> registrationQueue = new DoublyLinkedListQueue<>(); // ADT collection declaration
 
     // Complete registration records used for searching and reporting.
     private ListQueueInterface<WalkInRegistration> registrationHistory; // ADT collection declaration
@@ -38,6 +38,7 @@ public class WalkInRegistrationControl {
     private ListQueueInterface<Booking> bookingList; // ADT collection declaration
     private ListQueueInterface<Guest> guestList; // ADT collection declaration
 
+    // No-argument constructor: builds its own DAO-backed Room/Guest collections for standalone use.
     public WalkInRegistrationControl() {
         this(new RoomDAO().getAllRooms(),
                 new GuestDAO().getAllGuests(),
@@ -93,13 +94,7 @@ public class WalkInRegistrationControl {
         guestCounter = guestList.getNumberOfEntries() + 1; // ADT method call: getNumberOfEntries()
     }
 
-    /*
-     * Expected flow
-     * Generate WR0021
-     * → search history
-     * → exists: try WR0022
-     * → not exists: use generated ID
-     */
+    // Checks whether a Registration ID is already used by an existing history record.
     private boolean registrationIdExists(String registrationId) {
         WalkInRegistration existingRegistration =
                 // search within the complete registrationHistory
@@ -111,6 +106,7 @@ public class WalkInRegistrationControl {
         return existingRegistration != null;
     }
 
+    // Generates the next unused WR#### Registration ID.
     private String generateRegistrationId() {
         String registrationId;
         do {
@@ -120,13 +116,7 @@ public class WalkInRegistrationControl {
         return registrationId;
     }
 
-    /*
-     * Expected flow
-     * Generate G021
-     * → search all shared Guests
-     * → duplicate: try next ID
-     * → unique: create Guest
-     */
+    // Checks whether a Guest ID is already used by an existing shared Guest.
     private boolean guestIdExists(String guestId) {
         // Simply traverse the Queue nodes.
         Guest existingGuest = guestList.searchByKey(
@@ -136,6 +126,7 @@ public class WalkInRegistrationControl {
         return existingGuest != null; // Return true if a matching Guest is found.
     }
 
+    // Generates the next unused G### Guest ID.
     private String generateGuestId() {
         String guestId;
         do {
@@ -145,13 +136,7 @@ public class WalkInRegistrationControl {
         return guestId;
     }
 
-    /*
-     * Expected flow
-     * Generate candidate ID
-     * → search shared booking Queue
-     * → duplicate: generate next ID
-     * → unique: return ID
-     */
+    // Checks whether a confirmation number is already used by an existing Booking.
     private boolean confirmationNumberExists(
             String confirmationNumber) {
         // use shared ADT search
@@ -162,6 +147,7 @@ public class WalkInRegistrationControl {
         return existingBooking != null;// found same number return true
     }
 
+    // Generates the next unused 8-digit Booking confirmation number.
     private String generateConfirmationNumber() {
         String confirmationNumber;
         do {
@@ -185,9 +171,7 @@ public class WalkInRegistrationControl {
                 guest -> guest.getGuestId()); // ADT method call: searchByKey()
     }
 
-    /**
-     * Returns all shared Guest references in their current stored order.
-     */
+    // used by the registration screen to list guests before asking for a contact number
     public Guest[] getAllGuests() {
         int guestCount = guestList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
@@ -205,10 +189,7 @@ public class WalkInRegistrationControl {
         return guests;
     }
 
-    /**
-     * Returns each Guest who has Walk-In registration history.
-     * A Guest is included only once even when multiple history records exist.
-     */
+    // dedupes by guest id since one guest can have several registration records
     public Guest[] getGuestsWithRegistrationHistory() {
 
         WalkInRegistration[] registrationHistoryRecords = getAllRegistrationHistory();
@@ -252,14 +233,7 @@ public class WalkInRegistrationControl {
         return guestsWithHistory;
     }
 
-    // Search the shared Guest Queue using a normalized contact number.
-    /*
-     * Input 0123456789
-     * → normalize
-     * → traverse shared Guest Queue once
-     * → DAO has 012-3456789
-     * → existing Guest found
-     */
+    // Finds a shared Guest by contact number, normalizing spaces/dashes on both sides before comparing.
     public Guest findGuestByContact(String contactNumber) {
         String normalizedContact = normalizeContact(contactNumber);// Remove spaces and -
 
@@ -273,10 +247,7 @@ public class WalkInRegistrationControl {
                 guest -> normalizeContact(guest.getContactNumber())); // ADT method call: searchByKey()
     }
 
-    /**
-     * Updates the final room type, check-in date and stay duration
-     * of one WAITING booking request as one operation.
-     */
+    // room type + check-in date + duration are updated together, or not at all if the new combo has no room
     public boolean updateWaitingBookingRequest(
             String registrationId,
             String guestId,
@@ -371,10 +342,7 @@ public class WalkInRegistrationControl {
         return true;
     }
 
-    /**
-     * Finds one active WAITING registration using both Registration ID
-     * and Guest ID.
-     */
+    // must match both IDs and still be WAITING, otherwise treated as not found
     public WalkInRegistration findWaitingRegistration(
             String registrationId,
             String guestId) {
@@ -391,8 +359,7 @@ public class WalkInRegistrationControl {
 
         String targetGuestId = guestId.trim();
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call:
-                                                                                             // getIterator()
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -421,10 +388,7 @@ public class WalkInRegistrationControl {
         return null;
     }
 
-    /**
-     * Cancels one WAITING registration only when both the registration ID
-     * and guest ID match. All other registrations retain their FIFO order.
-     */
+    // dequeues everything, keeps the target out and re-enqueues the rest so FIFO order is untouched
     public boolean cancelWaitingRegistration(
             String registrationId,
             String guestId) {
@@ -487,6 +451,7 @@ public class WalkInRegistrationControl {
         return registrationCancelled;
     }
 
+    // Reuses the Guest matching this contact number, or creates a new one if none exists.
     private Guest findOrCreateGuest(
             String name,
             String contactNumber,
@@ -502,6 +467,7 @@ public class WalkInRegistrationControl {
         // No matching contact was found, so create a new Guest.
         String newGuestId = generateGuestId();
 
+        // new guests always start as NONE tier - Loyalty promotes them later based on spend
         Guest newGuest = new Guest(
                 newGuestId,
                 name,
@@ -513,6 +479,7 @@ public class WalkInRegistrationControl {
         return newGuest;
     }
 
+    // Strips spaces and dashes from a contact number so formats like "012-3456789" can be compared.
     private String normalizeContact(String contact) {
         if (contact == null) {
             return null;
@@ -524,6 +491,7 @@ public class WalkInRegistrationControl {
         return name != null && !name.trim().isEmpty();
     }
 
+    // must be 01 followed by 8-9 digits (Malaysian mobile format)
     public boolean isValidContact(String contact) {
         String normalizedContact = normalizeContact(contact);
         return normalizedContact != null && normalizedContact.matches("^01[0-9]{8,9}$");
@@ -537,6 +505,7 @@ public class WalkInRegistrationControl {
         return trimmedEmail.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     }
 
+    // staff type S/D/SU instead of the full word
     public String parseRoomTypeCode(String code) {
         if (code == null) {
             return null;
@@ -553,9 +522,7 @@ public class WalkInRegistrationControl {
         }
     }
 
-    /**
-     * Compatibility method for existing code that does not provide a schedule.
-     */
+    // overload for callers that don't have a schedule yet, defaults to today + 1 night
     public Guest registerGuest(
             String name,
             String contactNumber,
@@ -573,9 +540,6 @@ public class WalkInRegistrationControl {
                 1);
     }
 
-    /**
-     * Creates a walk-in registration with the requested stay schedule.
-     */
     public Guest registerGuest(
             String name,
             String contactNumber,
@@ -673,13 +637,7 @@ public class WalkInRegistrationControl {
         return guest;
     }
 
-    /**
-     * A room is ready to be allocated to a walk-in guest only if it is
-     * marked available AND Housekeeping has not logged it as currently
-     * DIRTY, CLEANING, or INSPECTED. A room that has never been logged
-     * by Housekeeping defaults to "UNKNOWN" and is treated as ready,
-     * since no cleaning cycle has ever been started for it.
-     */
+    // only looks at Housekeeping's cleaning status - physical occupancy is checked separately by the caller
     private boolean isReadyForAllocation(Room room) {
         String cleaningStatus = room.getCleaningStatus();
         return cleaningStatus == null
@@ -687,30 +645,19 @@ public class WalkInRegistrationControl {
                 || cleaningStatus.equalsIgnoreCase("UNKNOWN");
     }
 
-    /**
-     * Checks whether a room has no CONFIRMED or ACTIVE booking that
-     * overlaps the requested stay period, including the shared Housekeeping
-     * turnaround buffer reserved after each existing booking's scheduled
-     * check-out date. Delegates to RoomScheduleAvailability, the single
-     * shared source for this rule, so Walk-In, VIP, and Front-Desk all
-     * agree on the same room/date combinations.
-     */
+    // delegates to the shared RoomScheduleAvailability rule so this module agrees with the housekeeping turnaround buffer
     private boolean isRoomAvailableForSchedule(
             Room room,
             LocalDate requestedCheckInDate,
             LocalDate requestedCheckOutDate) {
 
-        return com.tarumt.resorts.util.RoomScheduleAvailability.isAvailable(
+        return RoomScheduleAvailability.isAvailable(
                 bookingList,
                 room,
                 requestedCheckInDate,
                 requestedCheckOutDate);
     }
 
-    /**
-     * Checks whether at least one room of the requested type is available
-     * for the guest's complete stay period.
-     */
     public boolean hasAvailableRoomForSchedule(
             String roomType,
             LocalDate requestedCheckInDate,
@@ -761,13 +708,7 @@ public class WalkInRegistrationControl {
         return false;
     }
 
-    /*
-     * peek front guest
-     * → iterate rooms
-     * → matching room found or null
-     * → no room: front guest remains
-     */
-
+    // strict FIFO - only the front request is tried, and it stays at the front if nothing matches
     public Booking processNextGuest() {
         WalkInRegistration nextGuest = registrationQueue.peek(); // ADT method call: peek()
         if (nextGuest == null) {
@@ -853,10 +794,7 @@ public class WalkInRegistrationControl {
         return booking;
     }
 
-    /**
-     * Returns the most recently added WAITING registration
-     * belonging to one Guest.
-     */
+    // walks the whole queue instead of stopping at the first match, since we want the newest one
     public WalkInRegistration findLatestWaitingRegistrationByGuestId(
             String guestId) {
 
@@ -870,8 +808,7 @@ public class WalkInRegistrationControl {
 
         WalkInRegistration latestRegistration = null;
 
-        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call:
-                                                                                             // getIterator()
+        Iterator<WalkInRegistration> registrationIterator = registrationQueue.getIterator(); // ADT method call: getIterator()
 
         while (registrationIterator.hasNext()) {
 
@@ -894,15 +831,7 @@ public class WalkInRegistrationControl {
         return latestRegistration;
     }
 
-    /**
-     * Finds one registration-history record using its Registration ID.
-     *
-     * The complete history is searched so WAITING, ASSIGNED and
-     * CANCELLED records can all be found.
-     *
-     * @param registrationId Registration ID entered by staff
-     * @return matching registration, or null when no record exists
-     */
+    // searches the full history, not just the active queue, so cancelled/assigned records are found too
     public WalkInRegistration findRegistrationById(
             String registrationId) {
 
@@ -917,10 +846,6 @@ public class WalkInRegistrationControl {
                 registration -> registration.getRegistrationId()); // ADT method call: searchByKey()
     }
 
-    /**
-     * Returns every historical registration belonging to one Guest ID.
-     * Results retain their original chronological order.
-     */
     public WalkInRegistration[] searchRegistrationHistoryByGuestId(
             String guestId) {
 
@@ -932,8 +857,7 @@ public class WalkInRegistrationControl {
         int matchingRecordCount = 0;
 
         // First traversal: count matching records.
-        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator(); // ADT method call:
-                                                                                        // getIterator()
+        Iterator<WalkInRegistration> countIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
 
         while (countIterator.hasNext()) {
             WalkInRegistration registration = countIterator.next();
@@ -947,8 +871,7 @@ public class WalkInRegistrationControl {
         WalkInRegistration[] matchingRegistrations = new WalkInRegistration[matchingRecordCount];
 
         // Second traversal: store matching record references.
-        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator(); // ADT method call:
-                                                                                        // getIterator()
+        Iterator<WalkInRegistration> storeIterator = registrationHistory.getIterator(); // ADT method call: getIterator()
 
         int arrayIndex = 0;
 
@@ -966,11 +889,6 @@ public class WalkInRegistrationControl {
         return matchingRegistrations;
     }
 
-    /*
-     * Queue: A → B → C
-     * Iterator reads: A, B, C
-     * Array: [A, B, C]
-     */
     public WalkInRegistration[] getAllWaitingRegistrations() {
         // queueSize determine the length of array
         int queueSize = registrationQueue.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
@@ -992,6 +910,7 @@ public class WalkInRegistrationControl {
         return registrations;
     }
 
+    // "ALL" is treated as a wildcard for either filter
     public WalkInRegistration[] filterRegistrationHistory(String roomTypeFilter, String statusFilter) {
         WalkInRegistration[] history = getAllRegistrationHistory();
         int matchCount = 0;
@@ -1034,6 +953,7 @@ public class WalkInRegistrationControl {
 
     }
 
+    // insertion sort by registration time - chosen since history stays mostly sorted already, so it's close to O(n) in practice
     public WalkInRegistration[] sortByRegistrationTime(WalkInRegistration[] registrations) {
 
         // Start at index 1 because index is already a sorted section
@@ -1052,12 +972,6 @@ public class WalkInRegistrationControl {
         return registrations;
     }
 
-    /*
-     * History Queue
-     * → iterator traverses once
-     * → array keeps chronological queue order
-     * → filter and sort report
-     */
     public WalkInRegistration[] getAllRegistrationHistory() {
         // historySize include WAITING, ASSIGNED, CANCELLED
         int historySize = registrationHistory.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
@@ -1077,10 +991,6 @@ public class WalkInRegistrationControl {
         return registrations;
     }
 
-    /**
-     * Returns the daily rate of the specified room type
-     * from the shared Room ADT collection.
-     */
     public double getDailyRateByRoomType(String roomType) {
 
         if (roomType == null || roomType.trim().isEmpty()) {
@@ -1105,7 +1015,7 @@ public class WalkInRegistrationControl {
         return 0.0;
     }
 
-    // count all rooms belonging to one room type , not check availability
+    // Counts all rooms of the given type, regardless of current availability.
     public int countTotalRoomsByType(String roomType) {
         if (roomType == null || roomType.trim().isEmpty()) {
             return 0;
@@ -1128,15 +1038,7 @@ public class WalkInRegistrationControl {
         return roomCount;
     }
 
-    /**
-     * Counts rooms of one type that can be allocated for tonight.
-     *
-     * A room must:
-     * 1. Match the requested room type.
-     * 2. Be operationally available.
-     * 3. Be ready according to Housekeeping.
-     * 4. Have no CONFIRMED or ACTIVE booking overlapping tonight.
-     */
+    // "available" here means free tonight specifically, not just free at some point
     public int countAvailableRoomsByType(String roomType) {
 
         if (roomType == null
@@ -1178,10 +1080,6 @@ public class WalkInRegistrationControl {
         return availableRoomCount;
     }
 
-    /**
-     * Checks whether the request at the front of the FIFO queue
-     * has a requested check-in date earlier than today.
-     */
     public boolean isFrontWaitingRequestExpired() {
 
         WalkInRegistration frontRegistration = registrationQueue.peek(); // ADT method call: peek()

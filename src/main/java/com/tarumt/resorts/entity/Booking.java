@@ -16,7 +16,7 @@ import java.time.LocalDate;
  * Per ECB rules, this entity only references other entities (Guest, Room),
  * never a Control or Boundary class.
  *
- * @author Junhao
+ * @author LimJunHao
  */
 public class Booking {
     private String confirmationNumber;

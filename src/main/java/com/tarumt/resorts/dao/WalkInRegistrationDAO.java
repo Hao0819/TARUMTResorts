@@ -10,12 +10,8 @@ import com.tarumt.resorts.entity.Guest;
 import com.tarumt.resorts.entity.WalkInRegistration;
 import java.time.LocalDate;
 
-/**
- * Provides hard-coded Walk-In registration records for reporting.
- * The registrations reuse Guest objects from the shared Guest Queue.
- * 
- * @author JunHao
- */
+// Hard-coded Walk-In registration records for reporting, reusing Guest objects from the shared Guest Queue.
+// @author LimJunHao
 public class WalkInRegistrationDAO {
 
         public ListQueueInterface<WalkInRegistration> getAllRegistrations(
@@ -146,11 +142,11 @@ public class WalkInRegistrationDAO {
 
         }
 
+        // Finds a shared Guest by exact Guest ID, so each sample registration links to a real Guest.
         private Guest findGuestById(
                         ListQueueInterface<Guest> guests,
                         String guestId) {
 
-                // Search the linked entries directly using Guest ID as the key.
                 return guests.searchByKey(
                                 guestId,
                                 guest -> guest.getGuestId());

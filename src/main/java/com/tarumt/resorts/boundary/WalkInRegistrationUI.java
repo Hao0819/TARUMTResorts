@@ -16,12 +16,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Scanner;
 
-/**
- * WalkInRegistrationUI.java
- * Console interface for the Walk-In Registrations module.
- *
- * @author Junhao
- */
+// Console interface for the Walk-In Registrations module.
+// @author LimJunHao
 public class WalkInRegistrationUI {
 
         private WalkInRegistrationControl control;
@@ -51,6 +47,7 @@ public class WalkInRegistrationUI {
                 sc = sharedScanner;
         }
 
+        // Displays the Walk-In menu in a loop and routes each choice to its handler until 0 is entered.
         public void showMenu() {
                 int choice;
                 do {
@@ -148,10 +145,7 @@ public class WalkInRegistrationUI {
                 } while (choice != 0);
         }
 
-        /**
-         * Displays a monthly booking calendar for one room type.
-         * An unavailable starting date is shown as X.
-         */
+        // X marks a start date where no room is free for the whole stay
         private void displayBookingCalendar(
                         YearMonth selectedMonth,
                         String roomType,
@@ -252,7 +246,31 @@ public class WalkInRegistrationUI {
                 System.out.println("X = Unavailable for the complete stay");
         }
 
+        // lets staff eyeball existing IDs/contacts before asking for a new one
+        private void displayExistingGuestsForRegistration() {
+                Guest[] guests = control.getAllGuests();
+
+                String border = "+----------+----------------------+---------------+";
+
+                System.out.println();
+                System.out.println(border);
+                System.out.println("|                 EXISTING GUESTS                 |");
+                System.out.println(border);
+                System.out.printf("| %-8s | %-20s | %-13s |%n", "Guest ID", "Name", "Mobile No.");
+                System.out.println(border);
+
+                for (Guest guest : guests) {
+                        System.out.printf("| %-8s | %-20s | %-13s |%n",
+                                        guest.getGuestId(), guest.getName(), guest.getContactNumber());
+                }
+
+                System.out.println(border);
+        }
+
+        // handles the whole flow: guest lookup/creation, room type, stay length, check-in date
         private void registerGuest() {
+                displayExistingGuestsForRegistration();
+
                 String contact;
 
                 while (true) {
@@ -561,10 +579,6 @@ public class WalkInRegistrationUI {
                 displayRegistrationResult(registration);
         }
 
-        /**
-         * Displays the room types and current nightly rates obtained from the
-         * shared Room collection.
-         */
         private void displayAvailableRoomTypes() {
 
                 // Read the latest room rates instead of hard-coding prices in the UI.
@@ -613,6 +627,7 @@ public class WalkInRegistrationUI {
                                 "+--------+------------+------------------+");
         }
 
+        // Displays the newly submitted registration's details as a confirmation table.
         private void displayRegistrationResult(
                         WalkInRegistration registration) {
 
@@ -697,6 +712,7 @@ public class WalkInRegistrationUI {
                                 "Standard booking request submitted successfully.");
         }
 
+        // Triggers allocation of the front FIFO request and reports whether it succeeded or stayed blocked.
         private void processNextGuest() {
                 // compares the number of waiting registrations with 0
                 if (control.getWaitingCount() == 0) {
@@ -728,6 +744,7 @@ public class WalkInRegistrationUI {
                 }
         }
 
+        // Displays a successful allocation's full Booking details, including pricing and discount.
         private void displayBookingResult(Booking booking) {
                 String border = "+----------------------+--------------------------------------+";
 
@@ -866,6 +883,7 @@ public class WalkInRegistrationUI {
                                                 + "Payment will be collected during check-in.");
         }
 
+        // Lists every WAITING request in FIFO order, front to rear.
         private void displayWaitingQueue() {
                 WalkInRegistration[] waiting = control.getAllWaitingRegistrations();
 
@@ -940,6 +958,7 @@ public class WalkInRegistrationUI {
                                                 + waiting.length);
         }
 
+        // Prompts for room-type/status filters, then prints the filtered registration table, charts, and conversion-rate insight.
         private void displayRegistrationAnalysisReport() {
                 String roomTypeFilter;
 
@@ -1072,8 +1091,12 @@ public class WalkInRegistrationUI {
                                 + "------------+------------+--------+"
                                 + "------------------+------------+-----------+";
 
+                String companyName = "TARUMT RESORTS";
                 String title = "WALK-IN REGISTRATION ANALYSIS REPORT";
                 int contentWidth = 134;
+
+                int companyLeftPadding = (contentWidth - companyName.length()) / 2;
+                int companyRightPadding = contentWidth - companyName.length() - companyLeftPadding;
 
                 int leftPadding = (contentWidth - title.length()) / 2;
 
@@ -1081,6 +1104,13 @@ public class WalkInRegistrationUI {
 
                 System.out.println();
                 System.out.println(border);
+
+                System.out.println(
+                                "| "
+                                                + " ".repeat(companyLeftPadding)
+                                                + companyName
+                                                + " ".repeat(companyRightPadding)
+                                                + " |");
 
                 System.out.println(
                                 "| "
@@ -1346,6 +1376,7 @@ public class WalkInRegistrationUI {
                 }
         }
 
+        // Prints the room-type demand-vs-supply summary table, demand-pressure ratios, and bar charts.
         private void displayRoomTypeDemandReport() {
 
                 String[] roomTypes = {
@@ -1363,8 +1394,12 @@ public class WalkInRegistrationUI {
                 String border = "+------------+----------+----------+---------+-----------+"
                                 + "---------+-------------+----------+";
 
+                String companyName = "TARUMT RESORTS";
                 String title = "ROOM-TYPE DEMAND SUMMARY REPORT";
                 int contentWidth = 91;
+
+                int companyLeftPadding = (contentWidth - companyName.length()) / 2;
+                int companyRightPadding = contentWidth - companyName.length() - companyLeftPadding;
 
                 int leftPadding = (contentWidth - title.length()) / 2;
 
@@ -1379,9 +1414,15 @@ public class WalkInRegistrationUI {
 
                 System.out.printf(
                                 "|%s%s%s|%n",
-                                " ".repeat(leftPadding),
-                                title,
-                                " ".repeat(rightPadding));
+                                " ".repeat(companyLeftPadding),
+                                companyName,
+                                " ".repeat(companyRightPadding));
+
+                System.out.println(
+                                "|%s%s%s|".formatted(
+                                                " ".repeat(leftPadding),
+                                                title,
+                                                " ".repeat(rightPadding)));
 
                 System.out.println(border);
 
@@ -1590,14 +1631,7 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
         }
 
-        /**
-         * Shows how much cumulative historical demand each room type has
-         * attracted relative to how many rooms of that type exist, as a
-         * requests-per-room ratio. This is a long-run capacity-planning
-         * signal (e.g. "should we convert some Standard rooms to Suites?"),
-         * not a live availability check - that is what "Rooms Available
-         * Tonight" in the main table already answers.
-         */
+        // capacity-planning ratio (requests per room, all-time) - not the same as tonight's live availability
         private void displayDemandPressure(
                         String[] roomTypes,
                         int[] requestCounts,
@@ -1654,9 +1688,6 @@ public class WalkInRegistrationUI {
                                 pressureRatios[lowestPressureIndex]);
         }
 
-        /**
-         * Displays two vertical bar charts side by side.
-         */
         private void displaySideBySideBarCharts(
                         String leftChartTitle,
                         String[] leftCategoryLabels,
@@ -1808,9 +1839,7 @@ public class WalkInRegistrationUI {
                                 rightValueRow);
         }
 
-        /**
-         * Displays one booking request using a consistent table format.
-         */
+        // shared table format so update/cancel screens look the same
         private void displayBookingRequestDetails(
                         String tableTitle,
                         WalkInRegistration registration) {
@@ -1881,9 +1910,6 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
         }
 
-        /**
-         * Displays all changes recorded for one booking request.
-         */
         private void displayRegistrationChangeHistory(
                         WalkInRegistration registration) {
 
@@ -1948,6 +1974,7 @@ public class WalkInRegistrationUI {
                                                 + registration.getNumberOfChanges());
         }
 
+        // Walks staff through changing the room type, check-in date, or duration of one WAITING request.
         private void updateWaitingBookingRequest() {
 
                 if (control.getWaitingCount() == 0) {
@@ -2221,6 +2248,7 @@ public class WalkInRegistrationUI {
                                 selectedRegistration);
         }
 
+        // Walks staff through cancelling one WAITING request, verified by Registration ID + Guest ID with a confirmation prompt.
         private void cancelWaitingRegistration() {
                 if (control.getWaitingCount() == 0) {
                         System.out.println("No standard booking requests are waiting.");
@@ -2298,6 +2326,7 @@ public class WalkInRegistrationUI {
                 }
         }
 
+        // Lists every shared Guest, so staff can see which Guest IDs exist before searching.
         private void displayGuestDirectory() {
                 // Only show Guests who have Walk-In registration history.
                 Guest[] guests = control.getGuestsWithRegistrationHistory();
@@ -2350,9 +2379,6 @@ public class WalkInRegistrationUI {
                                                 + guests.length);
         }
 
-        /**
-         * Displays the available search methods for registration history.
-         */
         private void searchRegistrationHistory() {
 
                 while (true) {
@@ -2399,9 +2425,6 @@ public class WalkInRegistrationUI {
                 }
         }
 
-        /**
-         * Displays all Registration IDs available in the registration history.
-         */
         private void displayRegistrationIdDirectory() {
 
                 WalkInRegistration[] registrationRecords = control.getAllRegistrationHistory();
@@ -2466,9 +2489,6 @@ public class WalkInRegistrationUI {
                                                 + registrationRecords.length);
         }
 
-        /**
-         * Searches the complete registration history using one Registration ID.
-         */
         private void searchRegistrationById() {
 
                 displayRegistrationIdDirectory();
@@ -2580,6 +2600,7 @@ public class WalkInRegistrationUI {
                                 registration);
         }
 
+        // Searches the complete registration history for every record belonging to one Guest ID.
         private void searchRegistrationHistoryByGuestId() {
                 // Show available Guest IDs before asking staff to choose one.
                 displayGuestDirectory();
