@@ -21,7 +21,7 @@ import com.tarumt.resorts.dao.RoomDAO;
  * bookings (Walk-In / VIP do); it searches and manages the resulting Booking
  * from the shared collection.
  *
- * @author Keng Ting
+ * @author Tan Keng Ting
  */
 public class FrontDeskControl {
 

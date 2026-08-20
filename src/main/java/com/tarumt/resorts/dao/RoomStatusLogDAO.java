@@ -47,7 +47,7 @@ import com.tarumt.resorts.adt.ListQueueInterface;
  *
  * Per tutor clarification: no file/database I/O, just sample data.
  *
- * @author KohJun
+ * @author GanKohJun
  */
 public class RoomStatusLogDAO {
 
