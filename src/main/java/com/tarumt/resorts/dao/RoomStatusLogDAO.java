@@ -103,8 +103,11 @@ public class RoomStatusLogDAO {
         // Room 207 (Deluxe) — ends CLEANING
         logs.enqueue(new RoomStatusLog("207", "DIRTY", "2026-07-19 16:10")); // ADT method call: enqueue()
         logs.enqueue(new RoomStatusLog("207", "CLEANING", "2026-07-19 16:20")); // ADT method call: enqueue()
-        // Room 208 (Deluxe) — ends DIRTY
+        // Room 208 (Deluxe) — ends READY, vacant and bookable for a same-day check-in
         logs.enqueue(new RoomStatusLog("208", "DIRTY", "2026-07-19 16:30")); // ADT method call: enqueue()
+        logs.enqueue(new RoomStatusLog("208", "CLEANING", "2026-07-19 16:35")); // ADT method call: enqueue()
+        logs.enqueue(new RoomStatusLog("208", "INSPECTED", "2026-07-19 16:40")); // ADT method call: enqueue()
+        logs.enqueue(new RoomStatusLog("208", "READY", "2026-07-19 16:45")); // ADT method call: enqueue()
         // Room 209 (Deluxe) — ends READY (OCCUPIED - guest checked into this room while it was READY)
         logs.enqueue(new RoomStatusLog("209", "DIRTY", "2026-07-19 16:40")); // ADT method call: enqueue()
         logs.enqueue(new RoomStatusLog("209", "CLEANING", "2026-07-19 16:50")); // ADT method call: enqueue()
