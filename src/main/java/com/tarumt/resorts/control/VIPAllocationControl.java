@@ -9,6 +9,7 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
 import com.tarumt.resorts.dao.GuestDAO;
 import com.tarumt.resorts.dao.RoomDAO;
 import com.tarumt.resorts.dao.VIPAllocationDAO;
+import com.tarumt.resorts.util.RoomScheduleAvailability;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,30 +18,17 @@ import java.util.Comparator;
 import java.util.Iterator;
 
 /**
- * VIPAllocationControl.java
  * Handles the business logic for the VIP & Loyalty Tier Priority Room
- * Allocation module. Guests with a priority membership tier (PLATINUM,
- * DIAMOND, ELITE) are inserted into a priority-ordered queue: higher
- * tier guests are placed ahead of lower tier guests. Guests of the same
- * tier keep their original arrival order (first registered, first
- * allocated).
- *
- * Booking integration mirrors Walk-In Registration: a request carries a
- * requested room type, check-in date, and stay duration; allocation
- * checks for CONFIRMED/ACTIVE booking overlaps on the shared booking
- * collection rather than trusting Room.isAvailable() alone; and a
- * successful allocation creates a CONFIRMED booking without touching the
- * room's live availability flag - that is Front-Desk's job at actual
- * check-in / check-out time.
+ * Allocation module. Priority-tier guests (PLATINUM, DIAMOND, ELITE) are
+ * inserted into a tier-ordered queue; guests of the same tier keep FIFO
+ * order among themselves.
  *
  * @author brian
  */
 public class VIPAllocationControl {
 
-    // Priority-ordered active requests (highest tier at the front).
     private ListQueueInterface<VIPAllocationRequest> priorityQueue;
 
-    // Complete request records used for searching and reporting.
     private ListQueueInterface<VIPAllocationRequest> requestHistory;
 
     private ListQueueInterface<Room> roomList;
@@ -64,13 +52,7 @@ public class VIPAllocationControl {
         init(rooms, guests, bookings, history);
     }
 
-    /**
-     * Integrated constructor - receives the same shared collection
-     * references used by the rest of the system (sharedRooms,
-     * sharedGuests, sharedBookings), so VIP Allocation reads/writes the
-     * exact same Room, Guest and Booking objects as every other module.
-     * No new DAO collections are created here.
-     */
+    /** Integrated constructor - uses the shared collections from Main. */
     public VIPAllocationControl(
             ListQueueInterface<Room> sharedRooms,
             ListQueueInterface<Guest> sharedGuests,
@@ -92,53 +74,33 @@ public class VIPAllocationControl {
         requestHistory = sharedRequestHistory;
         priorityQueue = new DoublyLinkedListQueue<>();
 
-        // Sort history chronologically first, so that when we replay
-        // WAITING entries through priorityEnqueue(), guests of the same
-        // tier land in the priority queue in their original arrival
-        // order (earliest first).
         VIPAllocationRequest[] chronological = getAllRequestHistory();
         sortByRequestTime(chronological);
 
         for (int i = 0; i < chronological.length; i++) {
             if (chronological[i].getStatus().equalsIgnoreCase("WAITING")) {
-                priorityQueue.priorityEnqueue(
+                priorityQueue.priorityEnqueue( 
                         chronological[i],
                         tierPriorityComparator());
             }
         }
 
         requestCounter = requestHistory.getNumberOfEntries() + 1;
-        confirmationCounter = bookingList.getNumberOfEntries() + 1;
+        confirmationCounter = bookingList.getNumberOfEntries() + 1; 
     }
 
     // =====================================================================
     // Core feature: priority insertion by membership tier.
     // =====================================================================
 
-    /**
-     * Comparator used to order VIP requests: higher membership tier
-     * priority level comes first (ELITE > DIAMOND > PLATINUM). When two
-     * requests belong to the same tier, this comparator returns 0, which
-     * makes priorityEnqueue() skip past all existing same-tier entries
-     * and insert the new one AFTER them - preserving first-come-first-
-     * served (arrival time) order within a tier.
-     */
+    /** Higher tier priority level first */
     private Comparator<VIPAllocationRequest> tierPriorityComparator() {
         return (newRequest, existingRequest) ->
                 existingRequest.getGuest().getMembershipTier().getPriorityLevel()
                 - newRequest.getGuest().getMembershipTier().getPriorityLevel();
     }
 
-    /**
-     * Registers a new VIP allocation request. The guest must already
-     * exist and hold a priority membership tier. A guest may hold
-     * multiple simultaneous VIP requests - a Guest ID already having a
-     * WAITING request no longer blocks a new one.
-     *
-     * @return the created request, or null if the guest is invalid, not
-     *         a priority-tier member, or the room type / schedule is
-     *         invalid
-     */
+    /** Registers a new VIP allocation request for a guest holding a priority membership tier. */
     public VIPAllocationRequest registerVIPRequest(
             String guestId,
             String requestedRoomType,
@@ -190,11 +152,7 @@ public class VIPAllocationControl {
     // Update / cancel a WAITING request (verified by Request ID + Guest ID).
     // =====================================================================
 
-    /**
-     * Finds one active WAITING VIP request using both Request ID and
-     * Guest ID, so staff cannot accidentally modify another guest's
-     * request just by guessing a Request ID.
-     */
+    /** Finds one active WAITING request matching both Request ID and Guest ID. */
     public VIPAllocationRequest findWaitingRequestById(
             String requestId, String guestId) {
 
@@ -224,12 +182,7 @@ public class VIPAllocationControl {
         return null;
     }
 
-    /**
-     * Finds ANY VIP request (WAITING, ASSIGNED, or CANCELLED) by Request
-     * ID, searching the full history rather than only the live priority
-     * queue. Used by the Search feature so a request stays findable
-     * after it has already been allocated or cancelled.
-     */
+    /** Finds ANY VIP request by Request ID */
     public VIPAllocationRequest findRequestById(String requestId) {
         if (requestId == null || requestId.trim().isEmpty()) {
             return null;
@@ -239,14 +192,7 @@ public class VIPAllocationControl {
                 request -> request.getRequestId());
     }
 
-    /**
-     * Updates the room type / schedule of one WAITING request. The
-     * request's position in the priority queue does not need to change,
-     * since re-ordering only ever depends on the guest's membership
-     * tier, which this method does not modify.
-     *
-     * @return true if a matching WAITING request was found and updated
-     */
+    /** Updates the room type / schedule of one WAITING request. */
     public boolean updateVIPRequest(
             String requestId,
             String guestId,
@@ -288,14 +234,7 @@ public class VIPAllocationControl {
         return true;
     }
 
-    /**
-     * Cancels one WAITING request identified by both Request ID and
-     * Guest ID. The record is kept in requestHistory (soft-cancel, same
-     * object reference) but removed from the active priority queue. The
-     * queue is rebuilt with dequeue + priorityEnqueue so every other
-     * request keeps its original relative order - mirrors
-     * LoyaltyRewardsControl.cancelRedemptionRequest()'s rebuild pattern.
-     */
+    /** Cancels one WAITING request; rebuilds the queue so order is preserved. */
     public boolean cancelVIPRequest(String requestId, String guestId) {
         if (requestId == null || requestId.trim().isEmpty()
                 || guestId == null || guestId.trim().isEmpty()) {
@@ -321,7 +260,6 @@ public class VIPAllocationControl {
             if (!cancelled && requestIdMatches && guestIdMatches && isWaiting) {
                 current.setStatus("CANCELLED");
                 cancelled = true;
-                // Not re-enqueued - removed from the active priority queue.
             } else {
                 priorityQueue.priorityEnqueue(current, tierPriorityComparator());
             }
@@ -341,60 +279,18 @@ public class VIPAllocationControl {
                 || cleaningStatus.equalsIgnoreCase("UNKNOWN");
     }
 
-    /**
-     * True if the room has NO CONFIRMED/ACTIVE booking whose scheduled
-     * stay overlaps [checkIn, checkOut). Mirrors
-     * WalkInRegistrationControl.isRoomAvailableForSchedule() so both
-     * allocation paths agree on what "available for these dates" means.
-     */
     private boolean isRoomAvailableForSchedule(
             Room room,
             LocalDate requestedCheckInDate,
             LocalDate requestedCheckOutDate) {
-
-        if (room == null
-                || requestedCheckInDate == null
-                || requestedCheckOutDate == null
-                || !requestedCheckInDate.isBefore(requestedCheckOutDate)) {
-            return false;
-        }
-
-        Iterator<Booking> bookingIterator = bookingList.getIterator();
-        while (bookingIterator.hasNext()) {
-            Booking existingBooking = bookingIterator.next();
-
-            boolean sameRoom = existingBooking.getRoom() != null
-                    && existingBooking.getRoom().getRoomNumber()
-                            .equalsIgnoreCase(room.getRoomNumber());
-
-            boolean blocksSchedule = "CONFIRMED".equalsIgnoreCase(existingBooking.getStatus())
-                    || "ACTIVE".equalsIgnoreCase(existingBooking.getStatus());
-
-            LocalDate existingCheckIn = existingBooking.getScheduledCheckInDate();
-            LocalDate existingCheckOut = existingBooking.getScheduledCheckOutDate();
-
-            if (sameRoom && blocksSchedule
-                    && existingCheckIn != null && existingCheckOut != null) {
-
-                boolean datesOverlap = requestedCheckInDate.isBefore(existingCheckOut)
-                        && requestedCheckOutDate.isAfter(existingCheckIn);
-
-                if (datesOverlap) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return RoomScheduleAvailability.isAvailable(
+                bookingList,
+                room,
+                requestedCheckInDate,
+                requestedCheckOutDate);
     }
 
-    /**
-     * Checks whether at least one room of the requested type is free for
-     * the full requested stay period [checkInDate, checkInDate +
-     * stayDurationDays). Public so the boundary layer can drive a
-     * calendar view (one call per candidate day) as well as validate the
-     * final chosen date, exactly like
-     * WalkInRegistrationControl.hasAvailableRoomForSchedule().
-     */
+    /** True if at least one room of the given type is free for the full stay. */
     public boolean hasAvailableRoomForSchedule(
             String roomType,
             LocalDate requestedCheckInDate,
@@ -430,18 +326,9 @@ public class VIPAllocationControl {
         return false;
     }
 
-    /**
-     * Allocates a room to the guest currently at the front of the
-     * priority queue (highest tier, earliest among ties). A room
-     * qualifies only when its type matches AND it has no overlapping
-     * CONFIRMED/ACTIVE booking for the requested dates - Room.isAvailable()
-     * alone is checked only for a same-day check-in, since that also
-     * needs the room to be physically free and Housekeeping-ready right
-     * now. If no matching room is available, the guest remains at the
-     * front and null is returned.
-     */
+    /** Allocates a room to the guest at the front of the priority queue. */
     public Booking allocateNextVIPGuest() {
-        VIPAllocationRequest frontRequest = priorityQueue.peek();
+        VIPAllocationRequest frontRequest = priorityQueue.peek(); 
         if (frontRequest == null) {
             return null;
         }
@@ -451,7 +338,7 @@ public class VIPAllocationControl {
         boolean immediateCheckIn = requestedCheckInDate.equals(LocalDate.now());
 
         Room assignedRoom = null;
-        Iterator<Room> roomIterator = roomList.getIterator();
+        Iterator<Room> roomIterator = roomList.getIterator(); 
 
         while (roomIterator.hasNext()) {
             Room candidate = roomIterator.next();
@@ -477,10 +364,6 @@ public class VIPAllocationControl {
         String confirmationNumber = generateConfirmationNumber();
         String bookingTime = LocalDateTime.now().format(TIME_FORMAT);
 
-        // Full scheduled booking: checkInTime = null resolves status to
-        // CONFIRMED, amount is computed from the room's daily rate x
-        // nights, and paymentStatus defaults to UNPAID - Front-Desk
-        // settles it at actual check-in, same as the Walk-In flow.
         Booking booking = new Booking(
                 confirmationNumber,
                 frontRequest.getGuest(),
@@ -495,10 +378,6 @@ public class VIPAllocationControl {
             return null;
         }
 
-        // Physical room availability is only updated by Front-Desk at
-        // actual check-in/check-out. A future/CONFIRMED booking does not
-        // occupy the room yet, so room.setAvailable(false) is
-        // intentionally NOT called here.
         frontRequest.setStatus("ASSIGNED");
         priorityQueue.dequeue();
         return booking;
@@ -519,21 +398,16 @@ public class VIPAllocationControl {
     }
 
     public int getWaitingCount() {
-        return priorityQueue.getNumberOfEntries();
+        return priorityQueue.getNumberOfEntries(); 
     }
 
-    /**
-     * Returns every guest holding a priority membership tier (PLATINUM,
-     * DIAMOND, ELITE) - the only guests eligible to register a VIP
-     * allocation request. Used to show a guest directory before
-     * registration, so staff can see which Guest IDs are valid.
-     */
+    /** Returns every guest holding a priority membership tier (PLATINUM/DIAMOND/ELITE). */
     public Guest[] getPriorityTierGuests() {
         int total = guestList.getNumberOfEntries();
         Guest[] temp = new Guest[total];
         int count = 0;
         for (int i = 0; i < total; i++) {
-            Guest g = guestList.getEntry(i);
+            Guest g = guestList.getEntry(i); 
             if (g.getMembershipTier().isPriorityTier()) {
                 temp[count++] = g;
             }
@@ -545,10 +419,7 @@ public class VIPAllocationControl {
         return result;
     }
 
-    /**
-     * Report support: filters request history by membership tier and
-     * status. "ALL" matches everything for either filter.
-     */
+    /** Filters request history by membership tier and status*/
     public VIPAllocationRequest[] filterRequestHistory(
             String tierFilter, String statusFilter) {
 
@@ -584,7 +455,7 @@ public class VIPAllocationControl {
         return tierMatches && statusMatches;
     }
 
-    /** Self-implemented insertion sort by request time ascending. */
+    /** Insertion sort by request time ascending. */
     public void sortByRequestTime(VIPAllocationRequest[] requests) {
         for (int i = 1; i < requests.length; i++) {
             VIPAllocationRequest key = requests[i];
@@ -610,14 +481,14 @@ public class VIPAllocationControl {
     public VIPAllocationRequest[] getAllRequestHistory() {
         int total = requestHistory.getNumberOfEntries();
         VIPAllocationRequest[] result = new VIPAllocationRequest[total];
-        Iterator<VIPAllocationRequest> iterator = requestHistory.getIterator();
+        Iterator<VIPAllocationRequest> iterator = requestHistory.getIterator(); 
         int index = 0;
         while (iterator.hasNext()) {
             result[index++] = iterator.next();
         }
         return result;
     }
-    
+
     public VIPAllocationRequest[] getRequestsByGuestId(String guestId) {
         if (guestId == null || guestId.trim().isEmpty()) {
             return new VIPAllocationRequest[0];
@@ -656,7 +527,7 @@ public class VIPAllocationControl {
     }
 
     private boolean requestIdExists(String requestId) {
-        VIPAllocationRequest existing = requestHistory.searchByKey(
+        VIPAllocationRequest existing = requestHistory.searchByKey( 
                 requestId, request -> request.getRequestId());
         return existing != null;
     }

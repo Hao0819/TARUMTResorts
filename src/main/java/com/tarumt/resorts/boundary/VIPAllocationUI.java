@@ -11,7 +11,6 @@ import java.time.format.DateTimeParseException;
 import java.util.Scanner;
 
 /**
- * VIPAllocationUI.java
  * Console interface for the VIP & Loyalty Tier Priority Room Allocation
  * module.
  *
@@ -49,15 +48,15 @@ public class VIPAllocationUI {
             System.out.println("| " + " ".repeat(leftPadding) + menuTitle
                     + " ".repeat(rightPadding) + " |");
             System.out.println(menuBorder);
-            System.out.printf("| %-64s |%n", "1. Register new VIP allocation request");
-            System.out.printf("| %-64s |%n", "2. Allocate next VIP guest");
-            System.out.printf("| %-64s |%n", "3. View VIP priority queue");
-            System.out.printf("| %-64s |%n", "4. Update waiting VIP request");
-            System.out.printf("| %-64s |%n", "5. Cancel waiting VIP request");
+            System.out.printf("| %-64s |%n", "1. Register New VIP Allocation Request");
+            System.out.printf("| %-64s |%n", "2. Allocate Next VIP Guest");
+            System.out.printf("| %-64s |%n", "3. View VIP Priority Queue");
+            System.out.printf("| %-64s |%n", "4. Update Waiting VIP Request");
+            System.out.printf("| %-64s |%n", "5. Cancel Waiting VIP Request");
             System.out.printf("| %-64s |%n", "6. VIP Priority Queue Report");
             System.out.printf("| %-64s |%n", "7. VIP Allocation History Report");
             System.out.printf("| %-64s |%n", "8. Search Request ID and Guest ID");
-            System.out.printf("| %-64s |%n", "0. Back to main menu");
+            System.out.printf("| %-64s |%n", "0. Back To Main Menu");
             System.out.println(menuBorder);
             System.out.print("Enter choice: ");
 
@@ -82,8 +81,6 @@ public class VIPAllocationUI {
                 default -> System.out.println("Invalid choice.");
             }
 
-            // Keep the result on screen instead of immediately reprinting
-            // the menu underneath it - the user decides when to continue.
             if (choice != 0) {
                 System.out.print("\nPress Enter to return to the VIP Allocation menu...");
                 sc.nextLine();
@@ -92,9 +89,7 @@ public class VIPAllocationUI {
     }
 
     // =====================================================================
-    // Shared prompt helpers (Register flow - full prompt, no "keep current").
-    // Each returns null when the user enters "0", so the flow can be
-    // backed out of at any step.
+    // Shared prompt helpers (Register flow). Return null on "0" (back).
     // =====================================================================
 
     private String promptRoomTypeCode() {
@@ -118,7 +113,6 @@ public class VIPAllocationUI {
         }
     }
 
-    /** Returns null when the user enters "0" (back) instead of a duration. */
     private Integer promptStayDuration() {
         while (true) {
             System.out.print("Enter stay duration in nights (1-30, 0 = back): ");
@@ -132,15 +126,13 @@ public class VIPAllocationUI {
                     return nights;
                 }
             } catch (NumberFormatException ignored) {
-                // message below handles it
             }
             System.out.println("Stay duration must be between 1 and 30 nights.");
         }
     }
 
     // =====================================================================
-    // Shared prompt helpers (Update flow - accept "na" to keep the current
-    // value unchanged). Returns null only on "0" (abort the whole update).
+    // Shared prompt helpers (Update flow). "na" keeps current value.
     // =====================================================================
 
     private String promptRoomTypeCodeOrKeep(String currentRoomType) {
@@ -185,45 +177,93 @@ public class VIPAllocationUI {
                     return nights;
                 }
             } catch (NumberFormatException ignored) {
-                // message below handles it
             }
             System.out.println("Stay duration must be between 1 and 30 nights.");
         }
     }
 
-    /**
-     * Asks whether the check-in date should change at all before touching
-     * the calendar. "na" keeps the existing date exactly as-is (no
-     * re-validation against the possibly-updated room type/duration);
-     * anything else drops into the normal calendar picker.
-     */
+
     private LocalDate promptCalendarCheckInDateOrKeep(
             String roomType, int stayDurationDays, LocalDate currentCheckInDate) {
 
-        System.out.print("Change check-in date? (Y = pick a new date, na = keep current ["
-                + currentCheckInDate + "], 0 = back): ");
-        String choice = sc.nextLine().trim();
-        if (choice.equals("0")) {
-            return null;
+        while (true) {
+            YearMonth selectedMonth;
+            while (true) {
+                System.out.print("Enter booking month (YYYY-MM, na = keep current, 0 = back): ");
+                String input = sc.nextLine().trim();
+                if (input.equals("0")) {
+                    return null;
+                }
+                if (input.equalsIgnoreCase("na")) {
+                    return currentCheckInDate;
+                }
+                try {
+                    selectedMonth = YearMonth.parse(input);
+                    if (selectedMonth.isBefore(YearMonth.now())) {
+                        System.out.println("Booking month cannot be in the past.");
+                        continue;
+                    }
+                    break;
+                } catch (DateTimeParseException e) {
+                    System.out.println("Invalid month. Example: 2026-09");
+                }
+            }
+
+            displayBookingCalendar(selectedMonth, roomType);
+
+            while (true) {
+                System.out.print("Enter check-in day (1-" + selectedMonth.lengthOfMonth()
+                        + "), M to change month, or 0 to cancel: ");
+                String dayInput = sc.nextLine().trim();
+
+                if (dayInput.equals("0")) {
+                    return null;
+                }
+                if (dayInput.equalsIgnoreCase("M")) {
+                    break;
+                }
+
+                int selectedDay;
+                try {
+                    selectedDay = Integer.parseInt(dayInput);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid day. Enter a number shown on the calendar.");
+                    continue;
+                }
+
+                if (selectedDay < 1 || selectedDay > selectedMonth.lengthOfMonth()) {
+                    System.out.println("Invalid day for " + selectedMonth.getMonth()
+                            + " " + selectedMonth.getYear() + ".");
+                    continue;
+                }
+
+                LocalDate selectedDate = selectedMonth.atDay(selectedDay);
+                if (selectedDate.isBefore(LocalDate.now())) {
+                    System.out.println("Check-in date cannot be in the past.");
+                    continue;
+                }
+
+                boolean dateAvailable = control.hasAvailableRoomForSchedule(
+                        roomType, selectedDate, stayDurationDays);
+
+                if (!dateAvailable) {
+                    LocalDate checkOutPreview = selectedDate.plusDays(stayDurationDays);
+                    System.out.println("No single " + roomType
+                            + " room is available for the complete stay from "
+                            + selectedDate + " to " + checkOutPreview + ".");
+                    System.out.println("Please choose another check-in day or enter M to change month.");
+                    continue;
+                }
+
+                return selectedDate;
+            }
         }
-        if (choice.equalsIgnoreCase("na")) {
-            return currentCheckInDate;
-        }
-        return promptCalendarCheckInDate(roomType, stayDurationDays);
     }
 
     // =====================================================================
-    // Calendar-based check-in date selection. Shows a monthly view marking
-    // which days are already fully booked for the chosen room type (X),
-    // so the guest/staff can see availability before picking a date.
+    // Calendar-based check-in date selection (Register flow).
     // =====================================================================
 
-    /**
-     * Displays a monthly booking calendar for one room type. A day shows
-     * X when NO room of that type is free for at least a single night
-     * starting that day (i.e. the day is fully booked); past days show
-     * "-".
-     */
     private void displayBookingCalendar(YearMonth selectedMonth, String roomType) {
         String border = "+------+------+------+------+------+------+------+";
 
@@ -279,11 +319,6 @@ public class VIPAllocationUI {
         System.out.println("- = Past date; X = No " + roomType + " room available that night (fully booked).");
     }
 
-    /**
-     * Lets the user browse the calendar and pick a check-in date, then
-     * validates that the FULL requested stay (not just the first night)
-     * is free before accepting it. Returns null if the user backs out.
-     */
     private LocalDate promptCalendarCheckInDate(String roomType, int stayDurationDays) {
         while (true) {
             YearMonth selectedMonth;
@@ -357,8 +392,7 @@ public class VIPAllocationUI {
     }
 
     // =====================================================================
-    // Guest directory (priority-tier guests only - the only ones eligible
-    // to register a VIP request).
+    // Priority-tier guest directory.
     // =====================================================================
 
     private void displayPriorityGuestDirectory() {
@@ -565,11 +599,6 @@ public class VIPAllocationUI {
     // Search by Request ID or Guest ID.
     // =====================================================================
 
-    /**
-     * Compact directory shown before searching: only the fields needed
-     * to pick an ID (Request ID, Guest Name, Tier, Guest ID) - the full
-     * detail table is shown only after a specific search is resolved.
-     */
     private void displaySearchDirectory() {
         VIPAllocationRequest[] all = control.getAllRequestHistory();
 
@@ -607,7 +636,7 @@ public class VIPAllocationUI {
 
         int searchMode;
         while (true) {
-            System.out.println("\nSearch by:");
+            System.out.println("\nSearch By:");
             System.out.println("1. Request ID");
             System.out.println("2. Guest ID");
             System.out.println("0. Back");
@@ -647,7 +676,6 @@ public class VIPAllocationUI {
             return;
         }
 
-        // searchMode == 2 : search by Guest ID
         System.out.print("\nEnter Guest ID to search (0 = back): ");
         String guestId = sc.nextLine().trim();
         if (guestId.equals("0") || guestId.isEmpty()) {
@@ -664,7 +692,6 @@ public class VIPAllocationUI {
         printGuestRequestsTable(guestId, guestRequests);
     }
 
-    /** Full-detail table of every request belonging to one guest. */
     private void printGuestRequestsTable(String guestId, VIPAllocationRequest[] requests) {
         String border = "+----------+----------------------+----------+----------+------------+"
                 + "------------------+------------+------------+-----------+";
@@ -703,51 +730,55 @@ public class VIPAllocationUI {
     // Allocate next guest.
     // =====================================================================
 
-private void allocateNextGuest() {
-    if (control.getWaitingCount() == 0) {
-        System.out.println("The VIP priority queue is empty.");
-        return;
+    private void allocateNextGuest() {
+        if (control.getWaitingCount() == 0) {
+            System.out.println("The VIP priority queue is empty.");
+            return;
+        }
+
+        Booking booking = control.allocateNextVIPGuest();
+
+        if (booking == null) {
+            System.out.println(
+                    "No matching available room for the front VIP guest's requested dates. "
+                    + "The guest remains at the front of the priority queue.");
+            return;
+        }
+
+        printBookingDetailsTable(booking, "VIP BOOKING CREATED");
     }
 
-    Booking booking = control.allocateNextVIPGuest();
+    private void printBookingDetailsTable(Booking booking, String title) {
+        String border = "+----------------------+--------------------------------+";
+        int contentWidth = 55;
+        int leftPadding = (contentWidth - title.length()) / 2;
+        int rightPadding = contentWidth - title.length() - leftPadding;
 
-    if (booking == null) {
-        System.out.println(
-                "No matching available room for the front VIP guest's requested dates. "
-                + "The guest remains at the front of the priority queue.");
-        return;
+        System.out.println();
+        System.out.println(border);
+        System.out.printf("|%s%s%s|%n", " ".repeat(leftPadding), title, " ".repeat(rightPadding));
+        System.out.println(border);
+        System.out.printf("| %-20s | %-30s |%n", "Confirmation No.", booking.getConfirmationNumber());
+        System.out.printf("| %-20s | %-30s |%n", "Guest ID", booking.getGuest().getGuestId());
+        System.out.printf("| %-20s | %-30.30s |%n", "Guest Name", booking.getGuest().getName());
+        System.out.printf("| %-20s | %-30s |%n", "Membership Tier", booking.getGuest().getMembershipTier());
+        System.out.printf("| %-20s | %-30s |%n", "Room Number", booking.getRoom().getRoomNumber());
+        System.out.printf("| %-20s | %-30s |%n", "Room Type", booking.getRoom().getRoomType());
+        System.out.printf("| %-20s | %-30s |%n", "Scheduled Check-In", booking.getScheduledCheckInDate());
+        System.out.printf("| %-20s | %-30s |%n", "Scheduled Check-Out", booking.getScheduledCheckOutDate());
+        System.out.printf("| %-20s | %-30s |%n", "Stay Duration",
+                booking.getStayDurationDays() + (booking.getStayDurationDays() == 1 ? " night" : " nights"));
+        System.out.printf("| %-20s | %-30s |%n", "Gross Amount", String.format("RM %,.2f", booking.getAmount()));
+        System.out.printf("| %-20s | %-30s |%n", "Discount Rate",
+                String.format("%.0f%%", booking.getDiscountRate() * 100));
+        System.out.printf("| %-20s | %-30s |%n", "Discount Amount", String.format("RM %,.2f", booking.getDiscountAmount()));
+        System.out.printf("| %-20s | %-30s |%n", "Final Amount", String.format("RM %,.2f", booking.getFinalAmount()));
+        System.out.printf("| %-20s | %-30s |%n", "Payment Status", booking.getPaymentStatus());
+        System.out.printf("| %-20s | %-30s |%n", "Booking Status", booking.getStatus());
+        System.out.printf("| %-20s | %-30s |%n", "Booking Time", booking.getBookingCreatedTime());
+        System.out.println(border);
     }
 
-    printBookingDetailsTable(booking, "VIP BOOKING CREATED");
-}
-
-/** Table format for a newly created booking, matching printRequestDetailsTable's style. */
-private void printBookingDetailsTable(Booking booking, String title) {
-    String border = "+----------------------+--------------------------------+";
-    int contentWidth = 55;
-    int leftPadding = (contentWidth - title.length()) / 2;
-    int rightPadding = contentWidth - title.length() - leftPadding;
-
-    System.out.println();
-    System.out.println(border);
-    System.out.printf("|%s%s%s|%n", " ".repeat(leftPadding), title, " ".repeat(rightPadding));
-    System.out.println(border);
-    System.out.printf("| %-20s | %-30s |%n", "Confirmation No.", booking.getConfirmationNumber());
-    System.out.printf("| %-20s | %-30s |%n", "Guest ID", booking.getGuest().getGuestId());
-    System.out.printf("| %-20s | %-30.30s |%n", "Guest Name", booking.getGuest().getName());
-    System.out.printf("| %-20s | %-30s |%n", "Membership Tier", booking.getGuest().getMembershipTier());
-    System.out.printf("| %-20s | %-30s |%n", "Room Number", booking.getRoom().getRoomNumber());
-    System.out.printf("| %-20s | %-30s |%n", "Room Type", booking.getRoom().getRoomType());
-    System.out.printf("| %-20s | %-30s |%n", "Scheduled Check-In", booking.getScheduledCheckInDate());
-    System.out.printf("| %-20s | %-30s |%n", "Scheduled Check-Out", booking.getScheduledCheckOutDate());
-    System.out.printf("| %-20s | %-30s |%n", "Stay Duration",
-            booking.getStayDurationDays() + (booking.getStayDurationDays() == 1 ? " night" : " nights"));
-    System.out.printf("| %-20s | %-30s |%n", "Amount", String.format("RM %,.2f", booking.getAmount()));
-    System.out.printf("| %-20s | %-30s |%n", "Payment Status", booking.getPaymentStatus());
-    System.out.printf("| %-20s | %-30s |%n", "Booking Status", booking.getStatus());
-    System.out.printf("| %-20s | %-30s |%n", "Booking Time", booking.getBookingCreatedTime());
-    System.out.println(border);
-}
     // =====================================================================
     // Detail table (used by Register, Update, Cancel-preview, and Search).
     // =====================================================================
@@ -927,9 +958,7 @@ private void printBookingDetailsTable(Booking booking, String title) {
     }
 
     // =====================================================================
-    // Bar chart helper - shared by both reports. Horizontal bars keep the
-    // chart to 3 short lines instead of a tall vertical chart, so it adds
-    // useful context without flooding the screen.
+    // Bar chart helper - shared by both reports.
     // =====================================================================
 
     private void printTierBarChart(VIPAllocationRequest[] requests, String chartTitle) {
@@ -942,7 +971,7 @@ private void printBookingDetailsTable(Booking booking, String title) {
                 case PLATINUM -> platinumCount++;
                 case DIAMOND -> diamondCount++;
                 case ELITE -> eliteCount++;
-                default -> { /* non-priority tiers never appear in VIP data */ }
+                default -> { }
             }
         }
 
@@ -970,7 +999,6 @@ private void printBookingDetailsTable(Booking booking, String title) {
     // Filter prompts.
     // =====================================================================
 
-    /** Returns null when the user chooses "0. Back" instead of a tier. */
     private String readTierFilter() {
         while (true) {
             System.out.println("\nMembership Tier Filter");
@@ -991,7 +1019,6 @@ private void printBookingDetailsTable(Booking booking, String title) {
         }
     }
 
-    /** Returns null when the user chooses "0. Back" instead of a status. */
     private String readStatusFilter() {
         while (true) {
             System.out.println("\nRequest Status Filter");

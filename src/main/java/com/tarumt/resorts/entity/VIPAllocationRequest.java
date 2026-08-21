@@ -3,10 +3,8 @@ package com.tarumt.resorts.entity;
 import java.time.LocalDate;
 
 /**
- * VIPAllocationRequest.java
- * Represents a single VIP/loyalty-tier guest's request for priority
- * room allocation. Mirrors WalkInRegistration's structure, but requests
- * are ordered by membership tier priority instead of strict arrival time.
+ * Represents one VIP/loyalty-tier guest's request for priority room
+ * allocation.
  *
  * @author brian
  */
@@ -15,21 +13,13 @@ public class VIPAllocationRequest {
     private Guest guest;
     private String requestTime;
     private String requestedRoomType;
-    // Date on which the guest plans to begin the stay.
     private LocalDate requestedCheckInDate;
-    // Number of nights requested by the guest.
     private int stayDurationDays;
-    private String status; // "WAITING", "ASSIGNED", "CANCELLED"
+    private String status;
 
     public VIPAllocationRequest() {
     }
 
-    /**
-     * Creates a VIP allocation request with its requested stay schedule.
-     * A request always needs a room type, check-in date, and stay
-     * duration up front, so the allocation step can check for booking
-     * overlaps instead of only trusting Room.isAvailable().
-     */
     public VIPAllocationRequest(
             String requestId,
             Guest guest,
@@ -103,10 +93,7 @@ public class VIPAllocationRequest {
         this.stayDurationDays = stayDurationDays;
     }
 
-    /**
-     * Calculates the requested check-out date from the check-in date
-     * and number of nights.
-     */
+    /** Calculated from check-in date + stay duration. */
     public LocalDate getRequestedCheckOutDate() {
         if (requestedCheckInDate == null || stayDurationDays <= 0) {
             return null;

@@ -8,10 +8,8 @@ import com.tarumt.resorts.entity.VIPAllocationRequest;
 import java.time.LocalDate;
 
 /**
- * VIPAllocationDAO.java
- * Provides hard-coded VIP Allocation request history for the VIP &
- * Loyalty Tier Priority Room Allocation module. Reuses Guest objects
- * from the shared Guest Queue so IDs stay consistent across modules.
+ * Hard-coded VIP Allocation request history. Reuses Guest objects from
+ * the shared Guest Queue so IDs stay consistent across modules.
  *
  * @author brian
  */
@@ -58,8 +56,7 @@ public class VIPAllocationDAO {
                     requestId, guest, requestTime, roomType,
                     checkInDate, stayDurationDays);
 
-            // Constructor defaults to WAITING, so override for
-            // sample history records that already completed/cancelled.
+            // Constructor defaults to WAITING; override for completed/cancelled sample records.
             request.setStatus(status);
             requestHistory.enqueue(request);
         }
