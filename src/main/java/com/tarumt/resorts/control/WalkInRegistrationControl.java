@@ -697,10 +697,9 @@ public class WalkInRegistrationControl {
                     .equalsIgnoreCase(
                             roomType.trim());
 
-            boolean operationallyReady = !immediateCheckIn
-                    || (candidateRoom.isAvailable()
-                            && isReadyForAllocation(
-                                    candidateRoom));
+            // Cleaning status applies to every date shown, not just today - a DIRTY room never shows as bookable.
+            boolean operationallyReady = isReadyForAllocation(candidateRoom)
+                    && (!immediateCheckIn || candidateRoom.isAvailable());
 
             boolean scheduleAvailable = isRoomAvailableForSchedule(
                     candidateRoom,
