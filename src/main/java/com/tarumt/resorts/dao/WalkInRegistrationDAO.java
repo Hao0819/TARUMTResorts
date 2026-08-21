@@ -60,6 +60,11 @@ public class WalkInRegistrationDAO {
                                 { "WR0012", "G019", "2026-08-11 16:00", "Suite",
                                                 "CANCELLED", "2026-08-25", "3", "" },
 
+                                // Deliberately blocked: every Suite room has a CONFIRMED/ACTIVE
+                                // booking overlapping 2026-08-25 - 2026-08-26 in BookingDAO, so
+                                // this front-of-queue request has zero available Suite rooms and
+                                // demonstrates strict FIFO blocking - Process Next must leave it
+                                // at the front instead of skipping to WR0014 behind it.
                                 { "WR0013", "G002", "2026-08-12 08:00", "Suite",
                                                 "WAITING", "2026-08-25", "1", "" },
 

@@ -481,12 +481,20 @@ public class WalkInRegistrationControl {
         Guest newGuest = new Guest(
                 newGuestId,
                 name,
-                normalizeContact(contactNumber),
+                formatContact(normalizeContact(contactNumber)),
                 email,
                 MembershipTier.NONE);
 
         guestList.enqueue(newGuest); // ADT method call: enqueue()
         return newGuest;
+    }
+
+    // Reformats a normalized number back into the "XXX-XXXXXXX" style used across the seed data.
+    private String formatContact(String normalizedContact) {
+        if (normalizedContact == null || normalizedContact.length() < 4) {
+            return normalizedContact;
+        }
+        return normalizedContact.substring(0, 3) + "-" + normalizedContact.substring(3);
     }
 
     // Strips spaces and dashes from a contact number so formats like "012-3456789" can be compared.
