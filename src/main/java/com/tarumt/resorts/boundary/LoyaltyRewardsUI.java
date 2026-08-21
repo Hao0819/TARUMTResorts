@@ -29,6 +29,7 @@ import java.time.format.DateTimeParseException;
  * Boundary class for the Loyalty and Rewards Service.
  * Handles user input/output only and delegates business logic to
  * {@link LoyaltyRewardsControl}.
+ * @author Gary Khor Wei Qi 
  */
 public class LoyaltyRewardsUI {
 
@@ -121,7 +122,7 @@ public class LoyaltyRewardsUI {
  */
 private void displayAllLoyaltyAccounts() {
 
-    ListQueueInterface<LoyaltyAccount> accounts =
+    ListQueueInterface<LoyaltyAccount> accounts = // ADT collection declaration
             loyaltyControl.getLoyaltyAccounts();
 
     displayAccountList(accounts);
@@ -474,10 +475,10 @@ int selectedOption = readChoice();
     System.out.println(
             "+--------------------------------------------------------------------------------+");
 
-    ListQueueInterface<RedemptionRequest> requests =
+    ListQueueInterface<RedemptionRequest> requests = // ADT collection declaration
             loyaltyControl.getPendingRedemptionRequests();
 
-    if (requests == null || requests.isEmpty()) {
+    if (requests == null || requests.isEmpty()) { // ADT method call: isEmpty()
         System.out.println(
                 "No pending redemption requests.");
         return;
@@ -499,7 +500,7 @@ int selectedOption = readChoice();
     System.out.println(border);
 
     Iterator<RedemptionRequest> requestIterator =
-            requests.getIterator();
+            requests.getIterator(); // ADT method call: getIterator()
 
     while (requestIterator.hasNext()) {
 
@@ -525,7 +526,7 @@ int selectedOption = readChoice();
 
     System.out.println(
             "Total pending requests: "
-            + requests.getNumberOfEntries());
+            + requests.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
 
     System.out.println(
             "Requests are processed in FIFO order.");
@@ -541,17 +542,17 @@ int selectedOption = readChoice();
     System.out.println(
             "+------------------------------------------------+");
 
-    ListQueueInterface<RedemptionRequest> requests =
+    ListQueueInterface<RedemptionRequest> requests = // ADT collection declaration
             loyaltyControl.getPendingRedemptionRequests();
 
-    if (requests == null || requests.isEmpty()) {
+    if (requests == null || requests.isEmpty()) { // ADT method call: isEmpty()
         System.out.println(
                 "No pending redemption requests.");
         return;
     }
 
     RedemptionRequest nextRequest =
-            requests.peek();
+            requests.peek(); // ADT method call: peek()
 
     System.out.println("Next request:");
     System.out.println(
@@ -613,10 +614,10 @@ int selectedOption = readChoice();
     System.out.println(
             "+------------------------------------------------+");
 
-    ListQueueInterface<RedemptionRequest> requests =
+    ListQueueInterface<RedemptionRequest> requests = // ADT collection declaration
             loyaltyControl.getPendingRedemptionRequests();
 
-    if (requests == null || requests.isEmpty()) {
+    if (requests == null || requests.isEmpty()) { // ADT method call: isEmpty()
         System.out.println(
                 "No pending redemption requests.");
         return;
@@ -871,13 +872,13 @@ int selectedOption = readChoice();
     /** Displays completed Booking confirmation numbers before lookup input. */
     private void displayCompletedStayBookingList() {
 
-        ListQueueInterface<Booking> completedBookings =
+        ListQueueInterface<Booking> completedBookings = // ADT collection declaration
                 loyaltyControl.getCompletedStayBookingsForDisplay();
 
         System.out.println();
         System.out.println("COMPLETED-STAY BOOKING LIST");
 
-        if (completedBookings == null || completedBookings.isEmpty()) {
+        if (completedBookings == null || completedBookings.isEmpty()) { // ADT method call: isEmpty()
             System.out.println("No completed-stay bookings available.");
             System.out.println();
             return;
@@ -892,7 +893,7 @@ int selectedOption = readChoice();
                 "Payment", "Amount", "Point Status");
         System.out.println(border);
 
-        Iterator<Booking> iterator = completedBookings.getIterator();
+        Iterator<Booking> iterator = completedBookings.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             Booking booking = iterator.next();
@@ -914,7 +915,7 @@ int selectedOption = readChoice();
 
         System.out.println(border);
         System.out.println("Total completed stays: "
-                + completedBookings.getNumberOfEntries());
+                + completedBookings.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
         System.out.println();
     }
 
@@ -1005,7 +1006,7 @@ int selectedOption = readChoice();
             return;
         }
 
-        ListQueueInterface<LoyaltyAccount> filteredAccounts =
+        ListQueueInterface<LoyaltyAccount> filteredAccounts = // ADT collection declaration
         loyaltyControl.filterMembers(
         selectedTier,
         statusOption,
@@ -1122,11 +1123,11 @@ int selectedOption = readChoice();
     }
 
     private void displayAccountList(
-        ListQueueInterface<LoyaltyAccount> accounts) {
+        ListQueueInterface<LoyaltyAccount> accounts) { // ADT collection declaration
 
     System.out.println();
 
-    if (accounts == null || accounts.isEmpty()) {
+    if (accounts == null || accounts.isEmpty()) { // ADT method call: isEmpty()
         System.out.println(
                 "No loyalty members match the selected filters.");
         return;
@@ -1167,7 +1168,7 @@ int selectedOption = readChoice();
     System.out.println(border);
 
     Iterator<LoyaltyAccount> accountIterator =
-            accounts.getIterator();
+            accounts.getIterator(); // ADT method call: getIterator()
 
     while (accountIterator.hasNext()) {
 
@@ -1191,7 +1192,7 @@ int selectedOption = readChoice();
 
     System.out.printf(
             "Total matching members: %d%n",
-            accounts.getNumberOfEntries());
+            accounts.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
 }
 
     /** Displays management KPIs, tier results and reward popularity. */
@@ -1334,7 +1335,7 @@ int selectedOption = readChoice();
         int alertPeriodDays =
                 loyaltyControl.getExpiryNotificationDays();
 
-        ListQueueInterface<LoyaltyTransaction> alerts =
+        ListQueueInterface<LoyaltyTransaction> alerts = // ADT collection declaration
                 loyaltyControl.generateExpiringPointsReport(
                         currentTime,
                         currentTime.plusDays(alertPeriodDays),
@@ -1355,7 +1356,7 @@ int selectedOption = readChoice();
                 + currentTime.plusDays(
                         alertPeriodDays).toLocalDate());
 
-        if (alerts == null || alerts.isEmpty()) {
+        if (alerts == null || alerts.isEmpty()) { // ADT method call: isEmpty()
 
             System.out.println();
             System.out.println(
@@ -1375,12 +1376,12 @@ int selectedOption = readChoice();
      * @param transactions custom ADT containing expiring point batches
      */
     private void displayExpiringTransactionList(
-    ListQueueInterface<LoyaltyTransaction> transactions) {
+    ListQueueInterface<LoyaltyTransaction> transactions) { // ADT collection declaration
 
         System.out.println();
 
         if (transactions == null
-        || transactions.isEmpty()) {
+        || transactions.isEmpty()) { // ADT method call: isEmpty()
 
             System.out.println(
             "No expiring points match the selected filters.");
@@ -1406,7 +1407,7 @@ System.out.printf(
 System.out.println(border);
 
 Iterator<LoyaltyTransaction> transactionIterator =
-        transactions.getIterator();
+        transactions.getIterator(); // ADT method call: getIterator()
 
 while (transactionIterator.hasNext()) {
 
@@ -1438,7 +1439,7 @@ System.out.println(border);
 
 System.out.println(
         "Total expiring point batches: "
-        + transactions.getNumberOfEntries());
+        + transactions.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
     }
 
     /**
@@ -1475,14 +1476,14 @@ System.out.println(
 
         displayAccountDetails(account);
 
-        ListQueueInterface<LoyaltyTransaction> transactions =
-                loyaltyControl.getLoyaltyTransactions().filter(
+        ListQueueInterface<LoyaltyTransaction> transactions = // ADT collection declaration
+                loyaltyControl.getLoyaltyTransactions().filter( // ADT method call: filter()
                         transaction -> transaction != null
                         && transaction.getLoyaltyId() != null
                         && transaction.getLoyaltyId()
                                 .equalsIgnoreCase(loyaltyId));
 
-        if (transactions.isEmpty()) {
+        if (transactions.isEmpty()) { // ADT method call: isEmpty()
             System.out.println();
             System.out.println("No point transactions for this member.");
             return;
@@ -1499,7 +1500,7 @@ System.out.println(
         System.out.println(border);
 
         Iterator<LoyaltyTransaction> iterator =
-                transactions.getIterator();
+                transactions.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             LoyaltyTransaction transaction = iterator.next();
@@ -1523,7 +1524,7 @@ System.out.println(
 
         System.out.println(border);
         System.out.println("Total transactions: "
-                + transactions.getNumberOfEntries());
+                + transactions.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
     }
     
     /**

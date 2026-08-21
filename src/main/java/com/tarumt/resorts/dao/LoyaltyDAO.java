@@ -19,27 +19,28 @@ import java.util.Iterator;
  * Builds Loyalty demo data from the shared Guest and Booking objects.
  * Accounts start at zero and the transaction ledger becomes the source of
  * their balances. Storage and traversal use only the team's custom ADT.
+ * @author Gary Khor Wei Qi
  */
 public class LoyaltyDAO {
 
     private static final DateTimeFormatter BOOKING_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    private final ListQueueInterface<LoyaltyAccount> loyaltyAccounts;
-    private final ListQueueInterface<LoyaltyTransaction> loyaltyTransactions;
-    private final ListQueueInterface<Guest> guests;
-    private final ListQueueInterface<Booking> bookings;
+    private final ListQueueInterface<LoyaltyAccount> loyaltyAccounts; // ADT collection declaration
+    private final ListQueueInterface<LoyaltyTransaction> loyaltyTransactions; // ADT collection declaration
+    private final ListQueueInterface<Guest> guests; // ADT collection declaration
+    private final ListQueueInterface<Booking> bookings; // ADT collection declaration
 
     public LoyaltyDAO(
-            ListQueueInterface<Guest> guests,
-            ListQueueInterface<Booking> bookings) {
+            ListQueueInterface<Guest> guests, // ADT collection declaration
+            ListQueueInterface<Booking> bookings) { // ADT collection declaration
 
         this.guests = guests == null
                 ? new DoublyLinkedListQueue<>() : guests;
         this.bookings = bookings == null
                 ? new DoublyLinkedListQueue<>() : bookings;
-        loyaltyAccounts = new DoublyLinkedListQueue<>();
-        loyaltyTransactions = new DoublyLinkedListQueue<>();
+        loyaltyAccounts = new DoublyLinkedListQueue<>(); // ADT implementation creation
+        loyaltyTransactions = new DoublyLinkedListQueue<>(); // ADT implementation creation
 
         initializeLoyaltyAccounts();
         initializeLoyaltyTransactions();
@@ -90,7 +91,7 @@ public class LoyaltyDAO {
             account.setDeactivatedAt(LoyaltyClock.now());
         }
 
-        loyaltyAccounts.enqueue(account);
+        loyaltyAccounts.enqueue(account); // ADT method call: enqueue()
     }
 
     /** Seeds every opening point batch from a real completed paid Booking. */
@@ -146,14 +147,14 @@ public class LoyaltyDAO {
     private void initializeAccountActivity(LocalDateTime seedTime) {
 
         Iterator<LoyaltyAccount> accountIterator =
-                loyaltyAccounts.getIterator();
+                loyaltyAccounts.getIterator(); // ADT method call: getIterator()
 
         while (accountIterator.hasNext()) {
             LoyaltyAccount account = accountIterator.next();
             LocalDateTime lastActivity = null;
             LocalDateTime nextExpiry = null;
             Iterator<LoyaltyTransaction> transactionIterator =
-                    loyaltyTransactions.getIterator();
+                    loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
             while (transactionIterator.hasNext()) {
                 LoyaltyTransaction transaction = transactionIterator.next();
@@ -204,11 +205,11 @@ public class LoyaltyDAO {
             return;
         }
 
-        ListQueueInterface<LoyaltyTransaction> usableBatches =
-                new DoublyLinkedListQueue<>();
+        ListQueueInterface<LoyaltyTransaction> usableBatches = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
         int availablePoints = 0;
         Iterator<LoyaltyTransaction> iterator =
-                loyaltyTransactions.getIterator();
+                loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             LoyaltyTransaction transaction = iterator.next();
@@ -226,7 +227,7 @@ public class LoyaltyDAO {
                 continue;
             }
 
-            usableBatches.priorityEnqueue(
+            usableBatches.priorityEnqueue( // ADT method call: priorityEnqueue()
                     transaction,
                     (first, second) -> first.getExpiryTime()
                             .compareTo(second.getExpiryTime()));
@@ -245,7 +246,7 @@ public class LoyaltyDAO {
 
         int remainingToRedeem = points;
         LocalDateTime firstBatchExpiry = null;
-        iterator = usableBatches.getIterator();
+        iterator = usableBatches.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext() && remainingToRedeem > 0) {
             LoyaltyTransaction batch = iterator.next();
@@ -270,13 +271,13 @@ public class LoyaltyDAO {
         redemption.recordRemovalResult(
                 availablePoints - points,
                 firstBatchExpiry);
-        loyaltyTransactions.enqueue(redemption);
+        loyaltyTransactions.enqueue(redemption); // ADT method call: enqueue()
     }
 
     /** Converts every shared historical Loyalty Booking into one EARN batch. */
     private void addHistoricalBookingEarnTransactions() {
 
-        Iterator<Booking> iterator = bookings.getIterator();
+        Iterator<Booking> iterator = bookings.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             Booking booking = iterator.next();
@@ -289,7 +290,7 @@ public class LoyaltyDAO {
                 continue;
             }
 
-            LoyaltyAccount account = loyaltyAccounts.searchByKey(
+            LoyaltyAccount account = loyaltyAccounts.searchByKey( // ADT method call: searchByKey()
                     booking.getGuest().getGuestId(),
                     loyaltyAccount -> loyaltyAccount.getGuestId());
 
@@ -337,8 +338,7 @@ public class LoyaltyDAO {
                 generateInitialTransactionId(), loyaltyId,
                 booking.getConfirmationNumber(), TransactionType.EARN,
                 earnedPoints, earnedTime, expiryTime);
-        // ADT method called: enqueue()
-        loyaltyTransactions.enqueue(earnTransaction);
+        loyaltyTransactions.enqueue(earnTransaction); // ADT method call: enqueue()
 
         return true;
     }
@@ -368,7 +368,7 @@ public class LoyaltyDAO {
     private boolean hasSeededBooking(String bookingId) {
 
         Iterator<LoyaltyTransaction> iterator =
-                loyaltyTransactions.getIterator();
+                loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             LoyaltyTransaction transaction = iterator.next();
@@ -387,14 +387,14 @@ public class LoyaltyDAO {
     private void deriveAccountsFromLedger(LocalDateTime currentTime) {
 
         Iterator<LoyaltyAccount> accountIterator =
-                loyaltyAccounts.getIterator();
+                loyaltyAccounts.getIterator(); // ADT method call: getIterator()
 
         while (accountIterator.hasNext()) {
             LoyaltyAccount account = accountIterator.next();
             int balance = 0;
             int qualifyingPoints = 0;
             Iterator<LoyaltyTransaction> transactionIterator =
-                    loyaltyTransactions.getIterator();
+                    loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
             while (transactionIterator.hasNext()) {
                 LoyaltyTransaction transaction = transactionIterator.next();
@@ -425,7 +425,7 @@ public class LoyaltyDAO {
 
     private void validateLedgerBalances(LocalDateTime currentTime) {
 
-        Iterator<LoyaltyAccount> iterator = loyaltyAccounts.getIterator();
+        Iterator<LoyaltyAccount> iterator = loyaltyAccounts.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             LoyaltyAccount account = iterator.next();
@@ -448,7 +448,7 @@ public class LoyaltyDAO {
 
         int total = 0;
         Iterator<LoyaltyTransaction> iterator =
-                loyaltyTransactions.getIterator();
+                loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             LoyaltyTransaction transaction = iterator.next();
@@ -497,22 +497,22 @@ public class LoyaltyDAO {
     }
 
     private Guest findGuestById(String guestId) {
-        return guests.searchByKey(guestId, guest -> guest.getGuestId());
+        return guests.searchByKey(guestId, guest -> guest.getGuestId()); // ADT method call: searchByKey()
     }
 
     private Booking findBookingById(String bookingId) {
-        return bookings.searchByKey(
+        return bookings.searchByKey( // ADT method call: searchByKey()
                 bookingId, booking -> booking.getConfirmationNumber());
     }
 
     private LoyaltyAccount findAccountByLoyaltyId(String loyaltyId) {
-        return loyaltyAccounts.searchByKey(
+        return loyaltyAccounts.searchByKey( // ADT method call: searchByKey()
                 loyaltyId, account -> account.getLoyaltyId());
     }
 
     private String generateInitialTransactionId() {
         return String.format("T%03d",
-                loyaltyTransactions.getNumberOfEntries() + 1);
+                loyaltyTransactions.getNumberOfEntries() + 1); // ADT method call: getNumberOfEntries()
     }
 
     public ListQueueInterface<LoyaltyAccount> getLoyaltyAccounts() {

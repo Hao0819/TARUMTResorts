@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
  * The membership tier is stored in the associated Guest object
  * to avoid duplicating tier information.
  *
- * @author YourName
+ * @author Gary Khor Wei Qi
  */
 public class LoyaltyAccount {
 

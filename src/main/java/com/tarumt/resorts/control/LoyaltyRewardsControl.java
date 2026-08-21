@@ -25,6 +25,7 @@ import com.tarumt.resorts.util.LoyaltyClock;
  * Functions include member searching, account creation, points earning,
  * direct reward redemption, tier progression, account status management,
  * promotions, reporting, and point expiry.
+ * @author Gary Khor Wei Qi 
  */
 public class LoyaltyRewardsControl {
 
@@ -33,11 +34,11 @@ public class LoyaltyRewardsControl {
     private static final int EXPIRY_NOTIFICATION_DAYS = 7;
     private static final int ACCOUNT_INACTIVITY_YEARS = 1;
 
-    private ListQueueInterface<LoyaltyAccount> loyaltyAccounts;
-    private ListQueueInterface<LoyaltyTransaction> loyaltyTransactions;
-    private ListQueueInterface<Guest> guests;
-    private ListQueueInterface<Booking> bookings;
-    private ListQueueInterface<RedemptionRequest> redemptionRequests;
+    private ListQueueInterface<LoyaltyAccount> loyaltyAccounts; // ADT collection declaration
+    private ListQueueInterface<LoyaltyTransaction> loyaltyTransactions; // ADT collection declaration
+    private ListQueueInterface<Guest> guests; // ADT collection declaration
+    private ListQueueInterface<Booking> bookings; // ADT collection declaration
+    private ListQueueInterface<RedemptionRequest> redemptionRequests; // ADT collection declaration
     private int nextRedemptionRequestNumber = 1;
 
     // -------------------------------------------------------------------------
@@ -48,11 +49,11 @@ public class LoyaltyRewardsControl {
      * Creates an empty Loyalty and Rewards control.
      */
     public LoyaltyRewardsControl() {
-        loyaltyAccounts = new DoublyLinkedListQueue<>();
-        loyaltyTransactions = new DoublyLinkedListQueue<>();
-        guests = new DoublyLinkedListQueue<>();
-        bookings = new DoublyLinkedListQueue<>();
-        redemptionRequests = new DoublyLinkedListQueue<>();
+        loyaltyAccounts = new DoublyLinkedListQueue<>(); // ADT implementation creation
+        loyaltyTransactions = new DoublyLinkedListQueue<>(); // ADT implementation creation
+        guests = new DoublyLinkedListQueue<>(); // ADT implementation creation
+        bookings = new DoublyLinkedListQueue<>(); // ADT implementation creation
+        redemptionRequests = new DoublyLinkedListQueue<>(); // ADT implementation creation
     }
 
     /**
@@ -64,10 +65,10 @@ public class LoyaltyRewardsControl {
      * @param bookings shared booking collection
      */
     public LoyaltyRewardsControl(
-            ListQueueInterface<LoyaltyAccount> loyaltyAccounts,
-            ListQueueInterface<LoyaltyTransaction> loyaltyTransactions,
-            ListQueueInterface<Guest> guests,
-            ListQueueInterface<Booking> bookings) {
+            ListQueueInterface<LoyaltyAccount> loyaltyAccounts, // ADT collection declaration
+            ListQueueInterface<LoyaltyTransaction> loyaltyTransactions, // ADT collection declaration
+            ListQueueInterface<Guest> guests, // ADT collection declaration
+            ListQueueInterface<Booking> bookings) { // ADT collection declaration
 
         this.loyaltyAccounts =
                 loyaltyAccounts == null
@@ -90,7 +91,7 @@ public class LoyaltyRewardsControl {
                         : bookings;
 
         
-        redemptionRequests = new DoublyLinkedListQueue<>();
+        redemptionRequests = new DoublyLinkedListQueue<>(); // ADT implementation creation
         recalculateAllTiers();
     }
 
@@ -162,7 +163,7 @@ public class LoyaltyRewardsControl {
     long pendingPoints = 0;
 
     Iterator<RedemptionRequest> requestIterator =
-            redemptionRequests.getIterator();
+            redemptionRequests.getIterator(); // ADT method call: getIterator()
 
     while (requestIterator.hasNext()) {
 
@@ -194,7 +195,7 @@ public class LoyaltyRewardsControl {
                     points,
                     LoyaltyClock.today());
 
-    if (!redemptionRequests.enqueue(request)) {
+    if (!redemptionRequests.enqueue(request)) { // ADT method call: enqueue()
         return null;
     }
 
@@ -217,7 +218,7 @@ public class LoyaltyRewardsControl {
             return null;
         }
 
-        return loyaltyAccounts.searchByKey(
+        return loyaltyAccounts.searchByKey( // ADT method call: searchByKey()
                 loyaltyId.trim(),
                 account -> account.getLoyaltyId()
         );
@@ -235,7 +236,7 @@ public class LoyaltyRewardsControl {
             return null;
         }
 
-        return loyaltyAccounts.searchByKey(
+        return loyaltyAccounts.searchByKey( // ADT method call: searchByKey()
                 guestId.trim(),
                 account -> account.getGuestId()
         );
@@ -253,7 +254,7 @@ public class LoyaltyRewardsControl {
             return null;
         }
 
-        return guests.searchByKey(
+        return guests.searchByKey( // ADT method call: searchByKey()
                 guestId.trim(),
                 guest -> guest.getGuestId()
         );
@@ -274,7 +275,7 @@ public class LoyaltyRewardsControl {
             return null;
         }
 
-        return bookings.searchByKey(
+        return bookings.searchByKey( // ADT method call: searchByKey()
                 confirmationNumber.trim(),
                 booking -> booking.getConfirmationNumber()
         );
@@ -287,7 +288,7 @@ public class LoyaltyRewardsControl {
      */
     public ListQueueInterface<Booking> getCompletedStayBookingsForDisplay() {
 
-        return bookings.filter(booking ->
+        return bookings.filter(booking -> // ADT method call: filter()
                 booking != null
                 && booking.getStatus() != null
                 && booking.getStatus().equalsIgnoreCase("CHECKED_OUT")
@@ -340,7 +341,7 @@ public class LoyaltyRewardsControl {
                     LoyaltyClock.now());
         }
 
-        return loyaltyAccounts.enqueue(newAccount);
+        return loyaltyAccounts.enqueue(newAccount); // ADT method call: enqueue()
     }
 
     /**
@@ -423,11 +424,11 @@ public class LoyaltyRewardsControl {
         int accountsCreated = 0;
         int bookingsProcessed = 0;
         int pointsAwarded = 0;
-        ListQueueInterface<ProcessedBookingResult> processedItems =
-                new DoublyLinkedListQueue<>();
+        ListQueueInterface<ProcessedBookingResult> processedItems = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
 
         Iterator<Booking> bookingIterator =
-                bookings.getIterator();
+                bookings.getIterator(); // ADT method call: getIterator()
 
         while (bookingIterator.hasNext()) {
 
@@ -489,8 +490,7 @@ public class LoyaltyRewardsControl {
                 if (earnBatch != null) {
                     int newPoints = account.getPointsBalance();
 
-                    // ADT method called: enqueue()
-                    processedItems.enqueue(new ProcessedBookingResult(
+                    processedItems.enqueue(new ProcessedBookingResult( // ADT method call: enqueue()
                             account.getLoyaltyId(),
                             booking.getConfirmationNumber(),
                             newPoints - bookingPoints,
@@ -518,14 +518,14 @@ public class LoyaltyRewardsControl {
         private final int accountsCreated;
         private final int bookingsProcessed;
         private final int pointsAwarded;
-        private final ListQueueInterface<ProcessedBookingResult>
+        private final ListQueueInterface<ProcessedBookingResult> // ADT collection declaration
                 processedItems;
 
         private AutomaticProcessingResult(
                 int accountsCreated,
                 int bookingsProcessed,
                 int pointsAwarded,
-                ListQueueInterface<ProcessedBookingResult> processedItems) {
+                ListQueueInterface<ProcessedBookingResult> processedItems) { // ADT collection declaration
 
             this.accountsCreated = accountsCreated;
             this.bookingsProcessed = bookingsProcessed;
@@ -671,7 +671,7 @@ public class LoyaltyRewardsControl {
         }
 
         LoyaltyTransaction transaction =
-                loyaltyTransactions.searchByKey(
+                loyaltyTransactions.searchByKey( // ADT method call: searchByKey()
                         bookingId.trim(),
                         currentTransaction -> {
 
@@ -696,7 +696,7 @@ public class LoyaltyRewardsControl {
             return null;
         }
 
-        return loyaltyTransactions.searchByKey(
+        return loyaltyTransactions.searchByKey( // ADT method call: searchByKey()
                 bookingId.trim(), transaction ->
                         transaction.getTransactionType()
                                 == TransactionType.EARN
@@ -848,7 +848,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                         batchExpiryTime
                 );
 
-        if (!loyaltyTransactions.enqueue(earnTransaction)) {
+        if (!loyaltyTransactions.enqueue(earnTransaction)) { // ADT method call: enqueue()
             return false;
         }
 
@@ -933,13 +933,13 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
             return false;
         }
 
-        ListQueueInterface<LoyaltyTransaction> usableBatches =
-                new DoublyLinkedListQueue<>();
+        ListQueueInterface<LoyaltyTransaction> usableBatches = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
 
         long availablePoints = 0;
 
         Iterator<LoyaltyTransaction> transactionIterator =
-                loyaltyTransactions.getIterator();
+                loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
         while (transactionIterator.hasNext()) {
 
@@ -954,7 +954,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                 continue;
             }
 
-            usableBatches.priorityEnqueue(
+            usableBatches.priorityEnqueue( // ADT method call: priorityEnqueue()
                     transaction,
                     this::comparePointBatchExpiry);
 
@@ -978,13 +978,13 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                 );
         redeemTransaction.setRewardPackage(rewardPackage);
 
-        if (!loyaltyTransactions.enqueue(redeemTransaction)) {
+        if (!loyaltyTransactions.enqueue(redeemTransaction)) { // ADT method call: enqueue()
             return false;
         }
 
         int remainingToRedeem = points;
         Iterator<LoyaltyTransaction> batchIterator =
-                usableBatches.getIterator();
+                usableBatches.getIterator(); // ADT method call: getIterator()
 
         while (batchIterator.hasNext()
                 && remainingToRedeem > 0) {
@@ -1068,7 +1068,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         LocalDateTime nextExpiry = null;
 
         Iterator<LoyaltyTransaction> iterator =
-                loyaltyTransactions.getIterator();
+                loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             LoyaltyTransaction transaction = iterator.next();
@@ -1131,7 +1131,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
     private String generateTransactionId() {
 
         int nextNumber =
-                loyaltyTransactions.getNumberOfEntries() + 1;
+                loyaltyTransactions.getNumberOfEntries() + 1; // ADT method call: getNumberOfEntries()
 
         return String.format("T%03d", nextNumber);
     }
@@ -1177,7 +1177,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
     private void recalculateAllTiers() {
 
         Iterator<LoyaltyAccount> iterator =
-                loyaltyAccounts.getIterator();
+                loyaltyAccounts.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
             recalculateTier(iterator.next());
@@ -1336,7 +1336,7 @@ public double calculatePayableAmount(Booking booking) {
         int changedAccounts = 0;
 
         Iterator<LoyaltyAccount> iterator =
-                loyaltyAccounts.getIterator();
+                loyaltyAccounts.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
 
@@ -1382,8 +1382,8 @@ public double calculatePayableAmount(Booking booking) {
             int statusFilter,
             int minimumPoints) {
 
-        ListQueueInterface<LoyaltyAccount> emptyResult =
-                new DoublyLinkedListQueue<>();
+        ListQueueInterface<LoyaltyAccount> emptyResult = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
 
         if (minimumPoints < 0
                 || statusFilter < 0
@@ -1392,8 +1392,8 @@ public double calculatePayableAmount(Booking booking) {
             return emptyResult;
         }
 
-        ListQueueInterface<LoyaltyAccount> filteredAccounts =
-                loyaltyAccounts.filter(account -> {
+        ListQueueInterface<LoyaltyAccount> filteredAccounts = // ADT collection declaration
+                loyaltyAccounts.filter(account -> { // ADT method call: filter()
 
                     boolean matchesTier =
                             tier == null
@@ -1419,18 +1419,18 @@ public double calculatePayableAmount(Booking booking) {
                             && matchesPoints;
                 });
 
-        ListQueueInterface<LoyaltyAccount> orderedAccounts =
-                new DoublyLinkedListQueue<>();
+        ListQueueInterface<LoyaltyAccount> orderedAccounts = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
 
         Iterator<LoyaltyAccount> iterator =
-                filteredAccounts.getIterator();
+                filteredAccounts.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
 
             LoyaltyAccount account =
                     iterator.next();
 
-            orderedAccounts.priorityEnqueue(
+            orderedAccounts.priorityEnqueue( // ADT method call: priorityEnqueue()
                     account,
                     (firstAccount, secondAccount) ->
                             Integer.compare(
@@ -1648,7 +1648,7 @@ public double calculatePayableAmount(Booking booking) {
                 currentTime.plusDays(expiringDays);
 
         Iterator<LoyaltyAccount> accountIterator =
-                loyaltyAccounts.getIterator();
+                loyaltyAccounts.getIterator(); // ADT method call: getIterator()
 
         while (accountIterator.hasNext()) {
             LoyaltyAccount account = accountIterator.next();
@@ -1669,7 +1669,7 @@ public double calculatePayableAmount(Booking booking) {
         }
 
         Iterator<LoyaltyTransaction> transactionIterator =
-                loyaltyTransactions.getIterator();
+                loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
         while (transactionIterator.hasNext()) {
             LoyaltyTransaction transaction = transactionIterator.next();
@@ -1745,12 +1745,12 @@ public double calculatePayableAmount(Booking booking) {
             }
         }
 
-        accountIterator = loyaltyAccounts.getIterator();
+        accountIterator = loyaltyAccounts.getIterator(); // ADT method call: getIterator()
 
         while (accountIterator.hasNext()) {
             LoyaltyAccount account = accountIterator.next();
             long memberRedeemedPoints = 0;
-            transactionIterator = loyaltyTransactions.getIterator();
+            transactionIterator = loyaltyTransactions.getIterator(); // ADT method call: getIterator()
 
             while (transactionIterator.hasNext()) {
                 LoyaltyTransaction transaction = transactionIterator.next();
@@ -1788,8 +1788,8 @@ public double calculatePayableAmount(Booking booking) {
         }
 
         LocalDateTime endTime = currentTime.plusDays(daysAhead);
-        ListQueueInterface<LoyaltyAccount> matches =
-                loyaltyAccounts.filter(account ->
+        ListQueueInterface<LoyaltyAccount> matches = // ADT collection declaration
+                loyaltyAccounts.filter(account -> // ADT method call: filter()
                         account != null
                         && account.getPointsBalance() > 0
                         && account.getPointsExpiryTime() != null
@@ -1797,12 +1797,12 @@ public double calculatePayableAmount(Booking booking) {
                                 .isBefore(currentTime)
                         && !account.getPointsExpiryTime()
                                 .isAfter(endTime));
-        ListQueueInterface<LoyaltyAccount> ordered =
-                new DoublyLinkedListQueue<>();
-        Iterator<LoyaltyAccount> iterator = matches.getIterator();
+        ListQueueInterface<LoyaltyAccount> ordered = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
+        Iterator<LoyaltyAccount> iterator = matches.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
-            ordered.priorityEnqueue(
+            ordered.priorityEnqueue( // ADT method call: priorityEnqueue()
                     iterator.next(),
                     (first, second) -> first.getPointsExpiryTime()
                             .compareTo(second.getPointsExpiryTime()));
@@ -1828,8 +1828,8 @@ public double calculatePayableAmount(Booking booking) {
                     LocalDateTime endTime,
                     MembershipTier tier) {
 
-        ListQueueInterface<LoyaltyTransaction> emptyResult =
-                new DoublyLinkedListQueue<>();
+        ListQueueInterface<LoyaltyTransaction> emptyResult = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
 
         if (startTime == null
                 || endTime == null
@@ -1838,8 +1838,8 @@ public double calculatePayableAmount(Booking booking) {
             return emptyResult;
         }
 
-        ListQueueInterface<LoyaltyTransaction> filteredTransactions =
-                loyaltyTransactions.filter(transaction -> {
+        ListQueueInterface<LoyaltyTransaction> filteredTransactions = // ADT collection declaration
+                loyaltyTransactions.filter(transaction -> { // ADT method call: filter()
 
                     if (transaction == null
                             || !transaction.isExpiringBetween(
@@ -1858,18 +1858,18 @@ public double calculatePayableAmount(Booking booking) {
                             || account.getMembershipTier() == tier);
                 });
 
-        ListQueueInterface<LoyaltyTransaction> orderedTransactions =
-                new DoublyLinkedListQueue<>();
+        ListQueueInterface<LoyaltyTransaction> orderedTransactions = // ADT collection declaration
+                new DoublyLinkedListQueue<>(); // ADT implementation creation
 
         Iterator<LoyaltyTransaction> iterator =
-                filteredTransactions.getIterator();
+                filteredTransactions.getIterator(); // ADT method call: getIterator()
 
         while (iterator.hasNext()) {
 
             LoyaltyTransaction transaction =
                     iterator.next();
 
-            orderedTransactions.priorityEnqueue(
+            orderedTransactions.priorityEnqueue( // ADT method call: priorityEnqueue()
                     transaction,
                     this::comparePointBatchExpiry);
         }
@@ -1916,8 +1916,8 @@ public double calculatePayableAmount(Booking booking) {
         }
 
         int totalExpiredPoints = 0;
-        ListQueueInterface<LoyaltyTransaction> expiredBatches =
-                loyaltyTransactions.filter(transaction -> {
+        ListQueueInterface<LoyaltyTransaction> expiredBatches = // ADT collection declaration
+                loyaltyTransactions.filter(transaction -> { // ADT method call: filter()
                     if (transaction == null
                             || transaction.getRemainingPoints() <= 0
                             || transaction.getExpiryTime() == null
@@ -1932,7 +1932,7 @@ public double calculatePayableAmount(Booking booking) {
                 });
 
         Iterator<LoyaltyTransaction> expiredIterator =
-                expiredBatches.getIterator();
+                expiredBatches.getIterator(); // ADT method call: getIterator()
 
         while (expiredIterator.hasNext()) {
             LoyaltyTransaction expiredBatch = expiredIterator.next();
@@ -1961,7 +1961,7 @@ public double calculatePayableAmount(Booking booking) {
                             currentTime,
                             null);
 
-            if (!loyaltyTransactions.enqueue(expiryTransaction)) {
+            if (!loyaltyTransactions.enqueue(expiryTransaction)) { // ADT method call: enqueue()
                 continue;
             }
 
@@ -1984,14 +1984,14 @@ public double calculatePayableAmount(Booking booking) {
         public boolean processNextRedemptionRequest() {
 
     if (redemptionRequests == null
-            || redemptionRequests.isEmpty()) {
+            || redemptionRequests.isEmpty()) { // ADT method call: isEmpty()
 
         return false;
     }
 
     // View the first request without removing it.
     RedemptionRequest nextRequest =
-            redemptionRequests.peek();
+            redemptionRequests.peek(); // ADT method call: peek()
 
     if (nextRequest == null) {
         return false;
@@ -2010,7 +2010,7 @@ public double calculatePayableAmount(Booking booking) {
     }
 
     // FIFO: the completed reward is already retained in the REDEEM ledger.
-    redemptionRequests.dequeue();
+    redemptionRequests.dequeue(); // ADT method call: dequeue()
 
     return true;
 }
@@ -2023,20 +2023,20 @@ public double calculatePayableAmount(Booking booking) {
     }
 
     if (redemptionRequests == null
-            || redemptionRequests.isEmpty()) {
+            || redemptionRequests.isEmpty()) { // ADT method call: isEmpty()
 
         return false;
     }
 
     int originalSize =
-            redemptionRequests.getNumberOfEntries();
+            redemptionRequests.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
     boolean cancelled = false;
 
     for (int i = 0; i < originalSize; i++) {
 
         RedemptionRequest currentRequest =
-                redemptionRequests.dequeue();
+                redemptionRequests.dequeue(); // ADT method call: dequeue()
 
         if (!cancelled
                 && currentRequest.getRequestId()
@@ -2048,7 +2048,7 @@ public double calculatePayableAmount(Booking booking) {
         } else {
 
             // Put all other requests back into the queue.
-            redemptionRequests.enqueue(currentRequest);
+            redemptionRequests.enqueue(currentRequest); // ADT method call: enqueue()
         }
     }
 
