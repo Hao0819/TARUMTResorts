@@ -10,7 +10,7 @@ import com.tarumt.resorts.adt.DoublyLinkedListQueue;
  * Provides the shared Room inventory used by Walk-In, VIP Allocation,
  * Housekeeping and Front-Desk modules.
  *
- * @author Junhao
+ * @author LimJunHao
  */
 public class RoomDAO {
 

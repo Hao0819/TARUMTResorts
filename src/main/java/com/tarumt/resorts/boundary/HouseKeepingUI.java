@@ -11,7 +11,7 @@ import java.util.Scanner;
  * HouseKeepingUI.java
  * Console interface for the Housekeeping & Task Log module.
  *
- * @author KohJun
+ * @author GanKohJun
  */
 public class HouseKeepingUI {
 
@@ -42,21 +42,11 @@ public class HouseKeepingUI {
         System.out.println("| " + " ".repeat(leftPadding) + text + " ".repeat(rightPadding) + " |");
     }
 
-    /**
-     * Added: prints a quick-reference table of every room in the system
-     * (room number, type, current status) so staff can see at a glance
-     * which room numbers exist and what state each one is in, before
-     * being asked to type a room number. Used by logStatusChange(),
-     * viewCurrentStatus(), and viewFullHistory() (functions 1, 2, 4).
-     *
-     * Uses control.getAllRooms() (a copy of the shared room list) and
-     * control.getCurrentStatus() per room, so it always reflects the
-     * latest logged status — including anything auto-logged by the
-     * background DIRTY -> CLEANING -> INSPECTED -> READY timers.
-     */
+    // Prints room + type + current status for every room, so staff know
+    // which room numbers exist before typing one. Used by functions 1, 2, 4.
     private void printAllRoomsTable() {
-        ListQueueInterface<Room> allRooms = control.getAllRooms();
-        int total = allRooms.getNumberOfEntries();
+        ListQueueInterface<Room> allRooms = control.getAllRooms(); // ADT collection declaration
+        int total = allRooms.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
         String border = "+------------+------------+------------------+";
         int contentWidth = border.length() - 4;
@@ -71,7 +61,7 @@ public class HouseKeepingUI {
             System.out.printf("| %-" + contentWidth + "s |%n", "No rooms available in the system.");
         } else {
             for (int i = 0; i < total; i++) {
-                Room room = allRooms.getEntry(i);
+                Room room = allRooms.getEntry(i); // ADT method call: getEntry()
                 RoomStatusLog current = control.getCurrentStatus(room.getRoomNumber());
                 String status = (current != null) ? current.getStatus() : "UNKNOWN";
                 System.out.printf("| %-10.10s | %-10.10s | %-16.16s |%n",
@@ -81,17 +71,11 @@ public class HouseKeepingUI {
         System.out.println(border);
     }
 
-    /**
-     * Added: like printAllRoomsTable(), but WITHOUT the Status column.
-     * Used by viewCurrentStatus() (function 2) only — that function's
-     * whole purpose is to look up a room's current status, so showing
-     * the status in the pre-prompt table would spoil the answer before
-     * the user even picks a room. Room number + type is still shown so
-     * staff can see which room numbers exist.
-     */
+    // Same as printAllRoomsTable(), but without the Status column - used
+    // by viewCurrentStatus() (function 2) so the answer isn't spoiled early.
     private void printRoomsBasicTable() {
-        ListQueueInterface<Room> allRooms = control.getAllRooms();
-        int total = allRooms.getNumberOfEntries();
+        ListQueueInterface<Room> allRooms = control.getAllRooms(); // ADT collection declaration
+        int total = allRooms.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
         String border = "+------------+------------+";
         int contentWidth = border.length() - 4;
@@ -106,7 +90,7 @@ public class HouseKeepingUI {
             System.out.printf("| %-" + contentWidth + "s |%n", "No rooms available in the system.");
         } else {
             for (int i = 0; i < total; i++) {
-                Room room = allRooms.getEntry(i);
+                Room room = allRooms.getEntry(i); // ADT method call: getEntry()
                 System.out.printf("| %-10.10s | %-10.10s |%n", room.getRoomNumber(), room.getRoomType());
             }
         }
@@ -157,32 +141,19 @@ public class HouseKeepingUI {
         } while (choice != 0);
     }
 
-    /**
-     * Fix for the "Enter status" step: instead of making staff type the
-     * whole status word, this shows the room's CURRENT status and asks
-     * for a single letter:
-     *   y = advance to the next status in the cycle
-     *   n = cancel, back to the Housekeeping menu
-     *   d = jump directly to DIRTY (checkout / early termination) —
-     *       only offered when the room is NOT already DIRTY, since
-     *       DIRTY -> DIRTY is not a real change (see
-     *       HousekeepingControl.isValidNextStatus()).
-     *
-     * A room already at DIRTY only ever offers (y/n), because its next
-     * step is CLEANING and "d" would be a no-op. A room at READY only
-     * ever offers (y/n) too, because READY's next step IS DIRTY, so a
-     * separate "d" option would just duplicate "y".
-     *
-     * Returns the chosen status ("" if the user cancelled with n).
+    /*
+     * Expected flow
+     * Show room's current status -> ask y/n(/d)
+     * -> y: advance to the next status in the cycle
+     * -> n: cancel
+     * -> d: jump straight to DIRTY (only offered if the room isn't
+     *   already DIRTY, and isn't already about to become DIRTY via "y")
      */
     private String promptNextStatus(String roomNumber) {
         RoomStatusLog current = control.getCurrentStatus(roomNumber);
         String currentStatus = (current != null) ? current.getStatus() : "UNKNOWN (no history yet)";
         String nextStatus = control.getNextStatusInSequence(roomNumber);
         boolean isCurrentlyDirty = current != null && current.getStatus().equalsIgnoreCase("DIRTY");
-        // "d" (direct jump to DIRTY) only makes sense when the room isn't
-        // already DIRTY, and only when it isn't already about to become
-        // DIRTY anyway via "y" (i.e. current isn't READY/UNKNOWN either).
         boolean offerDirectDirty = current != null
                 && !isCurrentlyDirty
                 && !nextStatus.equalsIgnoreCase("DIRTY");
@@ -215,8 +186,8 @@ public class HouseKeepingUI {
     }
 
     private void logStatusChange() {
-        // Added: show all rooms + current status first, so staff know
-        // which room numbers exist before being asked to type one.
+        // Show all rooms + current status first, so staff know which
+        // room numbers exist before being asked to type one.
         printAllRoomsTable();
 
         String roomNumber;
@@ -263,16 +234,12 @@ public class HouseKeepingUI {
         }
     }
 
-    /**
-     * Fix for issue #25: validate the room number BEFORE searching for
-     * a status log, so the user gets a clear, distinct message for
-     * "this room doesn't exist" versus "this room exists but has no
-     * cleaning history yet" — instead of both cases looking identical.
-     */
+    // Validates the room number BEFORE searching for a status log, so
+    // "room doesn't exist" and "room exists but has no history" show
+    // distinct messages instead of looking identical.
     private void viewCurrentStatus() {
-        // Added: show room number + type first (no status — this
-        // function's job IS to reveal the status, so pre-showing it
-        // here would give the answer away before the lookup).
+        // No Status column here - this function's job IS to reveal the
+        // status, so pre-showing it would give the answer away early.
         printRoomsBasicTable();
 
         System.out.print("Enter room number (or 0 to cancel): ");
@@ -282,8 +249,6 @@ public class HouseKeepingUI {
             return;
         }
 
-        // Occupied column removed per request — this report only needs to
-        // show the room's housekeeping status, not occupancy.
         String border = "+------------+------------+------------------+------------------+";
         int contentWidth = border.length() - 4;
 
@@ -363,16 +328,12 @@ public class HouseKeepingUI {
         }
     }
 
-    /**
-     * Fix for issue #25: validate the room number BEFORE searching for
-     * history, so an invalid room number gets its own clear message
-     * instead of being shown as "No status history found" — which
-     * would otherwise look identical to a valid room with no entries.
-     */
+    // Validates the room number BEFORE searching for history, so an
+    // invalid room gets its own message instead of looking the same as
+    // a valid room with zero entries.
     private void viewFullHistory() {
-        // Added: show all rooms + current status first, so staff can
-        // see which room number is available before choosing one to
-        // view the full history of.
+        // Show all rooms + current status first, so staff can see which
+        // room number is available before choosing one.
         printAllRoomsTable();
 
         System.out.print("Enter room number (or 0 to cancel): ");
@@ -395,8 +356,8 @@ public class HouseKeepingUI {
             return;
         }
 
-        ListQueueInterface<RoomStatusLog> history = control.getHistoryForRoom(roomNumber);
-        int total = history.getNumberOfEntries();
+        ListQueueInterface<RoomStatusLog> history = control.getHistoryForRoom(roomNumber); // ADT collection declaration
+        int total = history.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
         System.out.println();
         System.out.println(border);
@@ -408,7 +369,7 @@ public class HouseKeepingUI {
             System.out.printf("| %-" + contentWidth + "s |%n", "Room exists, but has no history yet.");
         } else {
             for (int i = 0; i < total; i++) {
-                RoomStatusLog entry = history.getEntry(i);
+                RoomStatusLog entry = history.getEntry(i); // ADT method call: getEntry()
                 System.out.printf("| %-10.10s | %-16.16s |%n", entry.getStatus(), entry.getTimestamp());
             }
         }
@@ -416,11 +377,8 @@ public class HouseKeepingUI {
         System.out.println("Total entries: " + total);
     }
 
-    /**
-     * Small menu table used by reportByStatus() and reportAverageDuration()
-     * so staff pick a filter with a short keyword/number instead of typing
-     * the whole status word. "0" is always the back/cancel option.
-     */
+    // Small menu table used by reportByStatus()/reportAverageDuration()
+    // so staff pick a filter with a short keyword instead of the full word.
     private void printFilterMenuTable(String title, String[] keys, String[] labels) {
         String border = "+------+------------------+";
         int contentWidth = border.length() - 4;
@@ -486,11 +444,9 @@ public class HouseKeepingUI {
             System.out.println("Invalid choice. Please enter S, D, U, A, or 0 to cancel.");
         }
 
-        ListQueueInterface<RoomStatusLog> filtered =
+        ListQueueInterface<RoomStatusLog> filtered = // ADT collection declaration
                 control.getRoomsByCurrentStatus(statusFilter.toUpperCase(), roomTypeFilter);
 
-        // Occupied column removed per request — this report only needs to
-        // show housekeeping status, not occupancy.
         String border = "+------------+------------+------------------+------------------+";
         int contentWidth = border.length() - 4;
 
@@ -506,12 +462,12 @@ public class HouseKeepingUI {
         System.out.printf("| %-10s | %-10s | %-16s | %-16s |%n", "Room", "Type", "Status", "Last Updated");
         System.out.println(border);
 
-        int total = filtered.getNumberOfEntries();
+        int total = filtered.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
         if (total == 0) {
             System.out.printf("| %-" + contentWidth + "s |%n", "No matching records found.");
         } else {
             for (int i = 0; i < total; i++) {
-                RoomStatusLog entry = filtered.getEntry(i);
+                RoomStatusLog entry = filtered.getEntry(i); // ADT method call: getEntry()
                 String roomType = control.getRoomType(entry.getRoomNumber());
                 System.out.printf("| %-10.10s | %-10.10s | %-16.16s | %-16.16s |%n",
                         entry.getRoomNumber(), roomType, entry.getStatus(), entry.getTimestamp());
@@ -521,24 +477,10 @@ public class HouseKeepingUI {
         System.out.println("Total records: " + total);
     }
 
-    /**
-     * Report 2: average time per cleaning stage.
-     *
-     * Added: INSPECTED stays removed from the selectable filter options —
-     * HousekeepingControl still auto-logs READY at a fixed delay
-     * (scheduleAutoReady()) whenever a room isn't sent back for rework at
-     * that checkpoint, so INSPECTED's duration usually isn't a real,
-     * staff-timed measurement, and the control layer excludes it from the
-     * calculation.
-     *
-     * CLEANING is back as a filter option. Even though CLEANING -> INSPECTED
-     * is also auto-logged (scheduleAutoInspect()), a supervisor can now
-     * roll back a failed INSPECTED check, sending the room back to
-     * CLEANING for real rework before it's manually re-inspected — so
-     * CLEANING's duration can genuinely run longer than the fixed delay
-     * and is worth reporting again (see HousekeepingControl's Javadoc for
-     * the full explanation).
-     */
+    // Report 2: average time per cleaning stage. INSPECTED stays off the
+    // filter list (its duration is fixed-timer, not real staff time).
+    // CLEANING is included - a rolled-back INSPECTED check sends a room
+    // back to CLEANING for real rework, so its duration can genuinely vary.
     private void reportAverageDuration() {
         printFilterMenuTable("FILTER BY STAGE", new String[]{"D", "C", "A"},
                 new String[]{"DIRTY", "CLEANING", "ALL"});
@@ -565,12 +507,8 @@ public class HouseKeepingUI {
             System.out.println("Invalid choice. Please enter D, C, A, or 0 to cancel.");
         }
 
-        ListQueueInterface<StageDuration> report = control.getAverageDurationPerStage(stageFilter);
+        ListQueueInterface<StageDuration> report = control.getAverageDurationPerStage(stageFilter); // ADT collection declaration
 
-        // Title shortened to "AVG TIME PER STAGE" per request — the
-        // border below is kept at its wider size from the earlier fix
-        // (was needed to stop the old longer title being truncated) but
-        // works fine as extra padding around the shorter title too.
         String border = "+---------------------------+------------------+";
         int contentWidth = border.length() - 4;
 
@@ -585,12 +523,12 @@ public class HouseKeepingUI {
         System.out.printf("| %-25s | %-16s |%n", "Stage", "Avg (min)");
         System.out.println(border);
 
-        int total = report.getNumberOfEntries();
+        int total = report.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
         if (total == 0) {
             System.out.printf("| %-" + contentWidth + "s |%n", "No data available for this filter.");
         } else {
             for (int i = 0; i < total; i++) {
-                StageDuration sd = report.getEntry(i);
+                StageDuration sd = report.getEntry(i); // ADT method call: getEntry()
                 System.out.printf("| %-25.25s | %-16d |%n", sd.getStageName(), sd.getAverageMinutes());
             }
         }
@@ -598,22 +536,12 @@ public class HouseKeepingUI {
         System.out.println("Total stages measured: " + total);
     }
 
-    /**
-     * Summary Report: combines the Room entity (room type) with the
-     * RoomStatusLog entity (current status, total logged changes, last
-     * updated) into one report — two entity classes joined into a
-     * single summary, per the tutor's required format. Styled after
-     * the university report template: plain-text letterhead, a main
-     * table, totals, an ASCII bar-chart section, and closing insight
-     * lines.
-     */
+    // Summary Report: joins Room (type) with RoomStatusLog (current
+    // status, total logged changes, last updated) into one report, per
+    // the tutor's required "combine two entity classes" format.
     private void generateSummaryReport() {
         String thickBorder = "=".repeat(90);
         String thinBorder = "-".repeat(90);
-        // Closed box border for the main table (was previously just bare
-        // "col | col | col" printf lines with no left/right edge, which
-        // is why the table looked "open"/unclosed on screen).
-        // Occupied column removed per request, so its segment is dropped too.
         String tableBorder = "+" + "-".repeat(12) + "+" + "-".repeat(12) + "+" + "-".repeat(18)
                 + "+" + "-".repeat(23) + "+" + "-".repeat(18) + "+";
 
@@ -629,25 +557,22 @@ public class HouseKeepingUI {
         System.out.println(thickBorder);
         System.out.println();
 
-        // --- Main table: Room (type) joined with RoomStatusLog (status,
-        // history count, last updated) — the two classes combined. Also
-        // Occupied column removed per request — only status/type/count
-        // are shown here now. ---
-        ListQueueInterface<Room> allRooms = control.getAllRooms();
-        int totalRooms = allRooms.getNumberOfEntries();
+        // Main table: Room (type) joined with RoomStatusLog (status,
+        // history count, last updated).
+        ListQueueInterface<Room> allRooms = control.getAllRooms(); // ADT collection declaration
+        int totalRooms = allRooms.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
 
         String[] statusNames = {"DIRTY", "CLEANING", "INSPECTED", "READY"};
         int[] statusCounts = new int[statusNames.length];
         int totalLogEntries = 0;
 
-        // Occupied column removed per request.
         System.out.println(tableBorder);
         System.out.printf("| %-10s | %-10s | %-16s | %-21s | %-16s |%n",
                 "Room No.", "Type", "Current Status", "Total Status Changes", "Last Updated");
         System.out.println(tableBorder);
 
         for (int i = 0; i < totalRooms; i++) {
-            Room room = allRooms.getEntry(i);
+            Room room = allRooms.getEntry(i); // ADT method call: getEntry()
             RoomStatusLog current = control.getCurrentStatus(room.getRoomNumber());
             int logCount = control.getTotalLogCountForRoom(room.getRoomNumber());
             totalLogEntries += logCount;
@@ -675,28 +600,26 @@ public class HouseKeepingUI {
         // Chart 1: how many rooms currently sit in each status.
         printBarChart("Rooms by Current Status", statusNames, statusCounts);
 
-        // Chart 2: average minutes per stage (from Report 2's own logic,
-        // so both reports always agree with each other).
-        ListQueueInterface<StageDuration> stageReport = control.getAverageDurationPerStage("ALL");
-        int stageTotal = stageReport.getNumberOfEntries();
+        // Chart 2: average minutes per stage (reuses Report 2's own
+        // logic, so both reports always agree with each other).
+        ListQueueInterface<StageDuration> stageReport = control.getAverageDurationPerStage("ALL"); // ADT collection declaration
+        int stageTotal = stageReport.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
         String[] stageLabels = new String[stageTotal];
         int[] stageValues = new int[stageTotal];
         for (int i = 0; i < stageTotal; i++) {
-            StageDuration sd = stageReport.getEntry(i);
+            StageDuration sd = stageReport.getEntry(i); // ADT method call: getEntry()
             stageLabels[i] = sd.getStageName();
             stageValues[i] = (int) sd.getAverageMinutes();
         }
         printBarChart("Avg Time per Stage (min)", stageLabels, stageValues);
 
-        // --- Insight lines: room with fewest / most logged status
-        // changes, mirroring the sample report's closing "fewest / most"
-        // style, using RoomStatusLog data joined back onto each Room. ---
+        // Insight lines: room with fewest / most logged status changes.
         String fewestRoom = null;
         String mostRoom = null;
         int fewestCount = Integer.MAX_VALUE;
         int mostCount = -1;
         for (int i = 0; i < totalRooms; i++) {
-            Room room = allRooms.getEntry(i);
+            Room room = allRooms.getEntry(i); // ADT method call: getEntry()
             int logCount = control.getTotalLogCountForRoom(room.getRoomNumber());
             if (logCount < fewestCount) {
                 fewestCount = logCount;
@@ -720,7 +643,7 @@ public class HouseKeepingUI {
         System.out.println(thickBorder);
     }
 
-    /** Centers plain text (no pipe borders) within the given width — used by generateSummaryReport(). */
+    // Centers plain text (no pipe borders) - used by generateSummaryReport().
     private void printCenteredPlain(String text, int width) {
         if (text.length() >= width) {
             System.out.println(text.substring(0, width));
@@ -730,43 +653,11 @@ public class HouseKeepingUI {
         System.out.println(" ".repeat(leftPadding) + text);
     }
 
-    /**
-     * Renders a simple ASCII vertical bar chart: a numbered y-axis, one
-     * column per label, an x-axis line, the labels beneath, and the
-     * exact value of every column printed underneath its label.
-     * Handles an all-zero dataset without dividing by zero.
-     *
-     * Fix (round 3 — issue found from screenshot testing):
-     *
-     *   "INSPECTED is 9 but the graph shows it at 79" — this was NOT a
-     *   calculation bug. With DIRTY=1582 and INSPECTED=9, the chart has
-     *   to compress a 1582-unit range down into 20 display rows, so
-     *   INSPECTED's bar correctly rounds up to the smallest possible
-     *   bar — 1 row tall. The problem was that the row it landed on was
-     *   LABELLED "79" (the y-axis scale value for that row), which
-     *   reads exactly like it's claiming INSPECTED = 79. The axis
-     *   number was never meant to be read as "this bar's value" — it's
-     *   just a ruler marking — but nothing on screen said so.
-     *
-     *   Fix: the TRUE value of each bar is now printed directly at the
-     *   TOP of that bar itself (replacing the top "***" with the real
-     *   number, e.g. "9"), instead of only appearing once in small text
-     *   underneath the whole chart. Every bar is now self-labelled with
-     *   its own real number at a glance, so it can never be read
-     *   against the y-axis ruler by mistake. The "(9)" summary line
-     *   underneath each column is kept as well for a second, unambiguous
-     *   confirmation of the exact figure.
-     *
-     *   Also carried over from the previous fix: charts that already
-     *   fit within CHART_MAX_DISPLAY_ROWS are drawn UNSCALED (1 row =
-     *   1 unit, no rounding at all), and the row-number column width is
-     *   calculated from the largest real value so wide numbers (e.g.
-     *   1582) never break alignment with the axis/labels beneath.
-     *
-     * Each data column is a fixed COLUMN_WIDTH (12 chars) with the
-     * bar/label/value CENTERED inside it, so longer labels like
-     * "CLEANING" (8 chars) and "INSPECTED" (9 chars) still line up
-     * cleanly with a gap between columns.
+    /*
+     * ASCII bar chart: numbered y-axis, one column per label, x-axis
+     * line, labels beneath, exact value printed on top of every bar.
+     * Charts taller than CHART_MAX_DISPLAY_ROWS are scaled down; charts
+     * that already fit are drawn 1 row = 1 unit, no rounding.
      */
     private static final int CHART_COLUMN_WIDTH = 12;
     private static final int CHART_MAX_DISPLAY_ROWS = 20;
@@ -790,15 +681,9 @@ public class HouseKeepingUI {
             return;
         }
 
-        // Only scale/compress when the real range is taller than what
-        // can be displayed. Otherwise draw it 1:1 so no two values can
-        // ever be rounded onto the same row.
         boolean scaled = maxValue > CHART_MAX_DISPLAY_ROWS;
         int chartRows = scaled ? CHART_MAX_DISPLAY_ROWS : maxValue;
 
-        // Row-number column width, sized to the largest real value so
-        // wide numbers (e.g. 1582) never overflow it and break the
-        // alignment of the rows/axis/labels beneath.
         int numWidth = Math.max(2, String.valueOf(maxValue).length());
         String rowFormat = "%" + numWidth + "d |";
         String axisPrefix = " ".repeat(numWidth + 1) + "+";
@@ -815,9 +700,8 @@ public class HouseKeepingUI {
                         : v;
                 String cell;
                 if (barLevel == row) {
-                    // Top of this bar: print its TRUE value here, right
-                    // on the bar itself, so it's never mistaken for the
-                    // y-axis ruler number sitting on the same line.
+                    // Top of this bar: print its TRUE value here, so it's
+                    // never mistaken for the y-axis ruler number beside it.
                     cell = String.valueOf(v);
                 } else if (barLevel > row) {
                     cell = "***";
@@ -841,7 +725,7 @@ public class HouseKeepingUI {
         }
         System.out.println(labelLine);
 
-        // Exact value of every column printed under its label too, as a
+        // Exact value of every column repeated under its label, as a
         // second, unambiguous confirmation of the real figure.
         StringBuilder valueLine = new StringBuilder(labelPrefix);
         for (int v : values) {
@@ -850,7 +734,7 @@ public class HouseKeepingUI {
         System.out.println(valueLine);
     }
 
-    /** Centers text within a fixed-width field, padding with spaces on both sides. */
+    // Centers text within a fixed-width field, padding with spaces both sides.
     private String centerInField(String text, int width) {
         if (text.length() >= width) {
             return text.substring(0, width);

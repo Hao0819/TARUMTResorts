@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 /**
  * Records one change made to a Walk-In booking request.
  *
- * @author junhao
+ * @author LimJunHao
  */
 public class RegistrationChange {
 
