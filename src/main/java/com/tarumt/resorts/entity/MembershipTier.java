@@ -12,26 +12,29 @@ package com.tarumt.resorts.entity;
  */
 public enum MembershipTier {
 
-    NONE(0, false, 0.00),
-    SILVER(1, false, 0.05),
-    GOLD(2, false, 0.08),
-    PLATINUM(3, true, 0.10),
-    DIAMOND(4, true, 0.15),
-    ELITE(5, true, 0.20);
+    NONE(0, false, 0.00, 0),
+    SILVER(1, false, 0.05, 500),
+    GOLD(2, false, 0.08, 1500),
+    PLATINUM(3, true, 0.10, 3000),
+    DIAMOND(4, true, 0.15, 5000),
+    ELITE(5, true, 0.20, 7000);
 
     private final int priorityLevel;
     private final boolean priorityTier;
     // Room discount shared by Standard and VIP booking calculations.
     private final double roomDiscountRate;
+    private final int minimumTierPoints;
 
     MembershipTier(
             int priorityLevel,
             boolean priorityTier,
-            double roomDiscountRate) {
+            double roomDiscountRate,
+            int minimumTierPoints) {
 
         this.priorityLevel = priorityLevel;
         this.priorityTier = priorityTier;
         this.roomDiscountRate = roomDiscountRate;
+        this.minimumTierPoints = minimumTierPoints;
     }
 
     public int getPriorityLevel() {
@@ -48,5 +51,22 @@ public enum MembershipTier {
      */
     public double getRoomDiscountRate() {
         return roomDiscountRate;
+    }
+
+    public int getMinimumTierPoints() {
+        return minimumTierPoints;
+    }
+
+    /** Returns the highest tier reached by the qualifying-point total. */
+    public static MembershipTier fromTierQualifyingPoints(int points) {
+        MembershipTier matchedTier = NONE;
+
+        for (MembershipTier tier : values()) {
+            if (points >= tier.minimumTierPoints) {
+                matchedTier = tier;
+            }
+        }
+
+        return matchedTier;
     }
 }
