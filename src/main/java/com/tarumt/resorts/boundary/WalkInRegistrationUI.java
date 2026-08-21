@@ -2049,24 +2049,48 @@ public class WalkInRegistrationUI {
 
                 displayWaitingQueue();
 
-                System.out.print(
-                                "\nEnter Registration ID to update : ");
+                String registrationId;
 
-                String registrationId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Registration ID to update (0 = abort) : ");
 
-                if (registrationId.equals("0")) {
-                        System.out.println("Update cancelled.");
-                        return;
+                        registrationId = sc.nextLine().trim();
+
+                        if (registrationId.equals("0")) {
+                                System.out.println("Update cancelled.");
+                                return;
+                        }
+
+                        if (control.findRegistrationById(registrationId) == null) {
+                                System.out.println(
+                                                "Registration ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
-                System.out.print(
-                                "Enter Guest ID for verification : ");
+                String guestId;
 
-                String guestId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "Enter Guest ID for verification (0 = abort) : ");
 
-                if (guestId.equals("0")) {
-                        System.out.println("Update cancelled.");
-                        return;
+                        guestId = sc.nextLine().trim();
+
+                        if (guestId.equals("0")) {
+                                System.out.println("Update cancelled.");
+                                return;
+                        }
+
+                        if (control.findGuestById(guestId) == null) {
+                                System.out.println(
+                                                "Guest ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 WalkInRegistration selectedRegistration = control.findWaitingRegistration(
@@ -2322,30 +2346,48 @@ public class WalkInRegistrationUI {
                 // Display available Reg ID and Guest ID values for staff selection.
                 displayWaitingQueue();
 
-                System.out.print(
-                                "\nEnter Registration ID to cancel : ");
+                String registrationId;
 
-                String registrationId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Registration ID to cancel (0 = abort) : ");
 
-                if (registrationId.equals("0")) {
-                        System.out.println("Cancellation aborted.");
-                        return;
+                        registrationId = sc.nextLine().trim();
+
+                        if (registrationId.equals("0")) {
+                                System.out.println("Cancellation aborted.");
+                                return;
+                        }
+
+                        if (control.findRegistrationById(registrationId) == null) {
+                                System.out.println(
+                                                "Registration ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
-                System.out.print(
-                                "Enter Guest ID for verification : ");
+                String guestId;
 
-                String guestId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "Enter Guest ID for verification (0 = abort) : ");
 
-                if (guestId.equals("0")) {
-                        System.out.println("Cancellation aborted.");
-                        return;
-                }
+                        guestId = sc.nextLine().trim();
 
-                if (registrationId.isEmpty() || guestId.isEmpty()) {
-                        System.out.println(
-                                        "Registration ID and Guest ID cannot be blank.");
-                        return;
+                        if (guestId.equals("0")) {
+                                System.out.println("Cancellation aborted.");
+                                return;
+                        }
+
+                        if (control.findGuestById(guestId) == null) {
+                                System.out.println(
+                                                "Guest ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 WalkInRegistration selectedRegistration = control.findWaitingRegistration(
@@ -2364,10 +2406,29 @@ public class WalkInRegistrationUI {
                                 "CANCELLATION CONFIRMATION",
                                 selectedRegistration);
 
-                System.out.print("Confirm cancellation (Y/N): ");
-                String confirmation = sc.nextLine().trim();
+                String confirmation;
 
-                if (!confirmation.equalsIgnoreCase("Y")) {
+                while (true) {
+                        System.out.print("Confirm cancellation (Y/N, 0 = abort) : ");
+
+                        confirmation = sc.nextLine().trim();
+
+                        if (confirmation.equals("0")) {
+                                System.out.println("Cancellation aborted.");
+                                return;
+                        }
+
+                        if (confirmation.equalsIgnoreCase("Y")
+                                        || confirmation.equalsIgnoreCase("N")) {
+
+                                break;
+                        }
+
+                        System.out.println(
+                                        "Invalid input. Please enter Y or N.");
+                }
+
+                if (confirmation.equalsIgnoreCase("N")) {
                         System.out.println("Cancellation aborted.");
                         return;
                 }
@@ -2557,30 +2618,29 @@ public class WalkInRegistrationUI {
 
                 displayRegistrationIdDirectory();
 
-                System.out.print(
-                                "\nEnter Registration ID to search : ");
+                String registrationId;
+                WalkInRegistration registration;
 
-                String registrationId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Registration ID to search (0 = abort) : ");
 
-                if (registrationId.equals("0")) {
-                        System.out.println("Search cancelled.");
-                        return;
-                }
+                        registrationId = sc.nextLine().trim();
 
-                if (registrationId.isEmpty()) {
-                        System.out.println(
-                                        "Registration ID cannot be blank.");
-                        return;
-                }
+                        if (registrationId.equals("0")) {
+                                System.out.println("Search cancelled.");
+                                return;
+                        }
 
-                WalkInRegistration registration = control.findRegistrationById(
-                                registrationId);
+                        registration = control.findRegistrationById(registrationId);
 
-                if (registration == null) {
-                        System.out.println(
-                                        "No standard booking request found for Registration ID: "
-                                                        + registrationId);
-                        return;
+                        if (registration == null) {
+                                System.out.println(
+                                                "Registration ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 Guest guest = registration.getGuest();
@@ -2668,29 +2728,27 @@ public class WalkInRegistrationUI {
         private void searchRegistrationHistoryByGuestId() {
                 // Show available Guest IDs before asking staff to choose one.
                 displayGuestDirectory();
-                System.out.print(
-                                "\nEnter Guest ID to search registration history : ");
 
-                String guestId = sc.nextLine().trim();
+                String guestId;
 
-                if (guestId.equals("0")) {
-                        System.out.println("Search cancelled.");
-                        return;
-                }
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Guest ID to search registration history (0 = abort) : ");
 
-                if (guestId.isEmpty()) {
-                        System.out.println(
-                                        "Guest ID cannot be blank.");
-                        return;
-                }
+                        guestId = sc.nextLine().trim();
 
-                Guest existingGuest = control.findGuestById(guestId);
+                        if (guestId.equals("0")) {
+                                System.out.println("Search cancelled.");
+                                return;
+                        }
 
-                if (existingGuest == null) {
-                        System.out.println(
-                                        "Guest ID does not exist: "
-                                                        + guestId);
-                        return;
+                        if (control.findGuestById(guestId) == null) {
+                                System.out.println(
+                                                "Guest ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 WalkInRegistration[] registrations = control.searchRegistrationHistoryByGuestId(
