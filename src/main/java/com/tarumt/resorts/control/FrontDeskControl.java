@@ -156,7 +156,9 @@ public class FrontDeskControl {
         for (int i = 0; i < total; i++) {
             Room r = roomList.getEntry(i); // ADT method call: getEntry()
             boolean typeOk = type.equalsIgnoreCase("ALL") || type.equalsIgnoreCase(r.getRoomType());
-            if (typeOk && r.isAvailable() && !isRoomTakenInRange(r, today, tomorrow)) {
+            // vacant + no clash + cleaned (READY), so the list matches what check-in will accept
+            if (typeOk && r.isAvailable() && !isRoomTakenInRange(r, today, tomorrow)
+                    && isRoomReadyForCheckIn(r)) {
                 temp[count++] = r;
             }
         }
