@@ -7,6 +7,7 @@ package com.tarumt.resorts.entity;
 import java.time.LocalDate;
 
 /**
+ * @author Gary Khor Wei Qi
  * Represents a pending loyalty-points redemption request.
  */
 public class RedemptionRequest {

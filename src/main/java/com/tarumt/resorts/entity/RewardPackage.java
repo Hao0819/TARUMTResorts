@@ -9,6 +9,7 @@ package com.tarumt.resorts.entity;
  *
  * Each reward has a display name and the number of loyalty points required
  * to redeem it.
+ * @author Gary Khor Wei Qi
  */
 public enum RewardPackage {
 

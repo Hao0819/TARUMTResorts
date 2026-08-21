@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * Represents one loyalty-points transaction.
- *
+ *@author Gary Khor Wei Qi
  * Transaction types:
  * EARN   - points earned from a completed booking
  * REDEEM - points redeemed by a member
