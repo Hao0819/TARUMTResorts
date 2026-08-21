@@ -40,12 +40,7 @@ public class LoyaltyRewardsUI {
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    /**
-     * Creates the Loyalty and Rewards user interface.
-     *
-     * @param loyaltyControl control class containing loyalty operations
-     * @param scanner shared Scanner from TARUMTResorts
-     */
+    /** Uses the shared Loyalty control and keyboard input. */
     public LoyaltyRewardsUI(
     LoyaltyRewardsControl loyaltyControl,
     Scanner scanner) {
@@ -58,9 +53,7 @@ public class LoyaltyRewardsUI {
     // MAIN MENU NAVIGATION
     // -------------------------------------------------------------------------
 
-    /**
-     * Displays the Loyalty and Rewards menu.
-     */
+    /** Opens the Loyalty menu and runs the automatic checks. */
     public void showMenu() {
         int choice;
 
@@ -116,10 +109,7 @@ public class LoyaltyRewardsUI {
         } while (choice != 0);
     }
     
-    /**
- * Displays all loyalty accounts currently stored
- * in the custom ADT collection.
- */
+/** Shows every loyalty member in the shared collection. */
 private void displayAllLoyaltyAccounts() {
 
     ListQueueInterface<LoyaltyAccount> accounts = // ADT collection declaration
@@ -128,15 +118,13 @@ private void displayAllLoyaltyAccounts() {
     displayAccountList(accounts);
 }
     
-    /**
-     * Explicitly refreshes Loyalty from the shared Booking collection.
-     * Front-Desk does not call or hold a reference to this boundary.
-     */
+    /** Checks shared bookings for new Loyalty points. */
     public void processCompletedBookingsForLoyalty() {
 
         loyaltyControl.processCompletedBookingsForLoyalty();
     }
 
+   // Lets staff find a member by Loyalty ID or Guest ID.
    private void findLoyaltyMember() {
 
     displayAllLoyaltyAccounts();
@@ -202,6 +190,7 @@ private void displayAllLoyaltyAccounts() {
 }
     
     
+    // Opens the reward redemption options.
     private void redemptionManagement() {
 
     int choice;
@@ -255,6 +244,7 @@ private void displayAllLoyaltyAccounts() {
 
     } while (choice != 0);
 }
+    // Collects and submits one reward request.
     private void submitRedemptionRequest() {
 
     displayAllLoyaltyAccounts();
@@ -465,6 +455,7 @@ int selectedOption = readChoice();
             + request.getRequestDate());
 }
     
+    // Shows reward requests waiting in the queue.
     private void displayPendingRedemptionQueue() {
 
     System.out.println();
@@ -532,6 +523,7 @@ int selectedOption = readChoice();
             "Requests are processed in FIFO order.");
 }
     
+    // Processes the first reward request in the queue.
     private void processNextRedemptionRequest() {
 
     System.out.println();
@@ -604,6 +596,7 @@ int selectedOption = readChoice();
             + " has been removed from the queue.");
 }
     
+    // Cancels a selected pending reward request.
     private void cancelPendingRedemptionRequest() {
 
     System.out.println();
@@ -675,6 +668,7 @@ int selectedOption = readChoice();
     /**
      * Creates a loyalty account for an existing guest.
      */
+    // Creates a loyalty account for an existing guest.
     private void createLoyaltyAccount() {
 
         System.out.println();
@@ -752,6 +746,7 @@ int selectedOption = readChoice();
     }
 
     /** Displays completed-stay Loyalty processing without awarding points. */
+    // Shows how a completed stay received its points.
     private void viewCompletedStayPointProcessing() {
 
         String outerBorder =
@@ -869,7 +864,7 @@ int selectedOption = readChoice();
         System.out.println(columnBorder);
     }
 
-    /** Displays completed Booking confirmation numbers before lookup input. */
+    /** Shows completed bookings before staff enters a booking number. */
     private void displayCompletedStayBookingList() {
 
         ListQueueInterface<Booking> completedBookings = // ADT collection declaration
@@ -919,7 +914,7 @@ int selectedOption = readChoice();
         System.out.println();
     }
 
-    /** Prints one aligned label/value row for completed-stay processing. */
+    /** Prints one aligned booking detail row. */
     private void printProcessingDetailRow(
             String label,
             Object value) {
@@ -931,9 +926,7 @@ int selectedOption = readChoice();
     }
 
 
-    /**
-     * Allows the user to filter loyalty accounts by tier and account status.
-     */
+    /** Filters members by tier and account status. */
     private void displayTierAndPointsReport() {
 
         String border =
@@ -1016,10 +1009,7 @@ int selectedOption = readChoice();
         displayAccountList(filteredAccounts);
     }
 
-    /**
-     * Allows staff to activate or deactivate a loyalty account
-     * without permanently deleting its history.
-     */
+    /** Changes a member's active status without deleting history. */
     private void updateLoyaltyAccountStatus() {
 
         displayAllLoyaltyAccounts();
@@ -1122,6 +1112,7 @@ int selectedOption = readChoice();
         displayAccountDetails(account);
     }
 
+    // Prints the member list in a table.
     private void displayAccountList(
         ListQueueInterface<LoyaltyAccount> accounts) { // ADT collection declaration
 
@@ -1195,7 +1186,7 @@ int selectedOption = readChoice();
             accounts.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
 }
 
-    /** Displays management KPIs, tier results and reward popularity. */
+    /** Shows the main Loyalty performance figures. */
     private void displayLoyaltyPerformanceReport() {
 
         LocalDateTime reportTime = LoyaltyClock.now();
@@ -1262,6 +1253,7 @@ int selectedOption = readChoice();
     }
 
     /** Prints one aligned summary row in the performance report. */
+    // Prints one line in the performance summary.
     private void printPerformanceSummaryRow(String label, Object value) {
         System.out.printf(
                 "| %-28s : %-37.37s |%n",
@@ -1270,6 +1262,7 @@ int selectedOption = readChoice();
     }
 
     /** Displays performance totals grouped by the member's current tier. */
+    // Shows Loyalty results grouped by member tier.
     private void displayTierPerformanceTable(TierPerformance[] rows) {
 
         String border =
@@ -1303,6 +1296,7 @@ int selectedOption = readChoice();
     }
 
     /** Displays popularity statistics from successfully processed rewards. */
+    // Shows which rewards members redeemed.
     private void displayRewardPerformanceTable(RewardPerformance[] rows) {
 
         String border =
@@ -1327,7 +1321,7 @@ int selectedOption = readChoice();
         System.out.println(border);
     }
 
-    /** Displays individual point batches expiring within seven days. */
+    /** Shows point batches expiring within seven days. */
     private void displayExpiringPointsAlerts() {
 
         LocalDateTime currentTime =
@@ -1370,11 +1364,7 @@ int selectedOption = readChoice();
         displayExpiringTransactionList(alerts);
     }
 
-    /**
-     * Displays the Expiring Points Report.
-     *
-     * @param transactions custom ADT containing expiring point batches
-     */
+    /** Prints the expiring point batches in a table. */
     private void displayExpiringTransactionList(
     ListQueueInterface<LoyaltyTransaction> transactions) { // ADT collection declaration
 
@@ -1442,9 +1432,7 @@ System.out.println(
         + transactions.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
     }
 
-    /**
-     * Formats an account activity or expiry timestamp for display.
-     */
+    /** Formats a date and time for display. */
     private String formatDateTime(LocalDateTime dateTime) {
 
         return dateTime == null
@@ -1452,7 +1440,7 @@ System.out.println(
                 : dateTime.format(DATE_TIME_FORMATTER);
     }
 
-    /** Displays a member's complete point ledger, not an expiry report. */
+    /** Shows one member's full point history. */
     private void displayPointTransactionHistory() {
 
         displayAllLoyaltyAccounts();
@@ -1527,11 +1515,7 @@ System.out.println(
                 + transactions.getNumberOfEntries()); // ADT method call: getNumberOfEntries()
     }
     
-    /**
-     * Displays the details of one loyalty account.
-     *
-     * @param account loyalty account to display
-     */
+    /** Shows the main details of one member account. */
     private void displayAccountDetails(
     LoyaltyAccount account) {
 
@@ -1617,6 +1601,7 @@ System.out.println(
     /**
      * Prints one consistently aligned row in the member-details table.
      */
+    // Prints one aligned member detail row.
     private void printAccountDetailRow(
             String label,
             Object value) {
@@ -1628,6 +1613,7 @@ System.out.println(
     }
 
     /** Allows a presenter to change time for the Loyalty module only. */
+    // Opens the Loyalty demo date options.
     private void displayDemoLoyaltyTimeMenu() {
 
         int choice;
@@ -1676,6 +1662,7 @@ System.out.println(
         } while (choice != 0);
     }
 
+    // Changes the date used by the Loyalty demo.
     private void setDemoLoyaltyDate() {
         System.out.print(
                 "Enter Loyalty date (yyyy-MM-dd): ");
@@ -1690,6 +1677,7 @@ System.out.println(
         }
     }
 
+    // Shows the new demo date after it is changed.
     private void printChangedLoyaltyTime() {
         System.out.println(
                 "Loyalty date changed to "
@@ -1702,6 +1690,7 @@ System.out.println(
     /**
      * Prints the Loyalty and Rewards menu.
      */
+    // Prints the Loyalty main menu.
     private void displayMenu() {
         System.out.println();
         System.out.println(
@@ -1726,11 +1715,7 @@ System.out.println(
         System.out.print("Enter choice: ");
     }
 
-    /**
-     * Reads and validates a numerical menu choice.
-     *
-     * @return entered menu choice, or -1 for invalid input
-     */
+    /** Reads a whole-number menu choice safely. */
     private int readChoice() {
 
         try {

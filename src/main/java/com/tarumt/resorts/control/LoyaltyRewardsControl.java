@@ -45,9 +45,7 @@ public class LoyaltyRewardsControl {
     // CONSTRUCTORS
     // -------------------------------------------------------------------------
 
-    /**
-     * Creates an empty Loyalty and Rewards control.
-     */
+    /** Creates an empty Loyalty service. */
     public LoyaltyRewardsControl() {
         loyaltyAccounts = new DoublyLinkedListQueue<>(); // ADT implementation creation
         loyaltyTransactions = new DoublyLinkedListQueue<>(); // ADT implementation creation
@@ -56,14 +54,7 @@ public class LoyaltyRewardsControl {
         redemptionRequests = new DoublyLinkedListQueue<>(); // ADT implementation creation
     }
 
-    /**
-     * Creates the Loyalty control using the shared collections.
-     *
-     * @param loyaltyAccounts shared loyalty-account collection
-     * @param loyaltyTransactions shared loyalty-transaction collection
-     * @param guests shared guest collection
-     * @param bookings shared booking collection
-     */
+    /** Uses the shared data collections provided by Main. */
     public LoyaltyRewardsControl(
             ListQueueInterface<LoyaltyAccount> loyaltyAccounts, // ADT collection declaration
             ListQueueInterface<LoyaltyTransaction> loyaltyTransactions, // ADT collection declaration
@@ -99,32 +90,22 @@ public class LoyaltyRewardsControl {
     // COLLECTION ACCESS
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns all loyalty accounts.
-     *
-     * @return shared loyalty-account collection
-     */
+    /** Returns the shared member collection. */
     public ListQueueInterface<LoyaltyAccount> getLoyaltyAccounts() {
         return loyaltyAccounts;
     }
 
-    /**
-     * Returns all loyalty transactions.
-     *
-     * Kept as a public accessor because another integration or report may
-     * still need the shared transaction collection.
-     *
-     * @return shared loyalty-transaction collection
-     */
+    /** Returns the shared point ledger. */
     public ListQueueInterface<LoyaltyTransaction> getLoyaltyTransactions() {
         return loyaltyTransactions;
     }
 
-    /** Returns the configured advance-warning period for expiring batches. */
+    /** Returns how many days before expiry to show a warning. */
     public int getExpiryNotificationDays() {
         return EXPIRY_NOTIFICATION_DAYS;
     }
 
+    // Creates the next reward request ID.
     private String generateRedemptionRequestId() {
 
     String requestId = String.format(
@@ -136,6 +117,7 @@ public class LoyaltyRewardsControl {
     return requestId;
 }
     
+    // Adds one valid reward request to the pending queue.
     public RedemptionRequest submitRedemptionRequest(
         String loyaltyId,
         RewardPackage rewardPackage) {
@@ -206,12 +188,7 @@ public class LoyaltyRewardsControl {
     // MEMBER AND GUEST SEARCH
     // -------------------------------------------------------------------------
 
-    /**
-     * Finds a loyalty member by Loyalty ID.
-     *
-     * @param loyaltyId Loyalty ID to search
-     * @return matching account, or null if not found
-     */
+    /** Finds a member by Loyalty ID. */
     public LoyaltyAccount findMemberByLoyaltyId(String loyaltyId) {
 
         if (loyaltyId == null || loyaltyId.trim().isEmpty()) {
@@ -224,12 +201,7 @@ public class LoyaltyRewardsControl {
         );
     }
 
-    /**
-     * Finds a loyalty member by Guest ID.
-     *
-     * @param guestId Guest ID to search
-     * @return matching account, or null if not found
-     */
+    /** Finds a member by Guest ID. */
     public LoyaltyAccount findMemberByGuestId(String guestId) {
 
         if (guestId == null || guestId.trim().isEmpty()) {
@@ -242,12 +214,7 @@ public class LoyaltyRewardsControl {
         );
     }
 
-    /**
-     * Finds a guest from the shared Guest collection.
-     *
-     * @param guestId Guest ID to search
-     * @return matching guest, or null if not found
-     */
+    /** Finds a guest in the shared collection. */
     public Guest findGuestById(String guestId) {
 
         if (guestId == null || guestId.trim().isEmpty()) {
@@ -260,12 +227,7 @@ public class LoyaltyRewardsControl {
         );
     }
 
-    /**
-     * Finds a booking using its confirmation number.
-     *
-     * @param confirmationNumber booking confirmation number
-     * @return matching booking, or null if not found
-     */
+    /** Finds a booking by confirmation number. */
     public Booking findBookingByConfirmationNumber(
             String confirmationNumber) {
 
@@ -281,11 +243,7 @@ public class LoyaltyRewardsControl {
         );
     }
 
-    /**
-     * Returns operational completed stays for the Loyalty lookup table.
-     * Historical seed bookings (20261xxx) are already represented in the
-     * opening ledger and are omitted to keep the selection table concise.
-     */
+    /** Returns completed stays that staff can check. */
     public ListQueueInterface<Booking> getCompletedStayBookingsForDisplay() {
 
         return bookings.filter(booking -> // ADT method call: filter()
@@ -301,15 +259,7 @@ public class LoyaltyRewardsControl {
     // ACCOUNT CREATION
     // -------------------------------------------------------------------------
 
-    /**
-     * Creates and stores a new loyalty account.
-     *
-     * The method prevents duplicate Loyalty IDs and prevents the same Guest
-     * from owning more than one loyalty account.
-     *
-     * @param newAccount account to create
-     * @return true if the account is created successfully
-     */
+    /** Adds a valid new account without creating duplicates. */
     public boolean createLoyaltyAccount(LoyaltyAccount newAccount) {
 
         if (newAccount == null
@@ -344,12 +294,7 @@ public class LoyaltyRewardsControl {
         return loyaltyAccounts.enqueue(newAccount); // ADT method call: enqueue()
     }
 
-    /**
-     * Creates a loyalty account for an existing Guest.
-     *
-     * @param guestId existing Guest ID
-     * @return created account, or null if creation fails
-     */
+    /** Creates a Loyalty account for an existing guest. */
     public LoyaltyAccount createAccountForGuest(String guestId) {
 
         if (guestId == null || guestId.trim().isEmpty()) {
@@ -385,11 +330,7 @@ public class LoyaltyRewardsControl {
         return newAccount;
     }
 
-    /**
-     * Generates the next available Loyalty ID.
-     *
-     * @return ID such as L001, L002, L003
-     */
+    /** Creates the next available Loyalty ID. */
     private String generateLoyaltyId() {
 
         int number = 1;
@@ -407,18 +348,7 @@ public class LoyaltyRewardsControl {
     // COMPLETED-BOOKING INTEGRATION
     // -------------------------------------------------------------------------
 
-    /**
-     * Processes eligible completed bookings for Loyalty automatically.
-     *
-     * A CHECKED_OUT and PAID booking that has not received points will:
-     * 1. create a Loyalty account for the Guest when needed, and
-     * 2. award the completed-stay points.
-     *
-     * Front-Desk does not call this method. Loyalty invokes it when its menu
-     * opens and discovers changes through the shared Booking collection.
-     *
-     * @return counters used by the UI to display a concise automation summary
-     */
+    /** Finds new completed stays and awards their Loyalty points. */
     public AutomaticProcessingResult processCompletedBookingsForLoyalty() {
 
         int accountsCreated = 0;
@@ -533,14 +463,17 @@ public class LoyaltyRewardsControl {
             this.processedItems = processedItems;
         }
 
+        // Returns how many accounts were created.
         public int getAccountsCreated() {
             return accountsCreated;
         }
 
+        // Returns how many bookings received points.
         public int getBookingsProcessed() {
             return bookingsProcessed;
         }
 
+        // Returns the total points awarded.
         public int getPointsAwarded() {
             return pointsAwarded;
         }
@@ -551,6 +484,7 @@ public class LoyaltyRewardsControl {
             return processedItems;
         }
 
+        // Checks whether the automatic scan changed anything.
         public boolean hasActivity() {
             return accountsCreated > 0
                     || bookingsProcessed > 0
@@ -596,53 +530,58 @@ public class LoyaltyRewardsControl {
             this.expiryTime = expiryTime;
         }
 
+        // Returns the processed Loyalty ID.
         public String getLoyaltyId() {
             return loyaltyId;
         }
 
+        // Returns the processed booking number.
         public String getBookingId() {
             return bookingId;
         }
 
+        // Returns the balance before this Earn.
         public int getPreviousPoints() {
             return previousPoints;
         }
 
+        // Returns the points earned from this booking.
         public int getPointsEarned() {
             return pointsEarned;
         }
 
+        // Returns the balance after this Earn.
         public int getNewPoints() {
             return newPoints;
         }
 
+        // Returns the tier before this Earn.
         public MembershipTier getPreviousTier() {
             return previousTier;
         }
 
+        // Returns the tier after this Earn.
         public MembershipTier getNewTier() {
             return newTier;
         }
 
+        // Returns the new EARN transaction ID.
         public String getEarnBatchId() {
             return earnBatchId;
         }
 
+        // Returns when the points were earned.
         public LocalDateTime getTransactionTime() {
             return transactionTime;
         }
 
+        // Returns when this point batch expires.
         public LocalDateTime getExpiryTime() {
             return expiryTime;
         }
     }
 
-    /**
-     * Checks whether a booking is completed and fully paid.
-     *
-     * @param booking booking to check
-     * @return true for CHECKED_OUT and PAID bookings
-     */
+    /** Checks whether a booking is paid and checked out. */
     private boolean isCompletedAndPaid(Booking booking) {
 
         return booking != null
@@ -658,12 +597,7 @@ public class LoyaltyRewardsControl {
     // POINT EARNING
     // -------------------------------------------------------------------------
 
-    /**
-     * Checks whether a booking has already received Loyalty points.
-     *
-     * @param bookingId booking confirmation number
-     * @return true if an EARN transaction already exists for the booking
-     */
+    /** Checks whether a booking already received points. */
     public boolean hasBookingReceivedPoints(String bookingId) {
 
         if (bookingId == null || bookingId.trim().isEmpty()) {
@@ -688,7 +622,7 @@ public class LoyaltyRewardsControl {
         return transaction != null;
     }
 
-    /** Returns the EARN batch created for a booking, or null when unprocessed. */
+    /** Finds the EARN batch linked to a booking. */
     public LoyaltyTransaction findEarnTransactionByBookingId(
             String bookingId) {
 
@@ -703,15 +637,7 @@ public class LoyaltyRewardsControl {
                                 ? transaction.getBookingId() : null);
     }
 
-   /**
- * Calculates loyalty points using the ORIGINAL booking amount.
- *
- * Membership room discounts do not reduce the amount used
- * for loyalty-point calculation.
- *
- * @param booking booking to calculate
- * @return calculated loyalty points
- */
+/** Calculates points from the original booking amount. */
 public int calculateRewardPoints(Booking booking) {
 
     if (booking == null || booking.getAmount() <= 0) {
@@ -725,43 +651,19 @@ public int calculateRewardPoints(Booking booking) {
             originalBookingAmount * POINTS_PER_RM);
 }
 
-/**
- * Calculates the amount the guest actually needs to pay
- * after applying the Loyalty room discount.
- *
- * The original Booking amount is never modified.
- *
- * @param booking booking to calculate
- * @return final payable amount after room discount
- */
+/** Returns the room amount after the member discount. */
 public double getActualPaymentAmount(Booking booking) {
 
     return calculatePayableAmount(booking);
 }
 
-/**
- * Returns the room discount percentage for display.
- *
- * Example: 0.10 becomes 10.0.
- */
+/** Returns the room discount as a display percentage. */
 public double getRoomDiscountPercentage(MembershipTier tier) {
 
     return getRoomDiscountRate(tier) * 100.0;
 }
 
-    /**
-     * Adds Loyalty points from an eligible completed stay.
-     *
-     * The booking must exist, belong to the same Guest, be CHECKED_OUT,
-     * be PAID, and must not have received points before.
-     *
-     * Each successful earn creates a separate point batch and resets the
-     * account-level three-month points-expiry date.
-     *
-     * @param loyaltyId Loyalty account ID
-     * @param bookingId booking confirmation number
-     * @return true if points are awarded successfully
-     */
+    /** Awards one EARN batch for a completed paid stay. */
     public boolean addPointsFromCompletedStay(
             String loyaltyId,
             String bookingId) {
@@ -866,13 +768,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
     // DIRECT REWARD REDEMPTION
     // -------------------------------------------------------------------------
 
-    /**
-     * Redeems a selected RewardPackage immediately.
-     *
-     * @param loyaltyId Loyalty account ID
-     * @param rewardPackage selected reward
-     * @return true if the reward is redeemed successfully
-     */
+    /** Redeems the selected reward for a member. */
     public boolean redeemReward(
             String loyaltyId,
             RewardPackage rewardPackage) {
@@ -890,10 +786,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                 rewardPackage);
     }
 
-    /**
-     * Redeems points from individual batches. Batches with the earliest
-     * expiry time are consumed first so fewer points are unnecessarily lost.
-     */
+    /** Redeems the earliest expiring point batches first. */
     private boolean redeemPoints(
             String loyaltyId,
             int points) {
@@ -901,7 +794,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         return redeemPoints(loyaltyId, points, null);
     }
 
-    /** Redeems points and retains the selected reward in the audit ledger. */
+    /** Redeems points and saves the reward in the ledger. */
     private boolean redeemPoints(
             String loyaltyId,
             int points,
@@ -1013,9 +906,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         return true;
     }
 
-    /**
-     * Checks whether a transaction still contains redeemable points.
-     */
+    /** Checks whether a point batch can still be redeemed. */
     private boolean isUsablePointsTransaction(
             LoyaltyTransaction transaction,
             String loyaltyId,
@@ -1044,7 +935,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                 && currentTime.isBefore(transaction.getExpiryTime());
     }
 
-    /** Records activity for the separate one-year inactivity rule. */
+    /** Records the latest successful Earn or Redeem. */
     private void recordPointsActivity(
             LoyaltyAccount account,
             LocalDateTime activityTime) {
@@ -1056,7 +947,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         account.setLastPointsActivityTime(activityTime);
     }
 
-    /** Stores the earliest expiry among the account's unused point batches. */
+    /** Saves the member's next point-batch expiry. */
     private void updateNextPointsExpiry(
             LoyaltyAccount account,
             LocalDateTime currentTime) {
@@ -1092,9 +983,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         account.setPointsExpiryTime(nextExpiry);
     }
 
-    /**
-     * Orders expiring batches first and non-expiring legacy batches last.
-     */
+    /** Sorts point batches by the earliest expiry. */
     private int comparePointBatchExpiry(
             LoyaltyTransaction first,
             LoyaltyTransaction second) {
@@ -1123,11 +1012,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
     // TRANSACTION ID
     // -------------------------------------------------------------------------
 
-    /**
-     * Generates the next transaction ID.
-     *
-     * @return ID such as T001, T002, T003
-     */
+    /** Creates the next transaction ID. */
     private String generateTransactionId() {
 
         int nextNumber =
@@ -1140,21 +1025,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
     // TIER MANAGEMENT AND PROMOTIONS
     // -------------------------------------------------------------------------
 
-    /**
-     * Recalculates a member's tier from qualifying points. Redeemable balance
-     * changes caused by redemption or expiry do not affect this calculation.
-     *
-     * NONE: 0-499
-     * SILVER: 500-1,499
-     * GOLD: 1,500-2,999
-     * PLATINUM: 3,000-4,999
-     * DIAMOND: 5,000-6,999
-     * ELITE: 7,000+
-     *
-     * An inactive account always has Tier NONE.
-     *
-     * @param account account to update
-     */
+    /** Updates the tier from qualifying points. */
     public void recalculateTier(LoyaltyAccount account) {
 
         if (account == null) {
@@ -1171,9 +1042,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
                         account.getTierQualifyingPoints()));
     }
 
-    /**
-     * Recalculates all tiers when the Loyalty module is initialized.
-     */
+    /** Refreshes every member tier when Loyalty starts. */
     private void recalculateAllTiers() {
 
         Iterator<LoyaltyAccount> iterator =
@@ -1184,12 +1053,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         }
     }
 
-    /**
-     * Returns the personalized promotion for a tier.
-     *
-     * @param tier membership tier
-     * @return promotion description
-     */
+    /** Returns the promotion offered to a tier. */
     public String getPromotionForTier(MembershipTier tier) {
 
         if (tier == null) {
@@ -1206,14 +1070,7 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
         };
     }
     
-    /**
- * Returns the room discount rate for a membership tier.
- *
- * This is separate from personalized dining/promotional benefits.
- *
- * @param tier membership tier
- * @return room discount rate as a decimal
- */
+/** Returns the room discount rate for a member tier. */
 public double getRoomDiscountRate(MembershipTier tier) {
 
     if (tier == null) {
@@ -1223,10 +1080,7 @@ public double getRoomDiscountRate(MembershipTier tier) {
     return tier.getRoomDiscountRate();
 }
 
-/**
- * Calculates the room discount amount without modifying
- * the original Booking amount.
- */
+/** Calculates the room discount without changing the booking. */
 public double calculateRoomDiscountAmount(Booking booking) {
 
     if (booking == null) {
@@ -1245,12 +1099,7 @@ public double calculateRoomDiscountAmount(Booking booking) {
             * getRoomDiscountRate(tier);
 }
 
-/**
- * Calculates the actual amount the guest needs to pay
- * after applying the membership room discount.
- *
- * Booking.amount remains the original amount.
- */
+/** Calculates the amount payable after the room discount. */
 public double calculatePayableAmount(Booking booking) {
 
     if (booking == null) {
@@ -1265,17 +1114,7 @@ public double calculatePayableAmount(Booking booking) {
     // ACCOUNT STATUS MANAGEMENT
     // -------------------------------------------------------------------------
 
-    /**
-     * Activates or deactivates a Loyalty account.
-     *
-     * Inactive accounts cannot earn or redeem points and always use Tier NONE.
-     * Reactivation restores the tier from saved qualifying points and begins
-     * a new inactivity period.
-     *
-     * @param loyaltyId Loyalty account ID
-     * @param active new active status
-     * @return true if the account is found and updated
-     */
+    /** Activates or deactivates a member account. */
     public boolean updateAccountStatus(
             String loyaltyId,
             boolean active) {
@@ -1319,13 +1158,7 @@ public double calculatePayableAmount(Booking booking) {
         return true;
     }
 
-    /**
-     * Automatically deactivates accounts with no successful EARN or REDEEM
-     * for one year and immediately applies Tier NONE.
-     *
-     * @param currentTime time used for the inactivity check
-     * @return number of accounts whose tier changed to NONE
-     */
+    /** Deactivates accounts with no activity for one year. */
     public int processInactiveAccountTierExpirations(
             LocalDateTime currentTime) {
 
@@ -1367,16 +1200,7 @@ public double calculatePayableAmount(Booking booking) {
     // TIER AND POINTS REPORT
     // -------------------------------------------------------------------------
 
-    /**
-     * Filters Loyalty members by tier, status, and minimum points.
-     *
-     * Results are ordered from the highest point balance to the lowest.
-     *
-     * @param tier selected tier, or null for all tiers
-     * @param statusFilter 0 = all, 1 = active, 2 = inactive
-     * @param minimumPoints minimum point balance
-     * @return matching accounts in the custom ADT
-     */
+    /** Filters members and lists the highest balances first. */
     public ListQueueInterface<LoyaltyAccount> filterMembers(
             MembershipTier tier,
             int statusFilter,
@@ -1456,36 +1280,44 @@ public double calculatePayableAmount(Booking booking) {
             this.tier = tier;
         }
 
+        // Returns the tier for this report row.
         public MembershipTier getTier() {
             return tier;
         }
 
+        // Returns the number of members in the tier.
         public int getMembers() {
             return members;
         }
 
+        // Returns the tier's available points.
         public long getAvailablePoints() {
             return availablePoints;
         }
 
+        // Returns the points issued to this tier.
         public long getIssuedPoints() {
             return issuedPoints;
         }
 
+        // Returns the points redeemed by this tier.
         public long getRedeemedPoints() {
             return redeemedPoints;
         }
 
+        // Returns the points expired for this tier.
         public long getExpiredPoints() {
             return expiredPoints;
         }
 
+        // Calculates the average member balance for this tier.
         public double getAverageBalance() {
             return members == 0
                     ? 0.0
                     : (double) availablePoints / members;
         }
 
+        // Calculates this tier's redemption rate.
         public double getRedemptionRate() {
             return issuedPoints == 0
                     ? 0.0
@@ -1504,14 +1336,17 @@ public double calculatePayableAmount(Booking booking) {
             this.reward = reward;
         }
 
+        // Returns the reward for this report row.
         public RewardPackage getReward() {
             return reward;
         }
 
+        // Returns how many times the reward was redeemed.
         public int getRedemptionCount() {
             return redemptionCount;
         }
 
+        // Returns the points spent on this reward.
         public long getPointsUsed() {
             return pointsUsed;
         }
@@ -1553,70 +1388,87 @@ public double calculatePayableAmount(Booking booking) {
             }
         }
 
+        // Returns the total number of members.
         public int getTotalMembers() {
             return totalMembers;
         }
 
+        // Returns the number of active members.
         public int getActiveMembers() {
             return activeMembers;
         }
 
+        // Returns the total points earned.
         public long getEarnedPoints() {
             return earnedPoints;
         }
 
+        // Returns the total adjusted points.
         public long getAdjustedPoints() {
             return adjustedPoints;
         }
 
+        // Returns the total points redeemed.
         public long getRedeemedPoints() {
             return redeemedPoints;
         }
 
+        // Returns the total points expired.
         public long getExpiredPoints() {
             return expiredPoints;
         }
 
+        // Returns the current point liability.
         public long getAvailablePoints() {
             return availablePoints;
         }
 
+        // Returns the points expiring soon.
         public long getExpiringSoonPoints() {
             return expiringSoonPoints;
         }
 
+        // Returns the top redeeming member's Loyalty ID.
         public String getTopRedeemingLoyaltyId() {
             return topRedeemingLoyaltyId;
         }
 
+        // Returns the top redeeming member's name.
         public String getTopRedeemingMember() {
             return topRedeemingMember;
         }
 
+        // Returns the top member's redeemed points.
         public long getTopMemberRedeemedPoints() {
             return topMemberRedeemedPoints;
         }
 
+        // Returns the tier that redeemed the most points.
         public MembershipTier getHighestRedeemingTier() {
             return highestRedeemingTier;
         }
 
+        // Returns the most frequently redeemed reward.
         public RewardPackage getMostPopularReward() {
             return mostPopularReward;
         }
 
+        // Returns how often the top reward was redeemed.
         public int getMostPopularRewardCount() {
             return mostPopularRewardCount;
         }
 
+        // Returns a safe copy of the tier rows.
         public TierPerformance[] getTierRows() {
             return tierRows.clone();
         }
 
+        // Returns a safe copy of the reward rows.
         public RewardPerformance[] getRewardRows() {
             return rewardRows.clone();
         }
 
+        // Calculates the overall redemption rate.
         public double getRedemptionRate() {
             long issuedPoints = earnedPoints + adjustedPoints;
             return issuedPoints == 0
@@ -1625,14 +1477,7 @@ public double calculatePayableAmount(Booking booking) {
         }
     }
 
-    /**
-     * Builds a read-only management report from the account, transaction and
-     * completed-redemption ledgers.
-     *
-     * @param currentTime report generation time
-     * @param expiringDays number of days used for expiry risk
-     * @return calculated performance report
-     */
+    /** Builds the Loyalty performance report from current records. */
     public LoyaltyPerformanceReport generateLoyaltyPerformanceReport(
             LocalDateTime currentTime,
             int expiringDays) {
@@ -1777,7 +1622,7 @@ public double calculatePayableAmount(Booking booking) {
     // EXPIRING POINTS REPORTS
     // -------------------------------------------------------------------------
 
-    /** Returns accounts whose next point batch expires within the window. */
+    /** Finds members with points expiring inside the date range. */
     public ListQueueInterface<LoyaltyAccount>
             generateExpiringAccountAlerts(
                     LocalDateTime currentTime,
@@ -1811,17 +1656,7 @@ public double calculatePayableAmount(Booking booking) {
         return ordered;
     }
 
-    /**
-     * Generates the expiring-points report.
-     *
-     * Each result is one point batch with unused points expiring inside the
-     * selected window. Results are ordered by earliest expiry time first.
-     *
-     * @param startTime start of expiry window
-     * @param endTime end of expiry window
-     * @param tier selected tier, or null for all tiers
-     * @return matching point-batch transactions
-     */
+    /** Lists expiring point batches with the earliest one first. */
     public ListQueueInterface<LoyaltyTransaction>
             generateExpiringPointsReport(
                     LocalDateTime startTime,
@@ -1877,13 +1712,7 @@ public double calculatePayableAmount(Booking booking) {
         return orderedTransactions;
     }
 
-    /**
-     * Generates notifications for point batches expiring within several days.
-     *
-     * @param currentTime current date and time
-     * @param daysAhead notification window in days
-     * @return matching point-batch transactions
-     */
+    /** Finds point batches that need an expiry warning. */
     public ListQueueInterface<LoyaltyTransaction>
             generateExpiringPointsAlerts(
                     LocalDateTime currentTime,
@@ -1904,10 +1733,7 @@ public double calculatePayableAmount(Booking booking) {
     // EXPIRED POINTS PROCESSING
     // -------------------------------------------------------------------------
 
-    /**
-     * Expires each unused EARN/ADJUST batch independently three months after
-     * that batch was earned. Each expired batch creates its own EXPIRE entry.
-     */
+    /** Expires each due point batch and records the deduction. */
     public int processExpiredPoints(
             LocalDateTime currentTime) {
 
@@ -1976,11 +1802,13 @@ public double calculatePayableAmount(Booking booking) {
 
         return totalExpiredPoints;
     }
+    // Returns all reward requests waiting to be processed.
     public ListQueueInterface<RedemptionRequest>
         getPendingRedemptionRequests() {
 
     return redemptionRequests;
 }
+        // Processes the first reward request in FIFO order.
         public boolean processNextRedemptionRequest() {
 
     if (redemptionRequests == null
@@ -1989,7 +1817,7 @@ public double calculatePayableAmount(Booking booking) {
         return false;
     }
 
-    // View the first request without removing it.
+    // Read the first request without removing it.
     RedemptionRequest nextRequest =
             redemptionRequests.peek(); // ADT method call: peek()
 
@@ -1997,7 +1825,7 @@ public double calculatePayableAmount(Booking booking) {
         return false;
     }
 
-    // Deduct the points using your existing redemption logic.
+    // Try to redeem the requested reward.
     boolean redeemed =
             redeemPoints(
                     nextRequest.getLoyaltyId(),
@@ -2014,6 +1842,7 @@ public double calculatePayableAmount(Booking booking) {
 
     return true;
 }
+        // Removes one selected request from the pending queue.
         public boolean cancelRedemptionRequest(String requestId) {
 
     if (requestId == null
