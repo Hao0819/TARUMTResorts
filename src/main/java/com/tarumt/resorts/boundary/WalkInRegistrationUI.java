@@ -1089,11 +1089,11 @@ public class WalkInRegistrationUI {
 
                 String border = "+----------+----------+----------------------+------------+"
                                 + "------------+------------+--------+"
-                                + "------------------+------------+-----------+";
+                                + "------------------+------------+-----------+------------+-----------+";
 
                 String companyName = "TARUMT RESORTS";
                 String title = "WALK-IN REGISTRATION ANALYSIS REPORT";
-                int contentWidth = 134;
+                int contentWidth = 159;
 
                 int companyLeftPadding = (contentWidth - companyName.length()) / 2;
                 int companyRightPadding = contentWidth - companyName.length() - companyLeftPadding;
@@ -1126,26 +1126,26 @@ public class WalkInRegistrationUI {
                                                 "yyyy-MM-dd HH:mm"));
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Generated at: " + generatedTime);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Room Type Filter: " + roomTypeFilter);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Status Filter: " + statusFilter);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Sorted by: Registration Time (Ascending)");
 
                 System.out.println(border);
 
                 System.out.printf(
                                 "| %-8s | %-8s | %-20s | %-10s | %-10s | "
-                                                + "%-10s | %-6s | %-16s | %-10s | %-9s |%n",
+                                                + "%-10s | %-6s | %-16s | %-10s | %-9s | %-10s | %-9s |%n",
                                 "Reg ID",
                                 "Guest ID",
                                 "Guest Name",
@@ -1155,13 +1155,15 @@ public class WalkInRegistrationUI {
                                 "Nights",
                                 "Registered Time",
                                 "Confirm No",
+                                "Room No.",
+                                "Amount(RM)",
                                 "Status");
 
                 System.out.println(border);
 
                 if (reportRecords.length == 0) {
                         System.out.printf(
-                                        "| %-134s |%n",
+                                        "| %-159s |%n",
                                         "No registration records match the selected filters.");
                 } else {
                         for (int i = 0; i < reportRecords.length; i++) {
@@ -1172,10 +1174,27 @@ public class WalkInRegistrationUI {
                                                 ? "-"
                                                 : registration.getBookingConfirmationNumber();
 
+                                // Booking is the 3rd entity class in this report: it supplies the room
+                                // actually assigned and the amount charged, which WalkInRegistration never stores.
+                                String roomNumberDisplay = "-";
+                                String amountDisplay = "-";
+
+                                if (!confirmationDisplay.equals("-")) {
+                                        Booking assignedBooking = control.findBookingByConfirmationNumber(
+                                                        confirmationDisplay);
+
+                                        if (assignedBooking != null) {
+                                                if (assignedBooking.getRoom() != null) {
+                                                        roomNumberDisplay = assignedBooking.getRoom().getRoomNumber();
+                                                }
+                                                amountDisplay = String.format("%.2f", assignedBooking.getFinalAmount());
+                                        }
+                                }
+
                                 System.out.printf(
                                                 "| %-8.8s | %-8.8s | %-20.20s | %-10.10s | "
                                                                 + "%-10s | %-10s | %-6d | %-16.16s | "
-                                                                + "%-10.10s | %-9.9s |%n",
+                                                                + "%-10.10s | %-9.9s | %-10.10s | %-9.9s |%n",
                                                 registration.getRegistrationId(),
                                                 registration.getGuest().getGuestId(),
                                                 registration.getGuest().getName(),
@@ -1185,6 +1204,8 @@ public class WalkInRegistrationUI {
                                                 registration.getStayDurationDays(),
                                                 registration.getRegistrationTime(),
                                                 confirmationDisplay,
+                                                roomNumberDisplay,
+                                                amountDisplay,
                                                 registration.getStatus());
                         }
                 }
@@ -1192,7 +1213,7 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Total matching records: " + reportRecords.length);
 
                 System.out.println(border);
@@ -1386,6 +1407,7 @@ public class WalkInRegistrationUI {
                 int[] requestCounts = new int[roomTypes.length];
                 int[] roomsAvailableTonightCounts = new int[roomTypes.length];
                 int[] roomCounts = new int[roomTypes.length];
+                double[] revenueByRoomType = new double[roomTypes.length];
 
                 int totalRegistrationRequests = control.getAllRegistrationHistory().length;
 
@@ -1478,6 +1500,7 @@ public class WalkInRegistrationUI {
                         requestCounts[roomTypeIndex] = requestCount;
                         roomsAvailableTonightCounts[roomTypeIndex] = roomsAvailableTonight;
                         roomCounts[roomTypeIndex] = roomCount;
+                        revenueByRoomType[roomTypeIndex] = control.calculateRevenueByRoomType(roomType);
 
                         totalRooms += roomCount;
 
@@ -1508,6 +1531,8 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
 
                 displayDemandPressure(roomTypes, requestCounts, roomCounts);
+
+                displayRevenueByRoomType(roomTypes, revenueByRoomType);
 
                 displaySideBySideBarCharts(
                                 "TOTAL REQUESTS BY ROOM TYPE",
@@ -1686,6 +1711,45 @@ public class WalkInRegistrationUI {
                                 "Lowest demand pressure: %s (%.2fx requests per room).%n",
                                 roomTypes[lowestPressureIndex],
                                 pressureRatios[lowestPressureIndex]);
+        }
+
+        // Revenue is the 3rd entity class in this report - Booking supplies the money side, room type/count don't.
+        private void displayRevenueByRoomType(String[] roomTypes, double[] revenueByRoomType) {
+
+                System.out.println();
+                System.out.println("REVENUE BY ROOM TYPE (non-cancelled bookings, all-time)");
+                System.out.println();
+
+                double totalRevenue = 0.0;
+                int highestRevenueIndex = 0;
+
+                for (int roomTypeIndex = 0; roomTypeIndex < roomTypes.length; roomTypeIndex++) {
+
+                        totalRevenue += revenueByRoomType[roomTypeIndex];
+
+                        if (revenueByRoomType[roomTypeIndex] > revenueByRoomType[highestRevenueIndex]) {
+                                highestRevenueIndex = roomTypeIndex;
+                        }
+
+                        System.out.printf(
+                                        "  %-10s : RM %10.2f%n",
+                                        roomTypes[roomTypeIndex],
+                                        revenueByRoomType[roomTypeIndex]);
+                }
+
+                System.out.println();
+
+                System.out.printf(
+                                "Total revenue: RM %.2f%n",
+                                totalRevenue);
+
+                if (totalRevenue > 0.0) {
+                        System.out.printf(
+                                        "Top earning room type: %s (RM %.2f, %.1f%% of total revenue).%n",
+                                        roomTypes[highestRevenueIndex],
+                                        revenueByRoomType[highestRevenueIndex],
+                                        revenueByRoomType[highestRevenueIndex] * 100.0 / totalRevenue);
+                }
         }
 
         private void displaySideBySideBarCharts(
