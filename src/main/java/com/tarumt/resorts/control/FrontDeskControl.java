@@ -12,10 +12,9 @@ import com.tarumt.resorts.dao.RoomDAO;
 
 /**
  * FrontDeskControl.java
- * Business logic for the Front-Desk Service module: look up a booking by its
- * 8-digit confirmation number, check room availability, and update the
- * statuses Front-Desk owns (check-in, check-out, cancel). Front-Desk does not
- * create bookings (Walk-In / VIP do); it manages the shared Booking records.
+ * Front-Desk logic: find bookings by confirmation no, check room
+ * availability and do check-in / check-out / cancel. Front-Desk does not
+ * create bookings - Walk-In / VIP do that.
  *
  * @author Tan Keng Ting
  */
@@ -25,20 +24,20 @@ public class FrontDeskControl {
     private ListQueueInterface<Guest> guestList; // ADT collection declaration
     private ListQueueInterface<Room> roomList; // ADT collection declaration
 
-    // Optional Housekeeping collaborator - lets a check-out also log DIRTY.
+    // set by Main - lets a check-out also log the room as DIRTY in housekeeping
     private HousekeepingControl housekeeping;
 
-    // Optional shared Loyalty accounts - lets Front-Desk show/search loyalty.
+    // set by Main - lets us show / search a guest's loyalty info
     private ListQueueInterface<LoyaltyAccount> loyaltyAccounts; // ADT collection declaration
 
-    // Standalone constructor - loads hard-coded sample data for solo demo.
+    // standalone mode: load the sample data so this module can run on its own
     public FrontDeskControl() {
         this.guestList = new GuestDAO().getAllGuests();
         this.roomList = new RoomDAO().getAllRooms();
         this.bookingList = new BookingDAO().getAllBookings(guestList, roomList);
     }
 
-    // Integrated constructor - receives the shared collections from Main.
+    // used by Main: share the same collections as the rest of the system
     public FrontDeskControl(
             ListQueueInterface<Booking> sharedBookings, // ADT collection declaration
             ListQueueInterface<Guest> sharedGuests, // ADT collection declaration
@@ -48,17 +47,17 @@ public class FrontDeskControl {
         roomList = sharedRooms;
     }
 
-    // Wire in the shared Housekeeping control (optional).
+    // plug in housekeeping (optional)
     public void setHousekeepingControl(HousekeepingControl housekeeping) {
         this.housekeeping = housekeeping;
     }
 
-    // Wire in the shared Loyalty accounts (optional).
+    // plug in the loyalty accounts (optional)
     public void setLoyaltyAccounts(ListQueueInterface<LoyaltyAccount> loyaltyAccounts) { // ADT collection declaration
         this.loyaltyAccounts = loyaltyAccounts;
     }
 
-    // Find the loyalty account for a booking's guest (linear scan by guest ID).
+    // find this guest's loyalty account - just loop and match on guest id
     public LoyaltyAccount getLoyaltyAccountFor(Booking booking) {
         if (loyaltyAccounts == null || booking == null || booking.getGuest() == null) {
             return null;
@@ -76,21 +75,20 @@ public class FrontDeskControl {
         return null;
     }
 
-    // The booking guest's loyalty ID, or "-" when there is no linked account.
+    // loyalty id for the receipt, "-" if the guest has none
     public String getLoyaltyIdFor(Booking booking) {
         LoyaltyAccount account = getLoyaltyAccountFor(booking);
         return (account == null || account.getLoyaltyId() == null) ? "-" : account.getLoyaltyId();
     }
 
-    // The booking guest's current points, or "-" when there is no account.
+    // current points for the receipt, "-" if no account
     public String getLoyaltyPointsFor(Booking booking) {
         LoyaltyAccount account = getLoyaltyAccountFor(booking);
         return account == null ? "-" : String.valueOf(account.getPointsBalance());
     }
 
-    // ================= Core: look up a booking by confirmation number =================
-
-    // Retrieve a booking by confirmation number via the ADT key search - O(n).
+    //look up a booking by its 8-digit confirmation no
+    // find one booking by conf no
     public Booking findByConfirmationNumber(String confirmationNumber) {
         if (confirmationNumber == null || confirmationNumber.trim().isEmpty()) {
             return null;
@@ -99,20 +97,19 @@ public class FrontDeskControl {
         return bookingList.searchByKey(key, b -> b.getConfirmationNumber()); // ADT method call: searchByKey()
     }
 
-    // A confirmation number must be exactly 8 digits.
+    // a conf no must be exactly 8 digits
     public boolean isValidConfirmationNumber(String confirmationNumber) {
         return confirmationNumber != null
                 && confirmationNumber.trim().matches("^[0-9]{8}$");
     }
 
-    // True if a booking already uses this confirmation number.
+    // is this conf no already taken?
     public boolean confirmationNumberExists(String confirmationNumber) {
         return findByConfirmationNumber(confirmationNumber) != null;
     }
 
-    // ================= Front-Desk write operation: check-out =================
-
-    // Check out an ACTIVE booking: CHECKED_OUT, room vacated and marked DIRTY.
+    //check-out
+    // check out: only an ACTIVE booking -> CHECKED_OUT, free the room + mark dirty
     public boolean checkOutBooking(String confirmationNumber, String checkOutTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
         if (booking == null || !"ACTIVE".equalsIgnoreCase(booking.getStatus())) {
@@ -122,8 +119,8 @@ public class FrontDeskControl {
         booking.setCheckOutTime(checkOutTime);
         Room room = booking.getRoom();
         if (room != null) {
-            room.setAvailable(true);            // no longer occupied
-            room.setCleaningStatus("DIRTY");    // hand over to Housekeeping
+            room.setAvailable(true);            // room is empty again
+            room.setCleaningStatus("DIRTY");    // pass it to housekeeping
             if (housekeeping != null) {
                 housekeeping.logStatusChange(room.getRoomNumber(), "DIRTY", checkOutTime);
             }
@@ -131,9 +128,8 @@ public class FrontDeskControl {
         return true;
     }
 
-    // ================= Availability query over the room collection =================
-
-    // Linear lookup of a room by room number.
+    //room availability
+    // find a room by its number
     public Room findRoomByNumber(String roomNumber) {
         if (roomNumber == null || roomNumber.trim().isEmpty()) {
             return null;
@@ -148,7 +144,7 @@ public class FrontDeskControl {
         return null;
     }
 
-    // Rooms available now: vacant AND not reserved for today (linear scan).
+    // rooms free right now = vacant AND not booked for today
     public Room[] getAvailableRooms(String roomTypeFilter) {
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);
@@ -167,9 +163,8 @@ public class FrontDeskControl {
         return trim(temp, count);
     }
 
-    // ================= Date-range availability (schedule overlap) =================
-
-    // Rooms of a type with no CONFIRMED/ACTIVE booking overlapping [checkIn, checkOut).
+    // date-range availability (for the calendar)
+    // rooms of a type with no booking clashing [checkIn, checkOut)
     public Room[] getAvailableRoomsForRange(LocalDate checkIn, LocalDate checkOut, String roomTypeFilter) {
         String type = (roomTypeFilter == null || roomTypeFilter.trim().isEmpty()) ? "ALL" : roomTypeFilter.trim();
         int totalRooms = roomList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
@@ -185,7 +180,7 @@ public class FrontDeskControl {
         return trim(temp, count);
     }
 
-    // True if at least one room of the type is free for the night of date.
+    // is any room of this type free that night? (one day cell of the calendar)
     public boolean hasAvailabilityOn(LocalDate date, String roomTypeFilter) {
         String type = (roomTypeFilter == null || roomTypeFilter.trim().isEmpty()) ? "ALL" : roomTypeFilter.trim();
         LocalDate next = date.plusDays(1);
@@ -200,7 +195,7 @@ public class FrontDeskControl {
         return false;
     }
 
-    // Total rooms of a given type (or "ALL"), for "N of M free" text.
+    // total rooms of a type, so the UI can say "N of M free"
     public int countRoomsByType(String roomTypeFilter) {
         String type = (roomTypeFilter == null || roomTypeFilter.trim().isEmpty()) ? "ALL" : roomTypeFilter.trim();
         int total = 0;
@@ -213,16 +208,14 @@ public class FrontDeskControl {
         return total;
     }
 
-    // True if a room is blocked for [checkIn, checkOut); delegates to the shared
-    // schedule rule (with the 1-day housekeeping buffer) so all modules agree.
+    // does this room clash the range? use the shared rule so every module agrees
     private boolean isRoomTakenInRange(Room room, LocalDate checkIn, LocalDate checkOut) {
         return !com.tarumt.resorts.util.RoomScheduleAvailability.isAvailable(
                 bookingList, room, checkIn, checkOut);
     }
 
-    // ================= Report 1: Booking / Occupancy =================
-
-    // Filter bookings by status + room type (linear scan).
+    // report 1: booking / occupancy
+    // filter bookings by status + room type
     public Booking[] filterByStatusAndType(String statusFilter, String roomTypeFilter) {
         String status = (statusFilter == null) ? "ALL" : statusFilter.trim();
         String type = (roomTypeFilter == null) ? "ALL" : roomTypeFilter.trim();
@@ -242,7 +235,7 @@ public class FrontDeskControl {
         return trim(temp, count);
     }
 
-    // Insertion sort by check-in time ascending; null times sort to the end.
+    // insertion sort by check-in time; bookings not checked in yet go to the end
     public void sortByCheckInTime(Booking[] bookings) {
         for (int i = 1; i < bookings.length; i++) {
             Booking key = bookings[i];
@@ -255,7 +248,7 @@ public class FrontDeskControl {
         }
     }
 
-    // Null-safe check-in time comparison (null = "later than" any real time).
+    // compare check-in times; a null time counts as "latest"
     private int compareCheckInTime(Booking a, Booking b) {
         String timeA = a.getCheckInTime();
         String timeB = b.getCheckInTime();
@@ -271,9 +264,8 @@ public class FrontDeskControl {
         return timeA.compareTo(timeB);
     }
 
-    // ================= Report 2: Billing Summary =================
-
-    // Filter bookings by payment + room type; CANCELLED excluded (not billable).
+    // report 2: billing summary
+    // filter by payment + room type; skip cancelled ones (not real money owed)
     public Booking[] filterByPayment(String paymentFilter, String roomTypeFilter) {
         String pay = (paymentFilter == null) ? "ALL" : paymentFilter.trim();
         String type = (roomTypeFilter == null) ? "ALL" : roomTypeFilter.trim();
@@ -284,7 +276,7 @@ public class FrontDeskControl {
         for (int i = 0; i < total; i++) {
             Booking b = bookingList.getEntry(i); // ADT method call: getEntry()
             if ("CANCELLED".equalsIgnoreCase(b.getStatus())) {
-                continue; // cancelled bookings are not billable
+                continue; // cancelled = nothing to bill
             }
             String status = b.getPaymentStatus();
             boolean payOk = pay.equalsIgnoreCase("ALL") || pay.equalsIgnoreCase(status);
@@ -297,7 +289,7 @@ public class FrontDeskControl {
         return trim(temp, count);
     }
 
-    // Selection sort by amount payable (after discount), highest first.
+    // selection sort, biggest payable amount first
     public void sortByAmountDescending(Booking[] bookings) {
         for (int i = 0; i < bookings.length - 1; i++) {
             int best = i;
@@ -314,7 +306,7 @@ public class FrontDeskControl {
         }
     }
 
-    // Sum the amount payable across the given bookings (report total).
+    // add up the payable amounts for the report total
     public double totalAmount(Booking[] bookings) {
         double total = 0.0;
         for (Booking b : bookings) {
@@ -323,34 +315,33 @@ public class FrontDeskControl {
         return total;
     }
 
-    // ================= Check-in (CONFIRMED -> ACTIVE) =================
-
-    // Check a guest in: CONFIRMED -> ACTIVE, mark PAID, occupy the room.
-    // Rejects early arrival and a room that is not Housekeeping-READY.
+    // check-in (CONFIRMED -> ACTIVE)
+    // check in: CONFIRMED -> ACTIVE + PAID, occupy the room.
+    // rejects arriving early or a room that isn't cleaned yet.
     public boolean checkInBooking(String confirmationNumber, String checkInTime) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
         if (booking == null || !"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
             return false;
         }
-        // No early check-in: the arrival date must not precede the schedule.
+        // can't arrive before the booked date
         if (isBeforeScheduledCheckIn(booking, parseDatePart(checkInTime))) {
             return false;
         }
-        // The room must still be Housekeeping-ready at the moment of arrival.
+        // room has to be READY right now
         if (!isRoomReadyForCheckIn(booking.getRoom())) {
             return false;
         }
         booking.setCheckInTime(checkInTime);
         booking.setStatus("ACTIVE");
-        booking.setPaymentStatus("PAID"); // guest settles the bill on check-in
+        booking.setPaymentStatus("PAID"); // guest pays on arrival
         Room room = booking.getRoom();
         if (room != null) {
-            room.setAvailable(false); // guest now occupies the room
+            room.setAvailable(false); // room is now occupied
         }
         return true;
     }
 
-    // True if the guest would arrive before the scheduled check-in date.
+    // is the guest trying to arrive before their booked date?
     public boolean isBeforeScheduledCheckIn(Booking booking, LocalDate arrivalDate) {
         return booking != null
                 && booking.getScheduledCheckInDate() != null
@@ -358,7 +349,7 @@ public class FrontDeskControl {
                 && arrivalDate.isBefore(booking.getScheduledCheckInDate());
     }
 
-    // True when a room is READY, or never logged (null/"UNKNOWN").
+    // room is fine for check-in when it's READY, or was never logged
     private boolean isRoomReadyForCheckIn(Room room) {
         if (room == null) {
             return false;
@@ -369,12 +360,12 @@ public class FrontDeskControl {
                 || cleaningStatus.equalsIgnoreCase("UNKNOWN");
     }
 
-    // Public wrapper so the UI can show a specific "room not ready" message.
+    // public version so the UI can pop a "room not ready" message
     public boolean isBookingRoomReadyForCheckIn(Booking booking) {
         return booking != null && isRoomReadyForCheckIn(booking.getRoom());
     }
 
-    // Extract the date part from a "yyyy-MM-dd HH:mm" string; null if bad.
+    // grab the yyyy-MM-dd part from a "yyyy-MM-dd HH:mm" string
     private LocalDate parseDatePart(String dateTime) {
         if (dateTime == null || dateTime.trim().length() < 10) {
             return null;
@@ -386,21 +377,19 @@ public class FrontDeskControl {
         }
     }
 
-    // ================= Cancel booking (CONFIRMED only, soft-cancel) =================
-
-    // Cancel a CONFIRMED booking: mark CANCELLED, keep the record, leave occupancy.
+    // cancel (CONFIRMED only, soft-cancel)
+    // cancel a CONFIRMED booking - just flag it CANCELLED, keep the record
     public boolean cancelBooking(String confirmationNumber) {
         Booking booking = findByConfirmationNumber(confirmationNumber);
         if (booking == null || !"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
             return false;
         }
-        booking.setStatus("CANCELLED");          // soft-cancel: retained, not deleted
-        return true;                              // schedule auto-frees; occupancy untouched
+        booking.setStatus("CANCELLED");          // keep it for the record
+        return true;                              // room frees up on its own
     }
 
-    // ================= Free-text search over bookings =================
-
-    // Return bookings matching EVERY space-separated keyword (any field). Blank = all.
+    // keyword search 
+    // search: a booking is kept only if it matches every keyword somewhere
     public Booking[] search(String query) {
         String q = (query == null) ? "" : query.trim().toLowerCase();
         String[] keywords = q.isEmpty() ? new String[0] : q.split("\\s+");
@@ -424,7 +413,7 @@ public class FrontDeskControl {
         return trim(temp, count);
     }
 
-    // True if the query appears in any searchable field of the booking.
+    // does the keyword appear in any field of this booking?
     private boolean matchesAnyField(Booking b, String query) {
         Guest g = b.getGuest();
         Room r = b.getRoom();
@@ -444,14 +433,13 @@ public class FrontDeskControl {
                 || fieldContains(String.format("%.2f", b.getAmount()), query);
     }
 
-    // Null-safe, case-insensitive substring test.
+    // null-safe contains, ignore case
     private boolean fieldContains(String field, String query) {
         return field != null && field.toLowerCase().contains(query);
     }
 
-    // ================= Accessors used by the UI =================
-
-    // All bookings as an array for the UI to display.
+    // accessors for the UI 
+    // all bookings as an array
     public Booking[] getAllBookings() {
         int total = bookingList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
         Booking[] all = new Booking[total];
@@ -465,7 +453,7 @@ public class FrontDeskControl {
         return bookingList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
     }
 
-    // Every guest from the shared collection.
+    // all guests as an array
     public Guest[] getAllGuests() {
         int total = guestList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
         Guest[] all = new Guest[total];
@@ -475,7 +463,7 @@ public class FrontDeskControl {
         return all;
     }
 
-    // Copy the first count elements into a right-sized array.
+    // trim an over-sized array down to what we actually filled
     private Booking[] trim(Booking[] source, int count) {
         Booking[] result = new Booking[count];
         for (int i = 0; i < count; i++) {
@@ -484,7 +472,7 @@ public class FrontDeskControl {
         return result;
     }
 
-    // Copy the first count elements into a right-sized array.
+    // same, for rooms
     private Room[] trim(Room[] source, int count) {
         Room[] result = new Room[count];
         for (int i = 0; i < count; i++) {
