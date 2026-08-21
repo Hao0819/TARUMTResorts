@@ -8,34 +8,29 @@ import java.util.Scanner;
 
 /**
  * FrontDeskUI.java
- * Console interface for the Front-Desk Service module. Front-desk agents look
- * up a booking by its 8-digit confirmation number, check room availability,
- * update payment and check-out status, and generate two management reports
- * (Booking/Occupancy and Billing Summary) over the shared collection ADT.
+ * Console interface for the Front-Desk Service module.
  *
- * @author Keng Ting
+ * @author Tan Keng Ting
  */
 public class FrontDeskUI {
 
     private FrontDeskControl control;
     private Scanner sc;
 
-    // Constructor for running this module independently.
     public FrontDeskUI() {
         this(new FrontDeskControl(), new Scanner(System.in));
     }
 
-    // Constructor that accepts an initialized Control.
     public FrontDeskUI(FrontDeskControl sharedControl) {
         this(sharedControl, new Scanner(System.in));
     }
 
-    // Constructor used when Main provides the Control and Scanner.
     public FrontDeskUI(FrontDeskControl sharedControl, Scanner sharedScanner) {
         control = sharedControl;
         sc = sharedScanner;
     }
 
+    // Main menu loop for the Front-Desk module.
     public void showMenu() {
         int choice;
         do {
@@ -52,7 +47,7 @@ public class FrontDeskUI {
                     + " ".repeat(rightPadding) + " |");
             System.out.println(menuBorder);
 
-            System.out.printf("| %-64s |%n", "1. Search bookings (keyword; incl. confirmation no)");
+            System.out.printf("| %-64s |%n", "1. Search bookings (by confirmation / room / guest ID / etc.)");
             System.out.printf("| %-64s |%n", "2. Check room availability (now)");
             System.out.printf("| %-64s |%n", "3. Room availability calendar (by month)");
             System.out.printf("| %-64s |%n", "4. Check in guest");
@@ -88,16 +83,12 @@ public class FrontDeskUI {
         } while (choice != 0);
     }
 
-    /**
-     * Full detail card for one booking: guest identification, room, stay
-     * dates/status, and the hardcoded billing details (amount + payment status)
-     * a front-desk agent needs when answering a billing enquiry.
-     */
+    // Full detail card (receipt) for one booking.
     private void printBookingDetails(Booking booking) {
         printBookingDetails(booking, "BOOKING & BILLING DETAILS");
     }
 
-    /** Same detail card, with a caller-supplied title (e.g. a success banner). */
+    // Same detail card, with a caller-supplied title.
     private void printBookingDetails(Booking booking, String title) {
         printReportHeader(title, null, null);
         System.out.printf("  Confirmation No : %s%n", booking.getConfirmationNumber());
@@ -114,35 +105,27 @@ public class FrontDeskUI {
                 booking.getCheckOutTime() == null ? "-" : booking.getCheckOutTime());
         System.out.printf("  Booking Status  : %s%n", booking.getStatus());
         System.out.println("  ----------------- Billing -----------------");
-        // Show the original room charge before membership discount.
         System.out.printf(
                 "  Gross Amount    : RM %,.2f%n",
                 booking.getAmount());
-
-        // Show the membership discount percentage applied when booking was created.
         System.out.printf(
                 "  Discount Rate   : %.0f%%%n",
                 booking.getDiscountRate() * 100);
-
-        // Show the amount deducted from the original room charge.
         System.out.printf(
                 "  Discount Amount : RM %,.2f%n",
                 booking.getDiscountAmount());
-
-        // This is the actual amount that the guest must pay.
         System.out.printf(
                 "  Amount Payable  : RM %,.2f%n",
                 booking.getFinalAmount());
         System.out.printf("  Payment Status  : %s%n", booking.getPaymentStatus());
     }
 
-    // =====================================================================
-    // Free-text search: one keyword, matched against any field of a booking.
-    // =====================================================================
+    // ================= Free-text search over bookings =================
 
+    // Search by keywords, show the summary table, then drill into one receipt.
     private void searchBookings() {
         System.out.println("\nSearch bookings - type one or more keywords separated by spaces.");
-        System.out.println("  Fields searched: name, guest ID, loyalty ID, points, room no/type, tier, status, payment, date, amount.");
+        System.out.println("  Fields searched: name, guest ID, loyalty ID, points, room no/type, tier");
         System.out.println("  Extra keywords narrow the results, e.g. \"siti deluxe\" = Siti's Deluxe booking.");
         System.out.print("  Keywords (0 = back to Front-Desk menu): ");
         String query = sc.nextLine().trim();
@@ -156,19 +139,18 @@ public class FrontDeskUI {
                 "A booking matches only if it contains EVERY keyword (in any field)");
         printBookingTable(results);
 
-        // Look-up behaviour folded in: a single match shows its full detail
-        // card; multiple matches let the user drill into one.
+        // A single match shows its receipt directly; when several match, the
+        // user picks one by its unique confirmation number (room/guest ID can
+        // belong to many bookings, so only the confirmation number is exact).
         if (results.length == 1) {
             printBookingDetails(results[0]);
         } else if (results.length > 1) {
-            System.out.print("\nView full details? Enter a confirmation / room / guest ID (0 = back): ");
+            System.out.print("\nEnter a confirmation no to view its full receipt (0 = back): ");
             String pick = sc.nextLine().trim();
             if (!pick.equals("0")) {
                 Booking chosen = null;
                 for (Booking b : results) {
-                    if (b.getConfirmationNumber().equalsIgnoreCase(pick)
-                            || b.getRoom().getRoomNumber().equalsIgnoreCase(pick)
-                            || b.getGuest().getGuestId().equalsIgnoreCase(pick)) {
+                    if (b.getConfirmationNumber().equalsIgnoreCase(pick)) {
                         chosen = b;
                         break;
                     }
@@ -176,16 +158,15 @@ public class FrontDeskUI {
                 if (chosen != null) {
                     printBookingDetails(chosen);
                 } else {
-                    System.out.println("No matching booking in the results above.");
+                    System.out.println("No booking with that confirmation no in the results above.");
                 }
             }
         }
     }
 
-    // =====================================================================
-    // Availability query over the shared room collection.
-    // =====================================================================
+    // ================= Availability (now) =================
 
+    // Show rooms available right now for a chosen room type.
     private void checkAvailability() {
         String roomType = readRoomTypeFilter();
         if (roomType == null) {
@@ -201,15 +182,10 @@ public class FrontDeskUI {
         System.out.println("Available rooms now: " + available.length);
     }
 
-    // Column widths for the room table (10 + 14 + 14). Its outer border is then
-    // 48 wide, matching a report header of content width ROOM_HEADER_WIDTH (44),
-    // so the header box and the table line up edge to edge.
+    // Room table width (10+14+14 -> outer 48) matches ROOM_HEADER_WIDTH (44).
     private static final int ROOM_HEADER_WIDTH = 44;
 
-    /**
-     * Renders a Room[] as a Room No / Room Type / Occupancy table (all shown
-     * VACANT). Sized to line up exactly under a ROOM_HEADER_WIDTH report header.
-     */
+    // Render a Room[] as a Room No / Room Type / Occupancy table (all VACANT).
     private void printRoomTable(Room[] rooms) {
         String border = "+------------+----------------+----------------+";
         System.out.println(border);
@@ -226,16 +202,9 @@ public class FrontDeskUI {
         System.out.println(border);
     }
 
-    // =====================================================================
-    // Room availability calendar. The user picks a room type, then browses a
-    // month grid where each day cell shows: the day number when at least one
-    // room of that type is free that night, X when that type is fully booked,
-    // and - for a past date. From the same screen they can jump to another
-    // month, or drill into one day to list its free rooms. Availability is
-    // schedule-based (CONFIRMED/ACTIVE bookings), reusing the same overlap
-    // logic as the date-range query.
-    // =====================================================================
+    // ================= Availability calendar (by month) =================
 
+    // Pick a room type, then browse a month grid and drill into a day.
     private void checkAvailabilityByDate() {
         String roomType = readRoomTypeFilter();
         if (roomType == null) {
@@ -272,11 +241,7 @@ public class FrontDeskUI {
         }
     }
 
-    /**
-     * Draws one month as a Sun-Sat calendar grid, each day showing availability
-     * for the given room type (day number = has a free room that night, X =
-     * fully booked, - = past date).
-     */
+    // Draw one month as a Sun-Sat grid (day = free, X = full, - = past).
     private void displayAvailabilityCalendar(java.time.YearMonth month, String roomType) {
         String border = "+------+------+------+------+------+------+------+";
         String title = month.getMonth() + " " + month.getYear() + " - "
@@ -328,10 +293,7 @@ public class FrontDeskUI {
         System.out.println("Total " + roomType + " room(s): " + control.countRoomsByType(roomType));
     }
 
-    /**
-     * Lists the actual rooms of the given type that are free for the night of
-     * {@code date}.
-     */
+    // List the actual free rooms of a type for the night of date.
     private void showRoomsForDay(java.time.LocalDate date, String roomType) {
         Room[] free = control.getAvailableRoomsForRange(date, date.plusDays(1), roomType);
         printReportHeader("ROOMS AVAILABLE ON " + date + " (" + date.getDayOfWeek() + ")",
@@ -341,14 +303,10 @@ public class FrontDeskUI {
         printRoomTable(free);
     }
 
-    // =====================================================================
-    // Front-Desk write operations: check-in, check-out, cancel.
-    // (Payment status is fixed hard-coded billing data — read-only, so
-    // there is no payment-update operation.)
-    // =====================================================================
+    // ================= Write operations: check-in, check-out, cancel =================
 
+    // Check out an in-house (ACTIVE) guest.
     private void checkOutGuest() {
-        // Only ACTIVE bookings (checked-in, in-house) can be checked out.
         Booking[] inHouse = control.filterByStatusAndType("ACTIVE", "ALL");
         if (inHouse.length == 0) {
             printNotice("NO IN-HOUSE GUESTS",
@@ -375,11 +333,7 @@ public class FrontDeskUI {
         }
     }
 
-    /**
-     * Shows the given bookings as a numbered list and lets the user pick one
-     * by row number, room number, or guest ID. Returns null if the user
-     * enters 0 to go back.
-     */
+    // Show bookings as a numbered list; pick by row / room / guest ID (0 = back).
     private Booking selectBooking(Booking[] list, String title) {
         printReportHeader(title, "Pick by row number, room number, or guest ID (0 to go back)",
                 "Check-In shows the actual time once checked in, else the scheduled arrival date");
@@ -423,13 +377,7 @@ public class FrontDeskUI {
         }
     }
 
-    /**
-     * The time to show in a selection list's Check-In column: the actual
-     * check-in time once the guest has checked in (ACTIVE), otherwise the
-     * scheduled arrival date for a not-yet-arrived booking (CONFIRMED) so staff
-     * can tell at a glance which bookings are for a future date and cannot be
-     * checked in today.
-     */
+    // Check-In column value: actual time if checked in, else scheduled date.
     private String checkInDisplay(Booking b) {
         if (b.getCheckInTime() != null) {
             return b.getCheckInTime();
@@ -440,8 +388,8 @@ public class FrontDeskUI {
         return "-";
     }
 
+    // Check in a CONFIRMED guest (rejects early arrival / not-ready room).
     private void checkInGuest() {
-        // Only CONFIRMED bookings (booked, guest not yet arrived) can check in.
         Booking[] awaiting = control.filterByStatusAndType("CONFIRMED", "ALL");
         if (awaiting.length == 0) {
             printNotice("NO BOOKINGS AWAITING CHECK-IN",
@@ -464,10 +412,7 @@ public class FrontDeskUI {
             return;
         }
 
-        // Added: the room must still be Housekeeping-READY right now, not
-        // just at the moment it was originally allocated. Gives a specific
-        // message instead of letting this fall through to the generic
-        // "CHECK-IN FAILED" notice below.
+        // The room must currently be Housekeeping-READY.
         if (!control.isBookingRoomReadyForCheckIn(booking)) {
             printNotice("ROOM NOT READY",
                     "Room " + booking.getRoom().getRoomNumber()
@@ -490,9 +435,8 @@ public class FrontDeskUI {
         }
     }
 
+    // Cancel a CONFIRMED booking (soft-cancel, kept on record).
     private void cancelBooking() {
-        // Only CONFIRMED bookings can be cancelled (an ACTIVE guest must be
-        // checked out instead), so list those and let the user choose one.
         Booking[] cancellable = control.filterByStatusAndType("CONFIRMED", "ALL");
         if (cancellable.length == 0) {
             printNotice("NO CANCELLABLE BOOKINGS",
@@ -524,10 +468,9 @@ public class FrontDeskUI {
         }
     }
 
-    // =====================================================================
-    // Report 1: Booking / Occupancy (filter status + room type, sort time).
-    // =====================================================================
+    // ================= Report 1: Booking / Occupancy =================
 
+    // Filter by status + room type, sort by check-in time, then chart by status.
     private void displayOccupancyReport() {
         String statusFilter = readStatusFilter();
         if (statusFilter == null) {
@@ -546,9 +489,7 @@ public class FrontDeskUI {
                 "Sorted by: Check-in time (ascending)");
         printReportBookingTable(results);
 
-        // Graphical section: a vertical bar chart of the reported bookings
-        // grouped by their lifecycle status (the Occupancy analog of the
-        // Housekeeping "Rooms by Current Status" chart).
+        // Bar chart of the reported bookings grouped by lifecycle status.
         String[] statusLabels = {"CONFIRMED", "ACTIVE", "CHECKED_OUT", "CANCELLED"};
         int[] statusCounts = new int[statusLabels.length];
         for (Booking b : results) {
@@ -563,10 +504,9 @@ public class FrontDeskUI {
         printSummaryFooter();
     }
 
-    // =====================================================================
-    // Report 2: Billing Summary (filter payment + room type, sort amount).
-    // =====================================================================
+    // ================= Report 2: Billing Summary =================
 
+    // Filter by payment + room type, sort by amount, then chart by payment.
     private void displayBillingReport() {
         String paymentFilter = readPaymentFilter();
         if (paymentFilter == null) {
@@ -582,11 +522,10 @@ public class FrontDeskUI {
 
         printSummaryHeader("BILLING SUMMARY REPORT",
                 "Filters: Payment = " + paymentFilter + " | Room type = " + roomType,
-                "Sorted by: Amount owed (highest first)");
+                "Sorted by: Amount payable (highest first)");
         printReportBillingTable(results);
 
-        // Graphical section: a vertical bar chart of the reported bookings
-        // grouped by payment status (paid vs still outstanding).
+        // Bar chart of the reported bookings grouped by payment status.
         String[] payLabels = {"PAID", "UNPAID"};
         int[] payCounts = new int[payLabels.length];
         for (Booking b : results) {
@@ -601,12 +540,8 @@ public class FrontDeskUI {
         printSummaryFooter();
     }
 
-    // =====================================================================
-    // Filter prompts.
-    // =====================================================================
+    // ================= Filter prompts (0 = back, returns null) =================
 
-    // Each filter prompt offers 0 to abandon the function and return to the
-    // Front-Desk menu; that choice is signalled to the caller by returning null.
     private String readStatusFilter() {
         while (true) {
             printFilterMenu("BOOKING STATUS FILTER",
@@ -682,12 +617,7 @@ public class FrontDeskUI {
         }
     }
 
-    /**
-     * Draws a filter prompt as a bordered box in the same style as the module's
-     * main menu: a centered title bar over left-aligned option rows, followed by
-     * the "Enter choice:" prompt. Auto-sizes to the widest option and uses ASCII
-     * only so it renders consistently on any console.
-     */
+    // Draw a filter prompt as a bordered menu box, then "Enter choice:".
     private void printFilterMenu(String title, String... options) {
         int width = title.length();
         for (String option : options) {
@@ -711,16 +641,9 @@ public class FrontDeskUI {
         System.out.print("Enter choice: ");
     }
 
-    // =====================================================================
-    // Shared display helpers.
-    // =====================================================================
+    // ================= Shared display helpers =================
 
-    /**
-     * Prints a compact boxed notice so an outcome (success / warning / failure)
-     * stands out from the plain console flow. The heading is a one-line banner;
-     * the optional body lines add detail. Auto-sizes to the widest line and
-     * uses ASCII only, so it never wraps or mojibakes on any console.
-     */
+    // Print a compact boxed notice for an outcome (success / warning / failure).
     private void printNotice(String heading, String... body) {
         int width = heading.length();
         for (String line : body) {
@@ -745,11 +668,7 @@ public class FrontDeskUI {
         printReportHeader(title, filterLine, sortLine, 100);
     }
 
-    /**
-     * Same report header, but with a caller-supplied content width so a header
-     * can be sized to line up exactly with the table printed beneath it (the
-     * room table uses a narrow ROOM_HEADER_WIDTH; the booking tables use 100).
-     */
+    // Boxed report header at a caller-supplied content width.
     private void printReportHeader(String title, String filterLine, String sortLine, int contentWidth) {
         int leftPadding = Math.max(0, (contentWidth - title.length()) / 2);
         int rightPadding = Math.max(0, contentWidth - title.length() - leftPadding);
@@ -775,6 +694,7 @@ public class FrontDeskUI {
     private static final String BOOKING_BORDER = "+------------+----------+----------------------+----------+"
             + "------------+------------------+--------------+";
 
+    // Boxed booking table used by the search results.
     private void printBookingTable(Booking[] bookings) {
         System.out.println(BOOKING_BORDER);
         System.out.printf("| %-10s | %-8s | %-20s | %-8s | %-10s | %-16s | %-12s |%n",
@@ -800,18 +720,11 @@ public class FrontDeskUI {
         System.out.println("Total records displayed: " + bookings.length);
     }
 
-    // =====================================================================
-    // Management report frame, styled to match the standard university summary
-    // report: a full-width "===" rule, a centered title block, "***" rules, a
-    // confidential-document line, an open-edge table (columns separated by
-    // " | ", underlined with "-", no outer box), then the graph section and an
-    // END OF THE REPORT footer. Every rule spans the same REPORT_WIDTH so the
-    // whole report is one consistent width.
-    // =====================================================================
+    // ================= Management report frame (summary style) =================
 
     private static final int REPORT_WIDTH = 102;
 
-    /** Top frame + title block + generated time + confidential line + filters. */
+    // Top frame + title block + generated time + confidential line + filters.
     private void printSummaryHeader(String reportTitle, String filterLine, String sortLine) {
         String generatedTime = java.time.LocalDateTime.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -836,7 +749,7 @@ public class FrontDeskUI {
         System.out.println();
     }
 
-    /** Bottom frame: "***" rule, centered END OF THE REPORT, closing "===" rule. */
+    // Bottom frame: "***" rule, centered END OF THE REPORT, closing "===" rule.
     private void printSummaryFooter() {
         System.out.println();
         System.out.println("*".repeat(REPORT_WIDTH));
@@ -844,7 +757,7 @@ public class FrontDeskUI {
         System.out.println("=".repeat(REPORT_WIDTH));
     }
 
-    /** Occupancy report table in the open-edge summary style (102 wide). */
+    // Occupancy report table in the open-edge summary style.
     private void printReportBookingTable(Booking[] bookings) {
         String header = String.format("%-10s | %-8s | %-20s | %-8s | %-10s | %-16s | %-12s",
                 "Confirm No", "Guest ID", "Guest Name", "Room No", "Room Type",
@@ -869,10 +782,10 @@ public class FrontDeskUI {
         System.out.println("Total records displayed: " + bookings.length);
     }
 
-    /** Billing report table in the open-edge summary style, with a total row. */
+    // Billing report table in the open-edge summary style, with a total row.
     private void printReportBillingTable(Booking[] bookings) {
         String header = String.format("%-10s | %-20s | %-8s | %-10s | %12s | %-12s",
-                "Confirm No", "Guest Name", "Room No", "Room Type", "Amount (RM)", "Payment");
+                "Confirm No", "Guest Name", "Room No", "Room Type", "Payable (RM)", "Payment");
         System.out.println(header);
         System.out.println("-".repeat(header.length()));
         if (bookings.length == 0) {
@@ -887,47 +800,29 @@ public class FrontDeskUI {
                     b.getGuest().getName(),
                     b.getRoom().getRoomNumber(),
                     b.getRoom().getRoomType(),
-                    b.getAmount(),
+                    b.getFinalAmount(),
                     b.getPaymentStatus());
         }
         System.out.println("-".repeat(header.length()));
-        // TOTAL row: the label spans the first four columns (width 57 = 10 + 20 +
-        // 8 + 10 + 3*3 separators) so the grand total lands under Amount (RM).
+        // Total row: label spans the first four columns (width 57), total under Payable (RM).
         System.out.printf("%-57s | %,12.2f | %-12s%n",
-                "Total Amount (RM)", control.totalAmount(bookings), "");
+                "Total Payable (RM)", control.totalAmount(bookings), "");
         System.out.println("Total records displayed: " + bookings.length);
     }
 
-    // =====================================================================
-    // Graphical report section: a vertical ASCII bar chart in the same house
-    // style as the Housekeeping module's "Rooms by Current Status" chart, so
-    // every module's report closes with a consistent graphical summary.
-    // =====================================================================
+    // ================= Graphical report section (vertical bar chart) =================
 
-    // Width of one category column in a bar chart, and the tallest a bar may
-    // be drawn: counts above this are scaled down (true value still labelled).
     private static final int CHART_COL_WIDTH = 13;
     private static final int MAX_BAR_HEIGHT = 15;
 
-    /**
-     * Prints the centered "GRAPHICAL REPRESENTATION" banner and the bar chart
-     * itself, sized to the shared REPORT_WIDTH so it lines up with the rest of
-     * the report frame. The report's === / END OF THE REPORT footer is printed
-     * separately by printSummaryFooter().
-     */
+    // Print the graph banner and the bar chart for one report.
     private void printGraphSection(String chartTitle, String[] labels, int[] values) {
         System.out.println();
         printCentered("GRAPHICAL REPRESENTATION OF FRONT-DESK MODULE", REPORT_WIDTH);
         printBarChart(chartTitle, labels, values);
     }
 
-    /**
-     * Renders one vertical bar chart: a centred title, a Y axis, one "***"
-     * column per category with its true count printed at the top of the bar,
-     * then the category labels and counts beneath. Bars taller than
-     * MAX_BAR_HEIGHT rows are scaled down so the chart stays compact on screen;
-     * the number above each bar is always the real count.
-     */
+    // Render one vertical bar chart (true counts labelled on top; bars scaled).
     private void printBarChart(String chartTitle, String[] labels, int[] values) {
         int maxValue = 0;
         for (int v : values) {
@@ -938,8 +833,7 @@ public class FrontDeskUI {
         boolean scaled = maxValue > MAX_BAR_HEIGHT;
         int rows = Math.min(MAX_BAR_HEIGHT, Math.max(maxValue, 1));
 
-        // How many *** rows each column draws (0 stays empty; scaled bars keep
-        // at least one row so a non-zero count is never invisible).
+        // *** rows per column (0 stays empty; scaled bars keep at least one row).
         int[] barRows = new int[values.length];
         for (int i = 0; i < values.length; i++) {
             if (values[i] <= 0) {
@@ -994,13 +888,13 @@ public class FrontDeskUI {
         }
     }
 
-    /** Prints {@code text} centred within {@code width} columns. */
+    // Print text centred within width columns.
     private void printCentered(String text, int width) {
         int leftPadding = Math.max(0, (width - text.length()) / 2);
         System.out.println(" ".repeat(leftPadding) + text);
     }
 
-    /** Returns {@code s} padded with spaces to sit centred in a width-wide cell. */
+    // Return s padded with spaces to sit centred in a width-wide cell.
     private String center(String s, int width) {
         if (s == null) {
             s = "";
