@@ -34,6 +34,16 @@ public class FrontDeskUI {
     public void showMenu() {
         int choice;
         do {
+            // close any stays whose checkout date has passed, before showing the menu
+            String[] autoOut = control.autoCheckOutDueBookings();
+            if (autoOut.length > 0) {
+                String[] body = new String[autoOut.length];
+                for (int i = 0; i < autoOut.length; i++) {
+                    body[i] = "Confirmation " + autoOut[i] + " - checkout date reached";
+                }
+                printNotice("AUTO CHECK-OUT", body);
+            }
+
             int menuWidth = 64;
             String menuBorder = "+" + "-".repeat(menuWidth + 2) + "+";
             String menuTitle = "FRONT-DESK SERVICE MODULE";

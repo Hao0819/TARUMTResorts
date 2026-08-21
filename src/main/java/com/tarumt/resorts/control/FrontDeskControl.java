@@ -128,6 +128,34 @@ public class FrontDeskControl {
         return true;
     }
 
+    // auto check-out: any ACTIVE booking whose scheduled checkout date has arrived
+    // closes itself. half-open range, so on the checkout date the stay is already over.
+    public String[] autoCheckOutDueBookings() {
+        LocalDate today = LocalDate.now();
+        int total = bookingList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
+        String[] done = new String[total];
+        int count = 0;
+        for (int i = 0; i < total; i++) {
+            Booking b = bookingList.getEntry(i); // ADT method call: getEntry()
+            if (!"ACTIVE".equalsIgnoreCase(b.getStatus())) {
+                continue;
+            }
+            LocalDate due = b.getScheduledCheckOutDate();
+            // today on/after the due date -> time's up, check them out
+            if (due != null && !today.isBefore(due)) {
+                String autoTime = due + " 12:00"; // standard checkout time on the due date
+                if (checkOutBooking(b.getConfirmationNumber(), autoTime)) {
+                    done[count++] = b.getConfirmationNumber();
+                }
+            }
+        }
+        String[] result = new String[count];
+        for (int i = 0; i < count; i++) {
+            result[i] = done[i];
+        }
+        return result;
+    }
+
     //room availability
     // find a room by its number
     public Room findRoomByNumber(String roomNumber) {
