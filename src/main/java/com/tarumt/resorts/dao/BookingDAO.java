@@ -104,10 +104,15 @@ public class BookingDAO {
                                 { "20260048", "2026-08-24", "3" },
                                 { "20260049", "2026-08-24", "3" },
                                 { "20260050", "2026-08-24", "3" },
-                                { "20260051", "2026-08-24", "3" },
-                                { "20260052", "2026-08-24", "3" },
-                                { "20260053", "2026-08-24", "3" },
-                                { "20260054", "2026-08-24", "3" },
+
+                                // Shortened to just 25-26 Aug (not the full 24-27 block) so a
+                                // 24/8 Suite booking still works - this is what re-blocks WR0013
+                                // (the front-of-queue Suite request, 25/8-26/8) for the strict-FIFO
+                                // demo, without reoccupying every Suite room for the whole window.
+                                { "20260051", "2026-08-25", "1" },
+                                { "20260052", "2026-08-25", "1" },
+                                { "20260053", "2026-08-25", "1" },
+                                { "20260054", "2026-08-25", "1" },
 
                                 // CANCELLED bookings
                                 { "20260055", "2026-08-10", "3" },
@@ -474,23 +479,24 @@ public class BookingDAO {
                                 "20260050", findGuest("G036"), findRoom("214"),
                                 "2026-08-01 10:30", null), "UNPAID"));
 
-                // Freed for demo use: rooms 306, 308, 309, 310 have no blocking schedule
-                // (this is also what lets WR0013, the Suite request, be allocated now).
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                // CONFIRMED only for 25-26 Aug (see schedule above) - blocks WR0013 (the
+                // front-of-queue Suite request) for the strict-FIFO demo, while leaving
+                // rooms 306, 308, 309, 310 open for a 24/8 Suite booking (1 night only).
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260051", findGuest("G037"), findRoom("306"),
-                                "2026-08-01 10:45", null), "UNPAID")));
+                                "2026-08-01 10:45", null), "UNPAID"));
 
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260052", findGuest("G038"), findRoom("308"),
-                                "2026-08-01 11:00", null), "UNPAID")));
+                                "2026-08-01 11:00", null), "UNPAID"));
 
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260053", findGuest("G039"), findRoom("309"),
-                                "2026-08-01 11:15", null), "UNPAID")));
+                                "2026-08-01 11:15", null), "UNPAID"));
 
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260054", findGuest("G040"), findRoom("310"),
-                                "2026-08-01 11:30", null), "UNPAID")));
+                                "2026-08-01 11:30", null), "UNPAID"));
 
                 // CANCELLED bookings remain in history but do not block room schedules.
                 bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
