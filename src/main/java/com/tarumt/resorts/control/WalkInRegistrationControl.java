@@ -171,6 +171,16 @@ public class WalkInRegistrationControl {
                 guest -> guest.getGuestId()); // ADT method call: searchByKey()
     }
 
+    // used by the analysis report to show the room actually assigned and the amount charged
+    public Booking findBookingByConfirmationNumber(String confirmationNumber) {
+        if (confirmationNumber == null || confirmationNumber.trim().isEmpty()) {
+            return null;
+        }
+        return bookingList.searchByKey(
+                confirmationNumber.trim(),
+                booking -> booking.getConfirmationNumber()); // ADT method call: searchByKey()
+    }
+
     // used by the registration screen to list guests before asking for a contact number
     public Guest[] getAllGuests() {
         int guestCount = guestList.getNumberOfEntries(); // ADT method call: getNumberOfEntries()
@@ -901,7 +911,7 @@ public class WalkInRegistrationControl {
 
         // hasNext() Check if there are still registrations.
         while (iterator.hasNext()) {
-            // next() get the current entry then move to next dode
+            // next() get the current entry then move to next node
             // arrayIndex determine position of the entry in array
             registrations[arrayIndex] = iterator.next();
             arrayIndex++;
@@ -934,7 +944,7 @@ public class WalkInRegistrationControl {
 
         int filteredIndex = 0;
 
-        // Second passL store references to matching registration
+        // Second pass: store references to matching registration
         for (int i = 0; i < history.length; i++) {
             WalkInRegistration registration = history[i];
 
@@ -1078,6 +1088,34 @@ public class WalkInRegistrationControl {
         }
 
         return availableRoomCount;
+    }
+
+    // sums the final (post-discount) amount of every non-cancelled Booking for this room type
+    public double calculateRevenueByRoomType(String roomType) {
+
+        if (roomType == null || roomType.trim().isEmpty()) {
+            return 0.0;
+        }
+
+        double totalRevenue = 0.0;
+
+        Iterator<Booking> bookingIterator = bookingList.getIterator(); // ADT method call: getIterator()
+
+        while (bookingIterator.hasNext()) {
+
+            Booking booking = bookingIterator.next();
+
+            boolean roomTypeMatches = booking.getRoom() != null
+                    && booking.getRoom().getRoomType().equalsIgnoreCase(roomType.trim());
+
+            boolean countsAsRevenue = !"CANCELLED".equalsIgnoreCase(booking.getStatus());
+
+            if (roomTypeMatches && countsAsRevenue) {
+                totalRevenue += booking.getFinalAmount();
+            }
+        }
+
+        return totalRevenue;
     }
 
     public boolean isFrontWaitingRequestExpired() {
