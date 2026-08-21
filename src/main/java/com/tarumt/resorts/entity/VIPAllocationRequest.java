@@ -93,7 +93,6 @@ public class VIPAllocationRequest {
         this.stayDurationDays = stayDurationDays;
     }
 
-    /** Calculated from check-in date + stay duration. */
     public LocalDate getRequestedCheckOutDate() {
         if (requestedCheckInDate == null || stayDurationDays <= 0) {
             return null;

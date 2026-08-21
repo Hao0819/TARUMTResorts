@@ -41,7 +41,6 @@ public class VIPAllocationControl {
     private static final DateTimeFormatter TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    /** Standalone constructor - lets this module run/demo on its own. */
     public VIPAllocationControl() {
         ListQueueInterface<Room> rooms = new RoomDAO().getAllRooms();
         ListQueueInterface<Guest> guests = new GuestDAO().getAllGuests();
@@ -52,7 +51,6 @@ public class VIPAllocationControl {
         init(rooms, guests, bookings, history);
     }
 
-    /** Integrated constructor - uses the shared collections from Main. */
     public VIPAllocationControl(
             ListQueueInterface<Room> sharedRooms,
             ListQueueInterface<Guest> sharedGuests,
@@ -89,9 +87,7 @@ public class VIPAllocationControl {
         confirmationCounter = bookingList.getNumberOfEntries() + 1; 
     }
 
-    // =====================================================================
-    // Core feature: priority insertion by membership tier.
-    // =====================================================================
+    // Priority insertion by membership tier.
 
     /** Higher tier priority level first */
     private Comparator<VIPAllocationRequest> tierPriorityComparator() {
@@ -148,9 +144,7 @@ public class VIPAllocationControl {
         return request;
     }
 
-    // =====================================================================
-    // Update / cancel a WAITING request (verified by Request ID + Guest ID).
-    // =====================================================================
+    // Update / cancel a WAITING request.
 
     /** Finds one active WAITING request matching both Request ID and Guest ID. */
     public VIPAllocationRequest findWaitingRequestById(
@@ -268,9 +262,7 @@ public class VIPAllocationControl {
         return cancelled;
     }
 
-    // =====================================================================
     // Allocation.
-    // =====================================================================
 
     private boolean isReadyForAllocation(Room room) {
         String cleaningStatus = room.getCleaningStatus();
@@ -383,9 +375,7 @@ public class VIPAllocationControl {
         return booking;
     }
 
-    // =====================================================================
     // Display / reporting support.
-    // =====================================================================
 
     /** Returns the current priority queue in order (front = next to be allocated). */
     public VIPAllocationRequest[] getPriorityListInOrder() {
@@ -515,9 +505,7 @@ public class VIPAllocationControl {
         return result;
     }
 
-    // =====================================================================
     // Helpers.
-    // =====================================================================
 
     public Guest findGuestById(String guestId) {
         if (guestId == null || guestId.trim().isEmpty()) {
