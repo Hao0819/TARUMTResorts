@@ -43,13 +43,17 @@ public class BookingDAO {
                 String[][] scheduleData = {
                                 // Confirmation No., Scheduled Check-In, Stay Duration
 
-                                // ACTIVE bookings: occupy 11 rooms from 20 to 27 August.
-                                { "20260001", "2026-08-20", "7" },
-                                { "20260002", "2026-08-20", "7" },
-                                { "20260003", "2026-08-20", "7" },
-                                { "20260004", "2026-08-20", "7" },
-                                { "20260005", "2026-08-20", "7" },
-                                { "20260006", "2026-08-20", "7" },
+                                // ACTIVE bookings: occupy 6 rooms from 20 August. Deluxe rooms
+                                // (202, 205) are 4 nights so they free up sooner; Standard rooms
+                                // (103, 106) are 5 nights so they still block 25 Aug, which is
+                                // WR0013's date now that WR0013 requests a Standard room - all
+                                // Suite rooms are free, since Suite no longer needs any block.
+                                { "20260001", "2026-08-20", "5" },
+                                { "20260002", "2026-08-20", "5" },
+                                { "20260003", "2026-08-20", "4" },
+                                { "20260004", "2026-08-20", "4" },
+                                { "20260005", "2026-08-20", "4" },
+                                { "20260006", "2026-08-20", "4" },
 
                                 // CHECKED_OUT bookings
                                 { "20260007", "2026-07-10", "2" },
@@ -61,54 +65,61 @@ public class BookingDAO {
                                 { "20260013", "2026-07-06", "3" },
                                 { "20260014", "2026-07-07", "3" },
 
-                                // CONFIRMED bookings occupying the remaining original rooms.
-                                { "20260015", "2026-08-24", "3" },
-                                { "20260016", "2026-08-24", "3" },
-                                { "20260017", "2026-08-24", "3" },
-                                { "20260018", "2026-08-24", "3" },
-                                { "20260019", "2026-08-24", "3" },
-                                { "20260020", "2026-08-24", "3" },
-                                { "20260021", "2026-08-24", "3" },
-                                { "20260022", "2026-08-24", "3" },
-                                { "20260023", "2026-08-24", "3" },
-                                { "20260024", "2026-08-24", "3" },
-                                { "20260025", "2026-08-24", "3" },
-                                { "20260026", "2026-08-24", "3" },
-                                { "20260027", "2026-08-24", "3" },
-                                { "20260028", "2026-08-24", "3" },
+                                // CONFIRMED bookings occupying the remaining original rooms for
+                                // just 1 night each (shortened from 3) - Front-Desk still has a
+                                // today-dated reservation to check in / cancel, but the rest of
+                                // August frees up sooner instead of staying blocked until the 28th.
+                                { "20260015", "2026-08-24", "1" },
+                                { "20260016", "2026-08-24", "1" },
+                                { "20260017", "2026-08-24", "1" },
+                                { "20260018", "2026-08-24", "1" },
+                                { "20260019", "2026-08-24", "1" },
+                                { "20260020", "2026-08-24", "1" },
+                                { "20260021", "2026-08-24", "1" },
+                                { "20260022", "2026-08-24", "1" },
+                                { "20260023", "2026-08-24", "1" },
+                                { "20260024", "2026-08-24", "1" },
+                                { "20260025", "2026-08-24", "1" },
+                                { "20260026", "2026-08-24", "1" },
+                                { "20260027", "2026-08-24", "1" },
+                                { "20260028", "2026-08-24", "1" },
 
-                                // Later bookings begin after the ACTIVE bookings check out.
-                                { "20260029", "2026-08-27", "2" },
-                                { "20260030", "2026-08-27", "2" },
-                                { "20260031", "2026-08-27", "2" },
-                                { "20260032", "2026-08-27", "2" },
-                                { "20260033", "2026-08-27", "2" },
-                                { "20260034", "2026-08-27", "2" },
+                                // Later bookings moved to September - not tied to any specific
+                                // August date, so they no longer need to occupy August at all.
+                                { "20260029", "2026-09-05", "2" },
+                                { "20260030", "2026-09-05", "2" },
+                                { "20260031", "2026-09-05", "2" },
+                                { "20260032", "2026-09-05", "2" },
+                                { "20260033", "2026-09-05", "2" },
+                                { "20260034", "2026-09-05", "2" },
 
                                 // Additional ACTIVE bookings for the expanded room inventory.
-                                { "20260035", "2026-08-20", "7" },
-                                { "20260036", "2026-08-20", "7" },
-                                { "20260037", "2026-08-20", "7" },
-                                { "20260038", "2026-08-20", "7" },
-                                { "20260039", "2026-08-20", "7" },
+                                // 111 and 115 (Standard) are 5 nights, same reason as 103/106
+                                // above; 209/213 (Deluxe) and 307 (Suite) are 4 nights, fully open.
+                                { "20260035", "2026-08-20", "5" },
+                                { "20260036", "2026-08-20", "5" },
+                                { "20260037", "2026-08-20", "4" },
+                                { "20260038", "2026-08-20", "4" },
+                                { "20260039", "2026-08-20", "4" },
 
-                                // CONFIRMED bookings occupying the expanded inventory.
-                                { "20260040", "2026-08-24", "3" },
-                                { "20260041", "2026-08-24", "3" },
-                                { "20260042", "2026-08-24", "3" },
-                                { "20260043", "2026-08-24", "3" },
-                                { "20260044", "2026-08-24", "3" },
-                                { "20260045", "2026-08-24", "3" },
+                                // 40-43 (Standard rooms 109/110/112/113) are the WR0013 block now:
+                                // CONFIRMED for 25 Aug, 1 night, matching WR0013's own request -
+                                // this is what makes all 16 Standard rooms unavailable that day.
+                                // 46-49 (Deluxe) stay cancelled below - Deluxe is fully open.
+                                { "20260040", "2026-08-25", "1" },
+                                { "20260041", "2026-08-25", "1" },
+                                { "20260042", "2026-08-25", "1" },
+                                { "20260043", "2026-08-25", "1" },
+                                { "20260044", "2026-08-24", "1" },
+                                { "20260045", "2026-08-24", "1" },
                                 { "20260046", "2026-08-24", "3" },
                                 { "20260047", "2026-08-24", "3" },
                                 { "20260048", "2026-08-24", "3" },
                                 { "20260049", "2026-08-24", "3" },
-                                { "20260050", "2026-08-24", "3" },
+                                { "20260050", "2026-08-24", "1" },
 
-                                // Shortened to just 25-26 Aug (not the full 24-27 block) so a
-                                // 24/8 Suite booking still works - this is what re-blocks WR0013
-                                // (the front-of-queue Suite request, 25/8-26/8) for the strict-FIFO
-                                // demo, without reoccupying every Suite room for the whole window.
+                                // 51-54 (Suite rooms 306/308/309/310) are cancelled below - Suite
+                                // no longer needs any block, since WR0013 now requests Standard.
                                 { "20260051", "2026-08-25", "1" },
                                 { "20260052", "2026-08-25", "1" },
                                 { "20260053", "2026-08-25", "1" },
@@ -335,12 +346,14 @@ public class BookingDAO {
                                 "2026-07-25 08:45", null), "UNPAID"));
                 bookings.enqueue(withPaymentStatus(new Booking("20260025", findGuest("G022"), findRoom("207"),
                                 "2026-07-25 15:10", null), "UNPAID"));
-                bookings.enqueue(withPaymentStatus(new Booking("20260026", findGuest("G023"), findRoom("301"),
-                                "2026-07-26 11:00", null), "UNPAID"));
-                bookings.enqueue(withPaymentStatus(new Booking("20260027", findGuest("G024"), findRoom("304"),
-                                "2026-07-26 17:25", null), "UNPAID"));
-                bookings.enqueue(withPaymentStatus(new Booking("20260028", findGuest("G025"), findRoom("305"),
-                                "2026-07-27 10:30", null), "UNPAID"));
+                // Cancelled: Suite no longer needs any block, so rooms 301/304/305
+                // have no blocking schedule - Suite is fully open, any duration.
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking("20260026", findGuest("G023"), findRoom("301"),
+                                "2026-07-26 11:00", null), "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking("20260027", findGuest("G024"), findRoom("304"),
+                                "2026-07-26 17:25", null), "UNPAID")));
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking("20260028", findGuest("G025"), findRoom("305"),
+                                "2026-07-27 10:30", null), "UNPAID")));
                 bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260029",
                                 findGuest("G015"),
@@ -432,23 +445,26 @@ public class BookingDAO {
                 // These bookings complete the fully booked nights from
                 // 24-26 August, with check-out on 27 August.
 
-                // Freed for demo use (21/8, 24/8, and the waiting queue): cancelled instead
-                // of left CONFIRMED, so rooms 109, 110, 112, 113 have no blocking schedule.
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                // CONFIRMED only for 25 Aug, 1 night (see schedule above) - blocks WR0013
+                // (now a Standard request) for the strict-FIFO demo. These 4 rooms are the
+                // only Standard rooms with no other booking, so this is what makes all 16
+                // Standard rooms unavailable on 25/8, while leaving 109/110/112/113 open
+                // for a 24/8 booking (any date except 25/8 works for them).
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260040", findGuest("G026"), findRoom("109"),
-                                "2026-08-01 08:00", null), "UNPAID")));
+                                "2026-08-01 08:00", null), "UNPAID"));
 
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260041", findGuest("G027"), findRoom("110"),
-                                "2026-08-01 08:15", null), "UNPAID")));
+                                "2026-08-01 08:15", null), "UNPAID"));
 
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260042", findGuest("G028"), findRoom("112"),
-                                "2026-08-01 08:30", null), "UNPAID")));
+                                "2026-08-01 08:30", null), "UNPAID"));
 
-                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
+                bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260043", findGuest("G029"), findRoom("113"),
-                                "2026-08-01 08:45", null), "UNPAID")));
+                                "2026-08-01 08:45", null), "UNPAID"));
 
                 bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260044", findGuest("G030"), findRoom("114"),
@@ -479,24 +495,23 @@ public class BookingDAO {
                                 "20260050", findGuest("G036"), findRoom("214"),
                                 "2026-08-01 10:30", null), "UNPAID"));
 
-                // CONFIRMED only for 25-26 Aug (see schedule above) - blocks WR0013 (the
-                // front-of-queue Suite request) for the strict-FIFO demo, while leaving
-                // rooms 306, 308, 309, 310 open for a 24/8 Suite booking (1 night only).
-                bookings.enqueue(withPaymentStatus(new Booking(
+                // Cancelled: Suite no longer needs any block, so rooms 306/308/309/310
+                // have no blocking schedule either - all 10 Suite rooms are fully open.
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260051", findGuest("G037"), findRoom("306"),
-                                "2026-08-01 10:45", null), "UNPAID"));
+                                "2026-08-01 10:45", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260052", findGuest("G038"), findRoom("308"),
-                                "2026-08-01 11:00", null), "UNPAID"));
+                                "2026-08-01 11:00", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260053", findGuest("G039"), findRoom("309"),
-                                "2026-08-01 11:15", null), "UNPAID"));
+                                "2026-08-01 11:15", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260054", findGuest("G040"), findRoom("310"),
-                                "2026-08-01 11:30", null), "UNPAID"));
+                                "2026-08-01 11:30", null), "UNPAID")));
 
                 // CANCELLED bookings remain in history but do not block room schedules.
                 bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
