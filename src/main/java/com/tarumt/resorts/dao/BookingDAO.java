@@ -427,21 +427,23 @@ public class BookingDAO {
                 // These bookings complete the fully booked nights from
                 // 24-26 August, with check-out on 27 August.
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                // Freed for demo use (21/8, 24/8, and the waiting queue): cancelled instead
+                // of left CONFIRMED, so rooms 109, 110, 112, 113 have no blocking schedule.
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260040", findGuest("G026"), findRoom("109"),
-                                "2026-08-01 08:00", null), "UNPAID"));
+                                "2026-08-01 08:00", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260041", findGuest("G027"), findRoom("110"),
-                                "2026-08-01 08:15", null), "UNPAID"));
+                                "2026-08-01 08:15", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260042", findGuest("G028"), findRoom("112"),
-                                "2026-08-01 08:30", null), "UNPAID"));
+                                "2026-08-01 08:30", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260043", findGuest("G029"), findRoom("113"),
-                                "2026-08-01 08:45", null), "UNPAID"));
+                                "2026-08-01 08:45", null), "UNPAID")));
 
                 bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260044", findGuest("G030"), findRoom("114"),
@@ -451,41 +453,44 @@ public class BookingDAO {
                                 "20260045", findGuest("G031"), findRoom("116"),
                                 "2026-08-01 09:15", null), "UNPAID"));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                // Freed for demo use: rooms 208, 210, 211, 212 have no blocking schedule.
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260046", findGuest("G032"), findRoom("208"),
-                                "2026-08-01 09:30", null), "UNPAID"));
+                                "2026-08-01 09:30", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260047", findGuest("G033"), findRoom("210"),
-                                "2026-08-01 09:45", null), "UNPAID"));
+                                "2026-08-01 09:45", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260048", findGuest("G034"), findRoom("211"),
-                                "2026-08-01 10:00", null), "UNPAID"));
+                                "2026-08-01 10:00", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260049", findGuest("G035"), findRoom("212"),
-                                "2026-08-01 10:15", null), "UNPAID"));
+                                "2026-08-01 10:15", null), "UNPAID")));
 
                 bookings.enqueue(withPaymentStatus(new Booking(
                                 "20260050", findGuest("G036"), findRoom("214"),
                                 "2026-08-01 10:30", null), "UNPAID"));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                // Freed for demo use: rooms 306, 308, 309, 310 have no blocking schedule
+                // (this is also what lets WR0013, the Suite request, be allocated now).
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260051", findGuest("G037"), findRoom("306"),
-                                "2026-08-01 10:45", null), "UNPAID"));
+                                "2026-08-01 10:45", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260052", findGuest("G038"), findRoom("308"),
-                                "2026-08-01 11:00", null), "UNPAID"));
+                                "2026-08-01 11:00", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260053", findGuest("G039"), findRoom("309"),
-                                "2026-08-01 11:15", null), "UNPAID"));
+                                "2026-08-01 11:15", null), "UNPAID")));
 
-                bookings.enqueue(withPaymentStatus(new Booking(
+                bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
                                 "20260054", findGuest("G040"), findRoom("310"),
-                                "2026-08-01 11:30", null), "UNPAID"));
+                                "2026-08-01 11:30", null), "UNPAID")));
 
                 // CANCELLED bookings remain in history but do not block room schedules.
                 bookings.enqueue(markCancelled(withPaymentStatus(new Booking(
@@ -533,55 +538,37 @@ public class BookingDAO {
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
                                 "G016", 800, 34);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G002", 1800, 55);
+                                "G002", 4800, 20);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G002", 3000, 20);
+                                "G003", 2000, 48);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G003", 7500, 48);
+                                "G004", 4000, 42);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G004", 12000, 42);
+                                "G006", 8000, 18);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G006", 23000, 18);
+                                "G005", 5600, 33);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G005", 15000, 33);
+                                "G010", 4000, 46);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G010", 12000, 46);
+                                "G011", 6000, 29);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G011", 17500, 29);
+                                "G012", 8000, 24);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G012", 23000, 24);
+                                "G008", 1000, 22);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G008", 1200, 53);
+                                "G009", 1600, 27);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G008", 2000, 22);
+                                "G014", 500, 21);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G009", 3000, 51);
+                                "G017", 500, 19);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G009", 4100, 27);
+                                "G015", 2000, 26);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G014", 700, 49);
+                                "G018", 2000, 25);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G014", 1000, 21);
+                                "G019", 1000, 17);
                 addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G017", 700, 47);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G017", 1000, 19);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G015", 3000, 54);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G015", 4500, 26);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G018", 3000, 52);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G018", 4500, 25);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G019", 1200, 45);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G019", 2000, 17);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G020", 2500, 50);
-                addHistoricalEarnedPoints(bookings, nextBookingNumber,
-                                "G020", 3500, 23);
+                                "G020", 500, 23);
         }
 
         /** Splits one verified total into several independently dated stays. */

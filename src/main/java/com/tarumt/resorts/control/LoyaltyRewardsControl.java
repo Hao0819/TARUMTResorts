@@ -1144,12 +1144,12 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
      * Recalculates a member's tier from qualifying points. Redeemable balance
      * changes caused by redemption or expiry do not affect this calculation.
      *
-     * NONE: 0-1,999
-     * SILVER: 2,000-4,999
-     * GOLD: 5,000-9,999
-     * PLATINUM: 10,000-14,999
-     * DIAMOND: 15,000-19,999
-     * ELITE: 20,000+
+     * NONE: 0-499
+     * SILVER: 500-1,499
+     * GOLD: 1,500-2,999
+     * PLATINUM: 3,000-4,999
+     * DIAMOND: 5,000-6,999
+     * ELITE: 7,000+
      *
      * An inactive account always has Tier NONE.
      *
@@ -1161,33 +1161,14 @@ public double getRoomDiscountPercentage(MembershipTier tier) {
             return;
         }
 
-        LocalDateTime currentTime =
-                LoyaltyClock.now();
-
         if (!account.isActive()) {
             account.setMembershipTier(MembershipTier.NONE);
             return;
         }
 
-        int points = account.getTierQualifyingPoints();
-
-        MembershipTier newTier;
-
-        if (points >= 20000) {
-            newTier = MembershipTier.ELITE;
-        } else if (points >= 15000) {
-            newTier = MembershipTier.DIAMOND;
-        } else if (points >= 10000) {
-            newTier = MembershipTier.PLATINUM;
-        } else if (points >= 5000) {
-            newTier = MembershipTier.GOLD;
-        } else if (points >= 2000) {
-            newTier = MembershipTier.SILVER;
-        } else {
-            newTier = MembershipTier.NONE;
-        }
-
-        account.setMembershipTier(newTier);
+        account.setMembershipTier(
+                MembershipTier.fromTierQualifyingPoints(
+                        account.getTierQualifyingPoints()));
     }
 
     /**

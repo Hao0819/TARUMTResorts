@@ -1089,11 +1089,11 @@ public class WalkInRegistrationUI {
 
                 String border = "+----------+----------+----------------------+------------+"
                                 + "------------+------------+--------+"
-                                + "------------------+------------+-----------+";
+                                + "------------------+------------+-----------+------------+-----------+";
 
                 String companyName = "TARUMT RESORTS";
                 String title = "WALK-IN REGISTRATION ANALYSIS REPORT";
-                int contentWidth = 134;
+                int contentWidth = 159;
 
                 int companyLeftPadding = (contentWidth - companyName.length()) / 2;
                 int companyRightPadding = contentWidth - companyName.length() - companyLeftPadding;
@@ -1126,26 +1126,26 @@ public class WalkInRegistrationUI {
                                                 "yyyy-MM-dd HH:mm"));
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Generated at: " + generatedTime);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Room Type Filter: " + roomTypeFilter);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Status Filter: " + statusFilter);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Sorted by: Registration Time (Ascending)");
 
                 System.out.println(border);
 
                 System.out.printf(
                                 "| %-8s | %-8s | %-20s | %-10s | %-10s | "
-                                                + "%-10s | %-6s | %-16s | %-10s | %-9s |%n",
+                                                + "%-10s | %-6s | %-16s | %-10s | %-9s | %-10s | %-9s |%n",
                                 "Reg ID",
                                 "Guest ID",
                                 "Guest Name",
@@ -1155,13 +1155,15 @@ public class WalkInRegistrationUI {
                                 "Nights",
                                 "Registered Time",
                                 "Confirm No",
+                                "Room No.",
+                                "Amount(RM)",
                                 "Status");
 
                 System.out.println(border);
 
                 if (reportRecords.length == 0) {
                         System.out.printf(
-                                        "| %-134s |%n",
+                                        "| %-159s |%n",
                                         "No registration records match the selected filters.");
                 } else {
                         for (int i = 0; i < reportRecords.length; i++) {
@@ -1172,10 +1174,27 @@ public class WalkInRegistrationUI {
                                                 ? "-"
                                                 : registration.getBookingConfirmationNumber();
 
+                                // Booking is the 3rd entity class in this report: it supplies the room
+                                // actually assigned and the amount charged, which WalkInRegistration never stores.
+                                String roomNumberDisplay = "-";
+                                String amountDisplay = "-";
+
+                                if (!confirmationDisplay.equals("-")) {
+                                        Booking assignedBooking = control.findBookingByConfirmationNumber(
+                                                        confirmationDisplay);
+
+                                        if (assignedBooking != null) {
+                                                if (assignedBooking.getRoom() != null) {
+                                                        roomNumberDisplay = assignedBooking.getRoom().getRoomNumber();
+                                                }
+                                                amountDisplay = String.format("%.2f", assignedBooking.getFinalAmount());
+                                        }
+                                }
+
                                 System.out.printf(
                                                 "| %-8.8s | %-8.8s | %-20.20s | %-10.10s | "
                                                                 + "%-10s | %-10s | %-6d | %-16.16s | "
-                                                                + "%-10.10s | %-9.9s |%n",
+                                                                + "%-10.10s | %-9.9s | %-10.10s | %-9.9s |%n",
                                                 registration.getRegistrationId(),
                                                 registration.getGuest().getGuestId(),
                                                 registration.getGuest().getName(),
@@ -1185,6 +1204,8 @@ public class WalkInRegistrationUI {
                                                 registration.getStayDurationDays(),
                                                 registration.getRegistrationTime(),
                                                 confirmationDisplay,
+                                                roomNumberDisplay,
+                                                amountDisplay,
                                                 registration.getStatus());
                         }
                 }
@@ -1192,7 +1213,7 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
 
                 System.out.printf(
-                                "| %-134s |%n",
+                                "| %-159s |%n",
                                 "Total matching records: " + reportRecords.length);
 
                 System.out.println(border);
@@ -1386,6 +1407,7 @@ public class WalkInRegistrationUI {
                 int[] requestCounts = new int[roomTypes.length];
                 int[] roomsAvailableTonightCounts = new int[roomTypes.length];
                 int[] roomCounts = new int[roomTypes.length];
+                double[] revenueByRoomType = new double[roomTypes.length];
 
                 int totalRegistrationRequests = control.getAllRegistrationHistory().length;
 
@@ -1478,6 +1500,7 @@ public class WalkInRegistrationUI {
                         requestCounts[roomTypeIndex] = requestCount;
                         roomsAvailableTonightCounts[roomTypeIndex] = roomsAvailableTonight;
                         roomCounts[roomTypeIndex] = roomCount;
+                        revenueByRoomType[roomTypeIndex] = control.calculateRevenueByRoomType(roomType);
 
                         totalRooms += roomCount;
 
@@ -1508,6 +1531,8 @@ public class WalkInRegistrationUI {
                 System.out.println(border);
 
                 displayDemandPressure(roomTypes, requestCounts, roomCounts);
+
+                displayRevenueByRoomType(roomTypes, revenueByRoomType);
 
                 displaySideBySideBarCharts(
                                 "TOTAL REQUESTS BY ROOM TYPE",
@@ -1686,6 +1711,45 @@ public class WalkInRegistrationUI {
                                 "Lowest demand pressure: %s (%.2fx requests per room).%n",
                                 roomTypes[lowestPressureIndex],
                                 pressureRatios[lowestPressureIndex]);
+        }
+
+        // Revenue is the 3rd entity class in this report - Booking supplies the money side, room type/count don't.
+        private void displayRevenueByRoomType(String[] roomTypes, double[] revenueByRoomType) {
+
+                System.out.println();
+                System.out.println("REVENUE BY ROOM TYPE (non-cancelled bookings, all-time)");
+                System.out.println();
+
+                double totalRevenue = 0.0;
+                int highestRevenueIndex = 0;
+
+                for (int roomTypeIndex = 0; roomTypeIndex < roomTypes.length; roomTypeIndex++) {
+
+                        totalRevenue += revenueByRoomType[roomTypeIndex];
+
+                        if (revenueByRoomType[roomTypeIndex] > revenueByRoomType[highestRevenueIndex]) {
+                                highestRevenueIndex = roomTypeIndex;
+                        }
+
+                        System.out.printf(
+                                        "  %-10s : RM %10.2f%n",
+                                        roomTypes[roomTypeIndex],
+                                        revenueByRoomType[roomTypeIndex]);
+                }
+
+                System.out.println();
+
+                System.out.printf(
+                                "Total revenue: RM %.2f%n",
+                                totalRevenue);
+
+                if (totalRevenue > 0.0) {
+                        System.out.printf(
+                                        "Top earning room type: %s (RM %.2f, %.1f%% of total revenue).%n",
+                                        roomTypes[highestRevenueIndex],
+                                        revenueByRoomType[highestRevenueIndex],
+                                        revenueByRoomType[highestRevenueIndex] * 100.0 / totalRevenue);
+                }
         }
 
         private void displaySideBySideBarCharts(
@@ -1985,24 +2049,48 @@ public class WalkInRegistrationUI {
 
                 displayWaitingQueue();
 
-                System.out.print(
-                                "\nEnter Registration ID to update : ");
+                String registrationId;
 
-                String registrationId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Registration ID to update (0 = abort) : ");
 
-                if (registrationId.equals("0")) {
-                        System.out.println("Update cancelled.");
-                        return;
+                        registrationId = sc.nextLine().trim();
+
+                        if (registrationId.equals("0")) {
+                                System.out.println("Update cancelled.");
+                                return;
+                        }
+
+                        if (control.findRegistrationById(registrationId) == null) {
+                                System.out.println(
+                                                "Registration ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
-                System.out.print(
-                                "Enter Guest ID for verification : ");
+                String guestId;
 
-                String guestId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "Enter Guest ID for verification (0 = abort) : ");
 
-                if (guestId.equals("0")) {
-                        System.out.println("Update cancelled.");
-                        return;
+                        guestId = sc.nextLine().trim();
+
+                        if (guestId.equals("0")) {
+                                System.out.println("Update cancelled.");
+                                return;
+                        }
+
+                        if (control.findGuestById(guestId) == null) {
+                                System.out.println(
+                                                "Guest ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 WalkInRegistration selectedRegistration = control.findWaitingRegistration(
@@ -2258,30 +2346,48 @@ public class WalkInRegistrationUI {
                 // Display available Reg ID and Guest ID values for staff selection.
                 displayWaitingQueue();
 
-                System.out.print(
-                                "\nEnter Registration ID to cancel : ");
+                String registrationId;
 
-                String registrationId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Registration ID to cancel (0 = abort) : ");
 
-                if (registrationId.equals("0")) {
-                        System.out.println("Cancellation aborted.");
-                        return;
+                        registrationId = sc.nextLine().trim();
+
+                        if (registrationId.equals("0")) {
+                                System.out.println("Cancellation aborted.");
+                                return;
+                        }
+
+                        if (control.findRegistrationById(registrationId) == null) {
+                                System.out.println(
+                                                "Registration ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
-                System.out.print(
-                                "Enter Guest ID for verification : ");
+                String guestId;
 
-                String guestId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "Enter Guest ID for verification (0 = abort) : ");
 
-                if (guestId.equals("0")) {
-                        System.out.println("Cancellation aborted.");
-                        return;
-                }
+                        guestId = sc.nextLine().trim();
 
-                if (registrationId.isEmpty() || guestId.isEmpty()) {
-                        System.out.println(
-                                        "Registration ID and Guest ID cannot be blank.");
-                        return;
+                        if (guestId.equals("0")) {
+                                System.out.println("Cancellation aborted.");
+                                return;
+                        }
+
+                        if (control.findGuestById(guestId) == null) {
+                                System.out.println(
+                                                "Guest ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 WalkInRegistration selectedRegistration = control.findWaitingRegistration(
@@ -2300,10 +2406,29 @@ public class WalkInRegistrationUI {
                                 "CANCELLATION CONFIRMATION",
                                 selectedRegistration);
 
-                System.out.print("Confirm cancellation (Y/N): ");
-                String confirmation = sc.nextLine().trim();
+                String confirmation;
 
-                if (!confirmation.equalsIgnoreCase("Y")) {
+                while (true) {
+                        System.out.print("Confirm cancellation (Y/N, 0 = abort) : ");
+
+                        confirmation = sc.nextLine().trim();
+
+                        if (confirmation.equals("0")) {
+                                System.out.println("Cancellation aborted.");
+                                return;
+                        }
+
+                        if (confirmation.equalsIgnoreCase("Y")
+                                        || confirmation.equalsIgnoreCase("N")) {
+
+                                break;
+                        }
+
+                        System.out.println(
+                                        "Invalid input. Please enter Y or N.");
+                }
+
+                if (confirmation.equalsIgnoreCase("N")) {
                         System.out.println("Cancellation aborted.");
                         return;
                 }
@@ -2493,30 +2618,29 @@ public class WalkInRegistrationUI {
 
                 displayRegistrationIdDirectory();
 
-                System.out.print(
-                                "\nEnter Registration ID to search : ");
+                String registrationId;
+                WalkInRegistration registration;
 
-                String registrationId = sc.nextLine().trim();
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Registration ID to search (0 = abort) : ");
 
-                if (registrationId.equals("0")) {
-                        System.out.println("Search cancelled.");
-                        return;
-                }
+                        registrationId = sc.nextLine().trim();
 
-                if (registrationId.isEmpty()) {
-                        System.out.println(
-                                        "Registration ID cannot be blank.");
-                        return;
-                }
+                        if (registrationId.equals("0")) {
+                                System.out.println("Search cancelled.");
+                                return;
+                        }
 
-                WalkInRegistration registration = control.findRegistrationById(
-                                registrationId);
+                        registration = control.findRegistrationById(registrationId);
 
-                if (registration == null) {
-                        System.out.println(
-                                        "No standard booking request found for Registration ID: "
-                                                        + registrationId);
-                        return;
+                        if (registration == null) {
+                                System.out.println(
+                                                "Registration ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 Guest guest = registration.getGuest();
@@ -2604,29 +2728,27 @@ public class WalkInRegistrationUI {
         private void searchRegistrationHistoryByGuestId() {
                 // Show available Guest IDs before asking staff to choose one.
                 displayGuestDirectory();
-                System.out.print(
-                                "\nEnter Guest ID to search registration history : ");
 
-                String guestId = sc.nextLine().trim();
+                String guestId;
 
-                if (guestId.equals("0")) {
-                        System.out.println("Search cancelled.");
-                        return;
-                }
+                while (true) {
+                        System.out.print(
+                                        "\nEnter Guest ID to search registration history (0 = abort) : ");
 
-                if (guestId.isEmpty()) {
-                        System.out.println(
-                                        "Guest ID cannot be blank.");
-                        return;
-                }
+                        guestId = sc.nextLine().trim();
 
-                Guest existingGuest = control.findGuestById(guestId);
+                        if (guestId.equals("0")) {
+                                System.out.println("Search cancelled.");
+                                return;
+                        }
 
-                if (existingGuest == null) {
-                        System.out.println(
-                                        "Guest ID does not exist: "
-                                                        + guestId);
-                        return;
+                        if (control.findGuestById(guestId) == null) {
+                                System.out.println(
+                                                "Guest ID not found. Please try again.");
+                                continue;
+                        }
+
+                        break;
                 }
 
                 WalkInRegistration[] registrations = control.searchRegistrationHistoryByGuestId(

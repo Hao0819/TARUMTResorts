@@ -476,25 +476,9 @@ public class LoyaltyDAO {
     }
 
     private void applyTier(LoyaltyAccount account) {
-
-        int points = account.getTierQualifyingPoints();
-        MembershipTier tier;
-
-        if (points >= 20000) {
-            tier = MembershipTier.ELITE;
-        } else if (points >= 15000) {
-            tier = MembershipTier.DIAMOND;
-        } else if (points >= 10000) {
-            tier = MembershipTier.PLATINUM;
-        } else if (points >= 5000) {
-            tier = MembershipTier.GOLD;
-        } else if (points >= 2000) {
-            tier = MembershipTier.SILVER;
-        } else {
-            tier = MembershipTier.NONE;
-        }
-
-        account.setMembershipTier(tier);
+        account.setMembershipTier(
+                MembershipTier.fromTierQualifyingPoints(
+                        account.getTierQualifyingPoints()));
     }
 
     private boolean isEligibleCompletedBooking(
