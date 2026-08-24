@@ -88,9 +88,7 @@ public class VIPAllocationUI {
         } while (choice != 0);
     }
 
-    // =====================================================================
     // Shared prompt helpers (Register flow). Return null on "0" (back).
-    // =====================================================================
 
     private String promptRoomTypeCode() {
         while (true) {
@@ -131,9 +129,7 @@ public class VIPAllocationUI {
         }
     }
 
-    // =====================================================================
     // Shared prompt helpers (Update flow). "na" keeps current value.
-    // =====================================================================
 
     private String promptRoomTypeCodeOrKeep(String currentRoomType) {
         while (true) {
@@ -260,9 +256,7 @@ public class VIPAllocationUI {
         }
     }
 
-    // =====================================================================
     // Calendar-based check-in date selection (Register flow).
-    // =====================================================================
 
     private void displayBookingCalendar(YearMonth selectedMonth, String roomType) {
         String border = "+------+------+------+------+------+------+------+";
@@ -391,9 +385,7 @@ public class VIPAllocationUI {
         }
     }
 
-    // =====================================================================
     // Priority-tier guest directory.
-    // =====================================================================
 
     private void displayPriorityGuestDirectory() {
         Guest[] guests = control.getPriorityTierGuests();
@@ -426,9 +418,7 @@ public class VIPAllocationUI {
         System.out.println("Total priority-tier guests: " + guests.length);
     }
 
-    // =====================================================================
     // Register a new VIP request.
-    // =====================================================================
 
     private void registerRequest() {
         displayPriorityGuestDirectory();
@@ -472,9 +462,7 @@ public class VIPAllocationUI {
         printRequestDetailsTable(request, "VIP REQUEST REGISTERED");
     }
 
-    // =====================================================================
     // Update / cancel a WAITING request.
-    // =====================================================================
 
     private void updateWaitingRequest() {
         if (control.getWaitingCount() == 0) {
@@ -595,9 +583,7 @@ public class VIPAllocationUI {
         }
     }
 
-    // =====================================================================
     // Search by Request ID or Guest ID.
-    // =====================================================================
 
     private void displaySearchDirectory() {
         VIPAllocationRequest[] all = control.getAllRequestHistory();
@@ -726,9 +712,7 @@ public class VIPAllocationUI {
         System.out.println("Total requests for this guest: " + requests.length);
     }
 
-    // =====================================================================
     // Allocate next guest.
-    // =====================================================================
 
     private void allocateNextGuest() {
         if (control.getWaitingCount() == 0) {
@@ -779,9 +763,7 @@ public class VIPAllocationUI {
         System.out.println(border);
     }
 
-    // =====================================================================
     // Detail table (used by Register, Update, Cancel-preview, and Search).
-    // =====================================================================
 
     private void printRequestDetailsTable(VIPAllocationRequest request, String title) {
         String border = "+----------------------+--------------------------------+";
@@ -807,9 +789,7 @@ public class VIPAllocationUI {
         System.out.println(border);
     }
 
-    // =====================================================================
     // View / display the priority list.
-    // =====================================================================
 
     private void displayPriorityQueue() {
         VIPAllocationRequest[] list = control.getPriorityListInOrder();
@@ -859,9 +839,7 @@ public class VIPAllocationUI {
         System.out.println("Total records: " + list.length);
     }
 
-    // =====================================================================
     // Report 1: VIP Priority Queue Report (filter by tier).
-    // =====================================================================
 
     private void displayPriorityQueueReport() {
         String tierFilter = readTierFilter();
@@ -893,9 +871,7 @@ public class VIPAllocationUI {
         printTierBarChart(filtered, "Waiting Requests by Tier");
     }
 
-    // =====================================================================
     // Report 2: VIP Allocation History Report (filter tier + status, sorted).
-    // =====================================================================
 
     private void displayAllocationHistoryReport() {
         String tierFilter = readTierFilter();
@@ -957,9 +933,7 @@ public class VIPAllocationUI {
         printTierBarChart(results, "Matching Records by Tier");
     }
 
-    // =====================================================================
     // Bar chart helper - shared by both reports.
-    // =====================================================================
 
     private void printTierBarChart(VIPAllocationRequest[] requests, String chartTitle) {
         int platinumCount = 0;
@@ -995,9 +969,7 @@ public class VIPAllocationUI {
         System.out.printf("%-9s| %-" + maxBarLength + "s (%d)%n", label, "*".repeat(barLength), count);
     }
 
-    // =====================================================================
     // Filter prompts.
-    // =====================================================================
 
     private String readTierFilter() {
         while (true) {

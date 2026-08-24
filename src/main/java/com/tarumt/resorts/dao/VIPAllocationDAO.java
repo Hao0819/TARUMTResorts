@@ -56,7 +56,6 @@ public class VIPAllocationDAO {
                     requestId, guest, requestTime, roomType,
                     checkInDate, stayDurationDays);
 
-            // Constructor defaults to WAITING; override for completed/cancelled sample records.
             request.setStatus(status);
             requestHistory.enqueue(request);
         }
